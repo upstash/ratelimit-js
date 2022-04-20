@@ -1,0 +1,3 @@
+// For configuration documentation see http://romefrontend.dev/#project-configuration
+name: "ratelimit"
+root: true

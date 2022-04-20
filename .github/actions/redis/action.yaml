@@ -1,0 +1,58 @@
+name: Create local redis server
+
+inputs:
+  UPSTASH_REDIS_REST_URL:
+    required: true
+  UPSTASH_REDIS_REST_TOKEN:
+    required: true
+  UPSTASH_REPO_ACCESS_TOKEN:
+    required: true
+  REDIS_SERVER_CONFIG:
+    required: true
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Check out Redis Server
+      uses: actions/checkout@v2
+      with:
+        repository: upstash/redis-server
+        token: ${{ inputs.UPSTASH_REPO_ACCESS_TOKEN }}
+        path: redis-server
+
+    - uses: actions/setup-go@v2
+      with:
+        stable: "true"
+        go-version: "^1.17"
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-redis-server-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+          ${{ runner.os }}-redis-server
+
+    - run: |
+        echo "$REDIS_SERVER_CONFIG" >> config.json
+      shell: bash
+      env:
+        REDIS_SERVER_CONFIG: ${{ inputs.REDIS_SERVER_CONFIG }}
+
+    - run: |
+        make
+        ./upstash-redis -log-level error -config $GITHUB_WORKSPACE/config.json &
+      working-directory: ./redis-server/cmd
+      shell: bash
+      env:
+        UPSTASH_REDIS_REST_URL: ${{ inputs.UPSTASH_REDIS_REST_URL }}
+        UPSTASH_REDIS_REST_TOKEN: ${{ inputs.UPSTASH_REDIS_REST_TOKEN }}
+
+    - run: |
+        curl $UPSTASH_REDIS_REST_URL/info -H "Authorization: Bearer $UPSTASH_REDIS_REST_TOKEN"
+      shell: bash
+      env:
+        UPSTASH_REDIS_REST_URL: ${{ inputs.UPSTASH_REDIS_REST_URL }}
+        UPSTASH_REDIS_REST_TOKEN: ${{ inputs.UPSTASH_REDIS_REST_TOKEN }}
