@@ -4,12 +4,12 @@ import { ms } from "./duration";
 import type { Ratelimiter, Context, RatelimitResponse } from "./types";
 
 export type RatelimitConfig = {
-	/**
+  /**
    * Instance of `@upstash/redis`
    * @see https://github.com/upstash/upstash-redis#quick-start
    */
-	redis: Redis,
-	/**
+  redis: Redis;
+  /**
    * The ratelimiter function to use.
    *
    * Choose one of the predefined ones or implement your own.
@@ -19,13 +19,13 @@ export type RatelimitConfig = {
    * - Ratelimiter.slidingWindow
    * - Ratelimiter.tokenBucket
    */
-	limiter: Ratelimiter,
-	/**
+  limiter: Ratelimiter;
+  /**
    * All keys in redis are prefixed with this.
    *
    * @default `@upstash/ratelimit`
    */
-	prefix?: string,
+  prefix?: string;
 };
 
 /**
@@ -49,31 +49,31 @@ export type RatelimitConfig = {
  *
  */
 export class Ratelimit {
-	private readonly redis: Redis;
-	private readonly limiter: Ratelimiter;
-	private readonly prefix: string;
+  private readonly redis: Redis;
+  private readonly limiter: Ratelimiter;
+  private readonly prefix: string;
 
-	/**
+  /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
    *
    *
    */
 
-	constructor(config: RatelimitConfig) {
-		this.redis = config.redis;
-		this.limiter = config.limiter;
-		this.prefix = config.prefix ?? "@upstash/ratelimit";
-	}
+  constructor(config: RatelimitConfig) {
+    this.redis = config.redis;
+    this.limiter = config.limiter;
+    this.prefix = config.prefix ?? "@upstash/ratelimit";
+  }
 
-	public limit = async (identifier: string): Promise<RatelimitResponse> => {
-		const key = [this.prefix, identifier].join(":");
-		return this.limiter({ redis: this.redis }, key);
-	};
+  public limit = async (identifier: string): Promise<RatelimitResponse> => {
+    const key = [this.prefix, identifier].join(":");
+    return this.limiter({ redis: this.redis }, key);
+  };
 
-	static fixedWindow(window: Duration, tokens: number): Ratelimiter {
-		const windowDuration = ms(window);
+  static fixedWindow(window: Duration, tokens: number): Ratelimiter {
+    const windowDuration = ms(window);
 
-		const script = `
+    const script = `
     
     local key = KEYS[1]
     local window = ARGV[1]
@@ -88,25 +88,28 @@ export class Ratelimit {
     return r
     `;
 
-		return async function (ctx: Context, identifier: string) {
-			const bucket = Math.floor(Date.now() / windowDuration);
-			const key = [identifier, bucket].join(":");
+    return async function (ctx: Context, identifier: string) {
+      const bucket = Math.floor(Date.now() / windowDuration);
+      const key = [identifier, bucket].join(":");
 
-			const usedTokensAfterUpdate = (
-				await ctx.redis.eval(script, 1, key, windowDuration)
-			) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(
+        script,
+        1,
+        key,
+        windowDuration
+      )) as number;
 
-			return {
-				success: usedTokensAfterUpdate <= tokens,
-				limit: tokens,
-				remaining: tokens - usedTokensAfterUpdate,
-				reset: (bucket + 1) * windowDuration,
-			};
-		};
-	}
+      return {
+        success: usedTokensAfterUpdate <= tokens,
+        limit: tokens,
+        remaining: tokens - usedTokensAfterUpdate,
+        reset: (bucket + 1) * windowDuration,
+      };
+    };
+  }
 
-	static slidingLogs(window: Duration, tokens: number): Ratelimiter {
-		const script = `
+  static slidingLogs(window: Duration, tokens: number): Ratelimiter {
+    const script = `
     local key = KEYS[1]           -- identifier including prefixes
     local windowStart = ARGV[1]   -- timestamp of window start
     local windowEnd = ARGV[2]     -- timestamp of window end
@@ -126,32 +129,30 @@ export class Ratelimit {
     
     return count
     `;
-		return async function (ctx: Context, identifier: string) {
-			const windowEnd = Date.now();
-			const windowStart = windowEnd - ms(window);
+    return async function (ctx: Context, identifier: string) {
+      const windowEnd = Date.now();
+      const windowStart = windowEnd - ms(window);
 
-			const count = (
-				await ctx.redis.eval(
-					script,
-					1,
-					identifier,
-					windowStart,
-					windowEnd,
-					tokens,
-					Date.now(),
-				)
-			) as number;
-			return {
-				success: count < tokens,
-				limit: tokens,
-				remaining: Math.max(0, tokens - count - 1),
-				reset: windowEnd,
-			};
-		};
-	}
+      const count = (await ctx.redis.eval(
+        script,
+        1,
+        identifier,
+        windowStart,
+        windowEnd,
+        tokens,
+        Date.now()
+      )) as number;
+      return {
+        success: count < tokens,
+        limit: tokens,
+        remaining: Math.max(0, tokens - count - 1),
+        reset: windowEnd,
+      };
+    };
+  }
 
-	static slidingWindow(window: Duration, tokens: number): Ratelimiter {
-		const script = `
+  static slidingWindow(window: Duration, tokens: number): Ratelimiter {
+    const script = `
       local currentKey = KEYS[1]           -- identifier including prefixes
       local previousKey = KEYS[2]       -- key of the previous bucket
       local tokens = tonumber(ARGV[1])        -- tokens per window
@@ -181,55 +182,53 @@ export class Ratelimit {
       end
       return tokens - newValue
       `;
-		const windowSize = ms(window);
-		return async function (ctx: Context, identifier: string) {
-			const now = Date.now();
+    const windowSize = ms(window);
+    return async function (ctx: Context, identifier: string) {
+      const now = Date.now();
 
-			const currentWindow = Math.floor(now / windowSize);
-			const currentKey = [identifier, currentWindow].join(":");
-			const previousWindow = currentWindow - windowSize;
-			const previousKey = [identifier, previousWindow].join(":");
+      const currentWindow = Math.floor(now / windowSize);
+      const currentKey = [identifier, currentWindow].join(":");
+      const previousWindow = currentWindow - windowSize;
+      const previousKey = [identifier, previousWindow].join(":");
 
-			const remaining = (
-				await ctx.redis.eval(
-					script,
-					2,
-					currentKey,
-					previousKey,
-					tokens,
-					now,
-					windowSize,
-				)
-			) as number;
-			return {
-				success: remaining > 0,
-				limit: tokens,
-				remaining,
-				reset: (currentWindow + 1) * windowSize,
-			};
-		};
-	}
-	static tokenBucket(
-		interval: Duration,
-		/**
+      const remaining = (await ctx.redis.eval(
+        script,
+        2,
+        currentKey,
+        previousKey,
+        tokens,
+        now,
+        windowSize
+      )) as number;
+      return {
+        success: remaining > 0,
+        limit: tokens,
+        remaining,
+        reset: (currentWindow + 1) * windowSize,
+      };
+    };
+  }
+  static tokenBucket(
+    interval: Duration,
+    /**
      * How many tokens are refilled per `Duration`
      *
      * An interval of `10s` and refillRate of 5 will cause a new token to be added every 2 seconds.
      */
-		refillRate: number,
-		/**
+    refillRate: number,
+    /**
      * Maximum number of tokens.
      * A newly created bucket starts with this many tokens.
      */
-		maxTokens: number,
-	): Ratelimiter {
-		if (refillRate > maxTokens) {
-			throw new Error(
-				`Setting the refillRate higher than maxTokens doesn't make sense and is probably a mistake.`,
-			);
-		}
+    maxTokens: number
+  ): Ratelimiter {
+    if (refillRate > maxTokens) {
+      throw new Error(
+        `Setting the refillRate higher than maxTokens doesn't make sense and is probably a mistake.`
+      );
+    }
 
-		const script = `
+    const script = `
         local key = KEYS[1]           -- identifier including prefixes
        
         local maxTokens = tonumber(ARGV[1])     -- maximum number of tokens
@@ -274,24 +273,22 @@ export class Ratelimit {
         return {remaining, updatedAt + interval}
        `;
 
-		const intervalDuration = ms(interval);
-		return async function (ctx: Context, identifier: string) {
-			const now = Date.now();
-			const key = [identifier, Math.floor(now / intervalDuration)].join(":");
+    const intervalDuration = ms(interval);
+    return async function (ctx: Context, identifier: string) {
+      const now = Date.now();
+      const key = [identifier, Math.floor(now / intervalDuration)].join(":");
 
-			const [remaining, reset] = (
-				await ctx.redis.eval(
-					script,
-					1,
-					key,
-					maxTokens,
-					intervalDuration,
-					refillRate,
-					now,
-				)
-			) as [number, number];
-			console.log({ maxTokens });
-			return { success: remaining > 0, limit: maxTokens, remaining, reset };
-		};
-	}
+      const [remaining, reset] = (await ctx.redis.eval(
+        script,
+        1,
+        key,
+        maxTokens,
+        intervalDuration,
+        refillRate,
+        now
+      )) as [number, number];
+      console.log({ maxTokens });
+      return { success: remaining > 0, limit: maxTokens, remaining, reset };
+    };
+  }
 }

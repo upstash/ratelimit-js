@@ -122,7 +122,7 @@ const redis = new Redis({
 Most commands allow you to provide a type to make working with typescript easier.
 
 ```ts
-const data = await redis.get<MyCustomType>("key")
+const data = await redis.get<MyCustomType>("key");
 // data is typed as `MyCustomType`
 ```
 
@@ -146,14 +146,14 @@ Or use one of the static constructors to load from environment variables:
 
 ```ts
 // Nodejs
-import { Redis } from "@upstash/redis"
-const redis = Redis.fromEnv()
+import { Redis } from "@upstash/redis";
+const redis = Redis.fromEnv();
 ```
 
 ```ts
 // or when deploying to cloudflare workers
-import { Redis } from "@upstash/redis/cloudflare"
-const redis = Redis.fromEnv()
+import { Redis } from "@upstash/redis/cloudflare";
+const redis = Redis.fromEnv();
 ```
 
 ### Error handling
@@ -162,13 +162,13 @@ Errors are now thrown automatically instead of being returned to you.
 
 ```ts
 // old
-const { data, error } = await set("key", "value")
+const { data, error } = await set("key", "value");
 if (error) {
-  throw new Error(error)
+  throw new Error(error);
 }
 
 // new
-const data = await redis.set("key", "value") // error is thrown automatically
+const data = await redis.set("key", "value"); // error is thrown automatically
 ```
 
 ## Pipeline
@@ -177,26 +177,26 @@ const data = await redis.set("key", "value") // error is thrown automatically
 Pipelining commands allows you to send a single http request with multiple commands.
 
 ```ts
-import { Redis } from "@upstash/redis"
+import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
   /* auth */
-})
+});
 
-const p = redis.pipeline()
+const p = redis.pipeline();
 
 // Now you can chain multiple commands to create your pipeline:
 
-p.set("key", 2)
-p.incr("key")
+p.set("key", 2);
+p.incr("key");
 
 // or inline:
-p.hset("key2", "field", { hello: "world" }).hvals("key2")
+p.hset("key2", "field", { hello: "world" }).hvals("key2");
 
 // Execute the pipeline once you are done building it:
 // `exec` returns an array where each element represents the response of a command in the pipeline.
 // You can optionally provide a type like this to get a typed response.
-const res = await p.exec<[Type1, Type2, Type3]>()
+const res = await p.exec<[Type1, Type2, Type3]>();
 ```
 
 For more information about pipelines using REST see [here](https://blog.upstash.com/pipeline).
@@ -241,8 +241,8 @@ Javascript can not handle numbers larger than `2^53 -1` safely and would return 
 In these cases the default deserializer will return them as string instead. This might cause a mismatch with your custom types.
 
 ```ts
-await redis.set("key", "101600000000150081467")
-const res = await redis<number>("get")
+await redis.set("key", "101600000000150081467");
+const res = await redis<number>("get");
 ```
 
 In this example `res` will still be a string despite the type annotation.

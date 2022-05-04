@@ -1,22 +1,20 @@
 # Ratelimit
 
-
-
 # Algorithms
 
 ## Fixed Window
+
 ## Sliding Logs
+
 ## Leaky Bucket (not sure if possible)
+
 ## Sliding Window
+
 ## Token Bucket
-
-
 
 # Framework specific Utility
 
-
 # Notes
-
 
 ## TODO
 

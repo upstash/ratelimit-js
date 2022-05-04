@@ -32,11 +32,8 @@ jobs:
           version: 6
           run_install: true
 
-      
       - name: Run fmt
         run: pnpm fmt
 
       - name: Build
         run: pnpm build
-
-    
