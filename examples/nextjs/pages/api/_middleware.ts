@@ -14,6 +14,3 @@ export default async function middleware(request: Request) {
   }
   return NextResponse.next();
 }
- w    .-    
-
- 
