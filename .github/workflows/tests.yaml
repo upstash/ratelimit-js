@@ -13,9 +13,10 @@ jobs:
       - name: Setup repo
         uses: actions/checkout@v2
 
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+      # - uses: denoland/setup-deno@v1
+      #   with:
+      #     deno-version: v1.x
+      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
 
       - name: Verify formatting
         run: deno fmt --check
