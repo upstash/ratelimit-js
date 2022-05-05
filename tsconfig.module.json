@@ -1,8 +1,0 @@
-{
-  "extends": "./tsconfig",
-  "files": ["src/index.ts"],
-  "compilerOptions": {
-    "outDir": "dist/module",
-    "module": "ES2015"
-  }
-}

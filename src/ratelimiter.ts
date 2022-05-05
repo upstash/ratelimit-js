@@ -1,7 +1,11 @@
-import { Redis } from "@upstash/redis";
-import type { Duration } from "./duration";
-import { ms } from "./duration";
-import type { Ratelimiter, Context, RatelimitResponse } from "./types";
+import type { Duration } from "./duration.ts";
+import { ms } from "./duration.ts";
+import type {
+  Context,
+  Ratelimiter,
+  RatelimitResponse,
+  Redis,
+} from "./types.ts";
 
 export type RatelimitConfig = {
   /**
@@ -31,7 +35,6 @@ export type RatelimitConfig = {
 /**
  * Ratelimiter using serverless redis from https://upstash.com/
  *
- *
  * @example
  * ```ts
  * const { limit } = new Ratelimit({
@@ -46,7 +49,6 @@ export type RatelimitConfig = {
  * const
  *
  * ```
- *
  */
 export class Ratelimit {
   private readonly redis: Redis;
@@ -55,8 +57,6 @@ export class Ratelimit {
 
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
-   *
-   *
    */
 
   constructor(config: RatelimitConfig) {
@@ -67,16 +67,34 @@ export class Ratelimit {
 
   public limit = async (identifier: string): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    return this.limiter({ redis: this.redis }, key);
+    return await this.limiter({ redis: this.redis }, key);
   };
 
+  /**
+   * Each requests inside a fixed time increases a counter.
+   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * rejected.
+   *
+   * **Pro:**
+   *
+   * - Newer requests are not starved by old ones.
+   * - Low storage cost.
+   *
+   * **Con:**
+   *
+   * A burst of requests near the boundary of a window can result in a very
+   * high request rate because two windows will be filled with requests quickly.
+   *
+   * @param window - A fixed timeframe
+   * @param tokens - How many requests a user can make in each time window.
+   */
   static fixedWindow(window: Duration, tokens: number): Ratelimiter {
     const windowDuration = ms(window);
 
     const script = `
     
-    local key = KEYS[1]
-    local window = ARGV[1]
+    local key     = KEYS[1]
+    local window  = ARGV[1]
     
     local r = redis.call("INCR", key)
     if r == 1 then 
@@ -94,9 +112,8 @@ export class Ratelimit {
 
       const usedTokensAfterUpdate = (await ctx.redis.eval(
         script,
-        1,
-        key,
-        windowDuration
+        [key],
+        [windowDuration],
       )) as number;
 
       return {
@@ -108,56 +125,83 @@ export class Ratelimit {
     };
   }
 
-  static slidingLogs(window: Duration, tokens: number): Ratelimiter {
-    const script = `
-    local key = KEYS[1]           -- identifier including prefixes
-    local windowStart = ARGV[1]   -- timestamp of window start
-    local windowEnd = ARGV[2]     -- timestamp of window end
-    local tokens = ARGV[3]        -- tokens per window
-    local now = ARGV[4]           -- current timestamp
-    
-    local count = redis.call("ZCOUNT", key, windowStart, windowEnd)
-    
-    if count < tonumber(tokens) then
-    -- Log the current request
-    redis.call("ZADD", key, now, now)
-    
-    -- Remove all previous requests that are outside the window
-    redis.call("ZREMRANGEBYSCORE", key, "-inf", windowStart - 1)  
-    
-    end
-    
-    return count
-    `;
-    return async function (ctx: Context, identifier: string) {
-      const windowEnd = Date.now();
-      const windowStart = windowEnd - ms(window);
+  // /**
+  //  * For each request all past requests in the last `{window}` are summed up and
+  //  * if they exceed `{tokens}`, the request will be rejected.
+  //  *
+  //  * **Pro:**
+  //  *
+  //  * Does not have the problem of `fixedWindow` at the window boundaries.
+  //  *
+  //  * **Con:**
+  //  *
+  //  * More expensive to store and compute, which makes this unsuitable for apis
+  //  * with very high traffic.
+  //  *
+  //  * @param window - The duration in which the user can max X requests.
+  //  * @param tokens - How many requests a user can make in each time window.
+  //  */
+  // static slidingLogs(window: Duration, tokens: number): Ratelimiter {
+  //   const script = `
+  //   local key         = KEYS[1] -- identifier including prefixes
+  //   local windowStart = ARGV[1] -- timestamp of window start
+  //   local windowEnd   = ARGV[2] -- timestamp of window end
+  //   local tokens      = ARGV[3] -- tokens per window
+  //   local now         = ARGV[4] -- current timestamp
 
-      const count = (await ctx.redis.eval(
-        script,
-        1,
-        identifier,
-        windowStart,
-        windowEnd,
-        tokens,
-        Date.now()
-      )) as number;
-      return {
-        success: count < tokens,
-        limit: tokens,
-        remaining: Math.max(0, tokens - count - 1),
-        reset: windowEnd,
-      };
-    };
-  }
+  //   local count = redis.call("ZCOUNT", key, windowStart, windowEnd)
 
+  //   if count < tonumber(tokens) then
+  //     -- Log the current request
+  //     redis.call("ZADD", key, now, now)
+
+  //     -- Remove all previous requests that are outside the window
+  //     redis.call("ZREMRANGEBYSCORE", key, "-inf", windowStart - 1)
+  //   end
+
+  //   return count
+  //   `;
+  //   return async function (ctx: Context, identifier: string) {
+  //     const windowEnd = Date.now();
+  //     const windowStart = windowEnd - ms(window);
+
+  //     const count = (await ctx.redis.eval(
+  //       script,
+  //       [identifier],
+  //       [windowStart, windowEnd, tokens, Date.now()]
+  //     )) as number;
+  //     return {
+  //       success: count < tokens,
+  //       limit: tokens,
+  //       remaining: Math.max(0, tokens - count - 1),
+  //       reset: windowEnd,
+  //     };
+  //   };
+  // }
+
+  /**
+   * Combined approach of `slidingLogs` and `fixedWindow` with lower storage
+   * costs than `slidingLogs` and improved boundary behavior by calcualting a
+   * weighted score between two windows.
+   *
+   * **Pro:**
+   *
+   * Good performance allows this to scale to very high loads.
+   *
+   * **Con:**
+   *
+   * Nothing major.
+   *
+   * @param window - The duration in which the user can max X requests.
+   * @param tokens - How many requests a user can make in each time window.
+   */
   static slidingWindow(window: Duration, tokens: number): Ratelimiter {
     const script = `
-      local currentKey = KEYS[1]           -- identifier including prefixes
-      local previousKey = KEYS[2]       -- key of the previous bucket
-      local tokens = tonumber(ARGV[1])        -- tokens per window
-      local now = ARGV[2]           -- current timestamp in milliseconds
-      local window = ARGV[3]         -- interval in milliseconds
+      local currentKey  = KEYS[1]           -- identifier including prefixes
+      local previousKey = KEYS[2]           -- key of the previous bucket
+      local tokens      = tonumber(ARGV[1]) -- tokens per window
+      local now         = ARGV[2]           -- current timestamp in milliseconds
+      local window      = ARGV[3]           -- interval in milliseconds
 
       local requestsInCurrentWindow = redis.call("GET", currentKey)
       if requestsInCurrentWindow == false then
@@ -193,12 +237,8 @@ export class Ratelimit {
 
       const remaining = (await ctx.redis.eval(
         script,
-        2,
-        currentKey,
-        previousKey,
-        tokens,
-        now,
-        windowSize
+        [currentKey, previousKey],
+        [tokens, now, windowSize],
       )) as number;
       return {
         success: remaining > 0,
@@ -208,10 +248,29 @@ export class Ratelimit {
       };
     };
   }
+
+  /**
+   * You have a bucket filled with `{maxTokens}` tokens that refills constantly
+   * at `{refillRate}` per `{interval}`.
+   * Every request will remove one token from the bucket and if there is no
+   * token to take, the request is rejected.
+   *
+   * **Pro:**
+   *
+   * - Bursts of requests are smoothed out and you can process them at a constant
+   * rate.
+   * - Allows to set a higher initial burst limit by setting `maxTokens` higher
+   * than `refillRate`
+   *
+   * **Usage of Upstash Redis requests:**
+   */
   static tokenBucket(
+    /**
+     * The interval for the `refillRate`
+     */
     interval: Duration,
     /**
-     * How many tokens are refilled per `Duration`
+     * How many tokens are refilled per `interval`
      *
      * An interval of `10s` and refillRate of 5 will cause a new token to be added every 2 seconds.
      */
@@ -220,25 +279,22 @@ export class Ratelimit {
      * Maximum number of tokens.
      * A newly created bucket starts with this many tokens.
      */
-    maxTokens: number
+    maxTokens: number,
   ): Ratelimiter {
     if (refillRate > maxTokens) {
       throw new Error(
-        `Setting the refillRate higher than maxTokens doesn't make sense and is probably a mistake.`
+        `Setting the refillRate higher than maxTokens doesn't make sense and is probably a mistake.`,
       );
     }
 
     const script = `
-        local key = KEYS[1]           -- identifier including prefixes
-       
-        local maxTokens = tonumber(ARGV[1])     -- maximum number of tokens
-        local interval = tonumber(ARGV[2])      -- size of the window in milliseconds
-        local refillRate = tonumber(ARGV[3])     -- how many tokens are refilled after each interval
-        local now = tonumber(ARGV[4])           -- current timestamp in milliseconds
-  
-        local remaining = 0
+        local key         = KEYS[1]           -- identifier including prefixes
+        local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
+        local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
+        local refillRate  = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
+        local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
+        local remaining   = 0
         
-  
         local bucket = redis.call("HMGET", key, "updatedAt", "tokens")
         
         if bucket[1] == false then
@@ -251,8 +307,6 @@ export class Ratelimit {
           return {remaining, now + interval}
         end
 
-
-  
         -- The bucket does exist
   
         local updatedAt = tonumber(bucket[1])
@@ -280,14 +334,10 @@ export class Ratelimit {
 
       const [remaining, reset] = (await ctx.redis.eval(
         script,
-        1,
-        key,
-        maxTokens,
-        intervalDuration,
-        refillRate,
-        now
+        [key],
+        [maxTokens, intervalDuration, refillRate, now],
       )) as [number, number];
-      console.log({ maxTokens });
+
       return { success: remaining > 0, limit: maxTokens, remaining, reset };
     };
   }

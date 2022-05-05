@@ -7,18 +7,70 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ["14", "16", "17", "18"]
-    name: Tests (node v${{ matrix.node }})
+
+    name: Tests
     steps:
       - name: Setup repo
         uses: actions/checkout@v2
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 18
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 6
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Verify formatting
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Start redis server
+        uses: ./.github/actions/redis
+        with:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
+          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
+
+      - name: Run tests
+        run: deno test -A --fail-fast --shuffle ./pkg
+        env:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+
+      - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Size limit
+        run: node_modules/.bin/size-limit
+        working-directory: dist
+
+  example-nextjs:
+    needs:
+      - test
+    env:
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+      NEXT_PUBLIC_UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+      NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
       - name: Cache pnpm modules
         uses: actions/cache@v2
         with:
@@ -30,10 +82,225 @@ jobs:
       - uses: pnpm/action-setup@v2
         with:
           version: 6
-          run_install: true
-
-      - name: Run fmt
-        run: pnpm fmt
 
       - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Start redis server
+        uses: ./.github/actions/redis
+        with:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
+          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
+
+      - name: Install example
+        run: pnpm install
+        working-directory: ./examples/nextjs
+
+      - name: Build example
         run: pnpm build
+        working-directory: ./examples/nextjs
+
+      - name: Start example
+        run: pnpm start &
+        working-directory: ./examples/nextjs
+
+      - name: Ping api
+        run: |
+          count=$(curl -s http://localhost:3000/api/incr | jq -r '.count')
+          if [ $count -ne 2 ]; then
+            echo "assertEqualsed count to be 2, got $count"
+            exit 1
+          fi
+
+  example-cloudflare-service-worker:
+    if: "false"
+    needs:
+      - test
+    env:
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 6
+
+      - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Start redis server
+        uses: ./.github/actions/redis
+        with:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
+          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
+
+      - name: Install example
+        run: |
+          npm install
+          npm install -g @cloudflare/wrangler miniflare
+        working-directory: ./examples/cloudflare-service-worker
+
+      # - name: Build example
+      #   run: |
+      #     npm run build
+      #   working-directory: ./examples/cloudflare-service-worker
+
+      - name: Start example
+        # run: wrangler dev
+        run: miniflare -b UPSTASH_REDIS_REST_URL=http://127.0.0.1:6379 -b UPSTASH_REDIS_REST_TOKEN=${{ secrets.UPSTASH_AUTH_TOKEN }} &
+        working-directory: ./examples/cloudflare-service-worker
+
+      - run: |
+          sleep 5
+          curl -v localhost:8787
+
+      - run: while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8787)" != "200" ]]; do sleep 1; done
+        timeout-minutes: 2
+
+      - name: Ping api
+        run: |
+          count=$(curl -s http://localhost:8787/ | jq -r '.count')
+          if [ $count -ne 2 ]; then
+            echo "assertEqualsed count to be 2, got $count"
+            exit 1
+          fi
+
+  example-cloudflare-modules-worker:
+    needs:
+      - test
+    env:
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Cache pnpm modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 6
+
+      - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Start redis server
+        uses: ./.github/actions/redis
+        with:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
+          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
+
+      - name: Install example
+        run: |
+          pnpm install
+          pnpm install -g miniflare @cloudflare/wrangler
+        working-directory: examples/cloudflare-modules-worker
+
+      - name: Start example
+        run: miniflare -b UPSTASH_REDIS_REST_URL=http://127.0.0.1:6379 -b UPSTASH_REDIS_REST_TOKEN=${{ secrets.UPSTASH_AUTH_TOKEN }} &
+        working-directory: examples/cloudflare-modules-worker
+
+      - run: while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8787)" != "200" ]]; do sleep 1; done
+        timeout-minutes: 2
+
+      - name: Ping api
+        run: |
+          curl -s http://localhost:8787/ -o response.html
+          if grep -q "Count: 2" response.html; then
+            exit 0
+          else
+            echo "assertEqualsed response to contain 'Count: 2', got $(cat response.html)"
+            exit 1
+          fi
+
+  example-fastly:
+    needs:
+      - test
+    env:
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Cache pnpm modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 6
+
+      - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Start redis server
+        uses: ./.github/actions/redis
+        with:
+          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
+          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
+
+      - name: Install example
+        working-directory: ./examples/fastly
+        run: |
+          pnpm install
+          curl -L https://github.com/fastly/cli/releases/download/v1.7.0/fastly_v1.7.0_linux-amd64.tar.gz > fastly.tar.gz
+          tar -xf ./fastly.tar.gz
+
+      - name: Inject variables
+        working-directory: ./examples/fastly
+        run: |
+          sed -i 's;<UPSTASH_REDIS_REST_URL>;http://127.0.0.1:6379;' fastly.toml
+          sed -i 's;<UPSTASH_REDIS_REST_URL>;http://127.0.0.1:6379;' src/index.js
+          sed -i 's;<UPSTASH_REDIS_REST_TOKEN>;${{ secrets.UPSTASH_AUTH_TOKEN }};' src/index.js
+
+      - name: Start example
+        working-directory: ./examples/fastly
+        run: ./fastly compute serve &
+
+      - run: while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:7676/)" != "200" ]]; do sleep 1; done
+        timeout-minutes: 2
+
+      - name: Ping api
+        run: |
+          curl -s http://localhost:7676/ -o response.html
+          if grep -q "Counter: 2" response.html; then
+            exit 0
+          else
+            echo "assertEqualsed response to contain 'Counter: 2', got $(cat response.html)"
+            exit 1
+          fi

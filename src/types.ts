@@ -1,5 +1,14 @@
-import type { Redis } from "@upstash/redis";
-
+import type { Redis } from "https://deno.land/x/upstash_redis/mod.ts";
+export { Redis };
+// Define all methods of @upstash/redis we need, so we don't need to explicitely import it and be tied down
+// to a specific platforms way of importing
+// export type Redis = {
+//   eval: <TValues extends unknown[], TData>(
+//     script: string,
+//     keys: string[],
+//     values: TValues
+//   ) => Promise<TData>;
+// };
 export type Context = { redis: Redis };
 
 export type RatelimitResponse = {
@@ -23,5 +32,5 @@ export type RatelimitResponse = {
 
 export type Ratelimiter = (
   ctx: Context,
-  identifier: string
+  identifier: string,
 ) => Promise<RatelimitResponse>;
