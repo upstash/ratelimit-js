@@ -65,12 +65,12 @@ const testcases: TestCase[] = [
   {
     rate: 100,
     load: 1.5,
-    expected: [900, 1000],
+    expected: [900, 1050],
   },
   {
     rate: 1000,
     load: 1.5,
-    expected: [9000, 10000],
+    expected: [9000, 10500],
   },
 ];
 
