@@ -114,6 +114,17 @@ than the set limit, the request is rejected.
 - Causes request stampedes if many users are trying to access your server,
   whenever a new window begins
 
+#### Usage:
+
+Create a new ratelimiter, that allows 10 requests per 10 seconds.
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.fixedWindow("10 s", 10),
+});
+```
+
 ### Sliding Window
 
 Builds on top of fixed window but instead of a fixed window, we use a rolling
@@ -135,13 +146,24 @@ return rate < limit // True means we should allow the request
 
 #### Pros:
 
-- Solves the issue near boundary from fixed window
+- Solves the issue near boundary from fixed window.
 
 #### Cons:
 
 - More expensive in terms of storage and computation
 - Is only an approximation, because it assumes a uniform request flow in the
   previous window, but this is fine in most cases
+
+#### Usage:
+
+Create a new ratelimiter, that allows 10 requests per 10 seconds.
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow("10 s", 10),
+});
+```
 
 ### Token Bucket
 
@@ -160,21 +182,28 @@ bucket and if there is no token to take, the request is rejected.
 
 - Expensive in terms of computation
 
+#### Usage:
+
+Create a new bucket, that refills 5 tokens every 10 seconds and has a maximum size of 10.
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.tokenBucket("10 s", 5, 10),
+});
+```
+
 ## Contributing
 
-### Installing dependencies
-
-```bash
-pnpm install
-```
+### [Install Deno](https://deno.land/#installation)
 
 ### Database
 
 Create a new redis database on [upstash](https://console.upstash.com/) and copy
-the url and token to `.env` (See `.env.example` for reference)
+the url and token.
 
 ### Running tests
 
 ```sh
-pnpm test
+UPSTASH_REDIS_REST_URL=".." UPSTASH_REDIS_REST_TOKEN=".." deno test -A
 ```
