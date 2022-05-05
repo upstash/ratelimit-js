@@ -17,7 +17,7 @@ jobs:
       #   with:
       #     deno-version: v1.x
       - run: curl -fsSL https://deno.land/x/install/install.sh | sh
-      
+
       - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
 
       - name: Verify formatting
@@ -35,7 +35,7 @@ jobs:
           REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
 
       - name: Run tests
-        run: deno test -A --fail-fast --shuffle
+        run: deno test -A --fail-fast --shuffle ./src
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
