@@ -162,19 +162,15 @@ bucket and if there is no token to take, the request is rejected.
 
 ## Contributing
 
-### Installing dependencies
-
-```bash
-pnpm install
-```
+### [Install Deno](https://deno.land/#installation)
 
 ### Database
 
 Create a new redis database on [upstash](https://console.upstash.com/) and copy
-the url and token to `.env` (See `.env.example` for reference)
+the url and token
 
 ### Running tests
 
 ```sh
-pnpm test
+UPSTASH_REDIS_REST_URL=".." UPSTASH_REDIS_REST_TOKEN=".." deno test -A
 ```
