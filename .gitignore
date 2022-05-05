@@ -4,3 +4,7 @@ node_modules
 dist
 .env
 redis-server
+
+./**/yarn.lock
+./**/package-lock.json
+./**/pnpm-lock.yaml
