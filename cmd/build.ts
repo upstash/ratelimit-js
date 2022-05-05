@@ -10,7 +10,7 @@ await build({
   entryPoints: ["src/mod.ts"],
   outDir,
   shims: {
-    deno: true,
+    deno: "dev",
     crypto: "dev",
     custom: [
       /**
@@ -23,7 +23,7 @@ await build({
       },
     ],
   },
-  typeCheck: true,
+  typeCheck: false,
   test: typeof Deno.env.get("TEST") !== "undefined",
   package: {
     // package.json properties
@@ -52,29 +52,12 @@ await build({
     },
     "size-limit": [
       {
-        path: "esm/platforms/nodejs.js",
-        limit: "5 KB",
+        path: "esm/mod.js",
+        limit: "2 KB",
       },
       {
-        path: "esm/platforms/fastly.js",
-        limit: "5 KB",
-      },
-      {
-        path: "esm/platforms/cloudflare.js",
-        limit: "5 KB",
-      },
-
-      {
-        path: "script/platforms/nodejs.js",
-        limit: "10 KB",
-      },
-      {
-        path: "script/platforms/fastly.js",
-        limit: "10 KB",
-      },
-      {
-        path: "script/platforms/cloudflare.js",
-        limit: "10 KB",
+        path: "script/mod.js",
+        limit: "52 KB",
       },
     ],
   },

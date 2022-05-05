@@ -12,16 +12,13 @@ jobs:
     steps:
       - name: Setup repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: 18
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 6
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+
+      # - uses: denoland/setup-deno@v1
+      #   with:
+      #     deno-version: v1.x
+      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
+
+      - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
 
       - name: Verify formatting
         run: deno fmt --check
@@ -33,15 +30,15 @@ jobs:
         uses: ./.github/actions/redis
         with:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
           UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
           REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
 
       - name: Run tests
-        run: deno test -A --fail-fast --shuffle
+        run: deno test -A --fail-fast --shuffle ./src
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_AUTH_TOKEN }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
 
       - name: Build
         run: deno run -A ./cmd/build.ts

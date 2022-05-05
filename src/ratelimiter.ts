@@ -46,8 +46,6 @@ export type RatelimitConfig = {
  *    )
  * })
  *
- * const
- *
  * ```
  */
 export class Ratelimit {
