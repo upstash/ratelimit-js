@@ -78,23 +78,27 @@ const testcases: TestCase[] = [
 
 async function run(
   t: Deno.TestContext,
-  limiter: (tc: TestCase) => Ratelimiter
+  limiter: (tc: TestCase) => Ratelimiter,
 ) {
   for (const tc of testcases) {
     await t.step(
-      `Allowed rate: ${tc.rate.toString().padStart(4, " ")}/s - Load: ${(
-        tc.load * 100
-      )
-        .toString()
-        .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load)
-        .toString()
-        .padStart(4, " ")}req/s`,
+      `Allowed rate: ${tc.rate.toString().padStart(4, " ")}/s - Load: ${
+        (
+          tc.load * 100
+        )
+          .toString()
+          .padStart(3, " ")
+      }% -> Sending ${
+        (tc.rate * tc.load)
+          .toString()
+          .padStart(4, " ")
+      }req/s`,
       async () => {
         const harness = new TestHarness(
           new Ratelimit({
             redis: Redis.fromEnv(),
             limiter: limiter(tc),
-          })
+          }),
         );
         await harness.attack(tc.rate * tc.load, attackDuration);
         assertBetween(harness.metrics.success, tc.expected);
@@ -104,32 +108,28 @@ async function run(
           const latency = end - start;
           h.recordValue(latency);
         }
-        console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
-
-        // console.log(
-        //   Object.values(harness.latencies).map(({ start, end }) => end - start)
-        // );
-      }
+        // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
+      },
     );
   }
 }
 
-// Deno.test("TokenBucket", async (t) => {
-//   await run(t, (tc) => Ratelimit.tokenBucket(tc.rate, "1 s", tc.rate));
+Deno.test("TokenBucket", async (t) => {
+  await run(t, (tc) => Ratelimit.tokenBucket(tc.rate, "1 s", tc.rate));
+});
+
+// Deno.test("SlidingLogs", async (t) => {
+//   await run(t, (tc) => Ratelimit.slidingLogs("1 s", tc.rate));
 // });
 
-// // Deno.test("SlidingLogs", async (t) => {
-// //   await run(t, (tc) => Ratelimit.slidingLogs("1 s", tc.rate));
-// // });
-
-// Deno.test("SlidingWindow", async (t) => {
-//   await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
-// });
+Deno.test("SlidingWindow", async (t) => {
+  await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
+});
 
 Deno.test("FixedWindow", async (t) => {
   await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
 });
 
-Deno.test("EventualWrite", async (t) => {
-  await run(t, (tc) => Ratelimit.eventualWrite(tc.rate, "1 s"));
-});
+// Deno.test("EventualWrite", async (t) => {
+//   await run(t, (tc) => Ratelimit.eventualWrite(tc.rate, "1 s"));
+// });

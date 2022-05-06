@@ -96,6 +96,7 @@ export type RatelimitResponse = {
 
 In case you don't want to reject a request immediately but wait until it can be
 processed, we also provide
+
 ```ts
 ratelimit.blockUntilReady(identifier: string, timeout: number): Promise<RatelimitResponse>
 ```
