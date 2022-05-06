@@ -96,7 +96,9 @@ export type RatelimitResponse = {
 
 In case you don't want to reject a request immediately but wait until it can be
 processed, we also provide
-`ratelimit.blockUntilReady(identifier: stirng, timeout: number): Promise<RatelimitResponse>`
+```ts
+ratelimit.blockUntilReady(identifier: string, timeout: number): Promise<RatelimitResponse>
+```
 
 It is very similar to the `limit` method and takes an identifier and returns the
 same response. However if the current limit has already been exceeded, it will
