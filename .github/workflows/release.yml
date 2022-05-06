@@ -21,9 +21,12 @@ jobs:
         with:
           node-version: 16
 
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+      # - uses: denoland/setup-deno@v1
+      #   with:
+      #     deno-version: v1.x
+      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
+
+      - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
 
       - name: Build
         run: deno run -A ./cmd/build.ts $VERSION
