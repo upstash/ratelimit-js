@@ -28,12 +28,12 @@ jobs:
       - name: Build
         run: deno run -A ./cmd/build.ts $VERSION
 
-      # - name: Publish
-      #   if: "!github.event.release.prerelease"
-      #   working-directory: ./dist
-      #   run: |
-      #     echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
-      #     npm publish --access public
+      - name: Publish
+        if: "!github.event.release.prerelease"
+        working-directory: ./dist
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
+          npm publish --access public
 
       - name: Publish release candidate
         if: "github.event.release.prerelease"
