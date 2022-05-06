@@ -18,9 +18,11 @@ function HomePage() {
     } else {
       setN("");
       alert(
-        `Ratelimit reached, try again after ${new Date(
-          parseInt(res.headers.get("RateLimit-Reset")!)
-        ).toLocaleString()}`
+        `Ratelimit reached, try again after ${
+          new Date(
+            parseInt(res.headers.get("RateLimit-Reset")!),
+          ).toLocaleString()
+        }`,
       );
     }
   };
