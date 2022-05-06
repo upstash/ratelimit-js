@@ -1,5 +1,3 @@
-import { Redis } from "@upstash/redis";
-import { rmSync } from "fs";
 import { useEffect, useState } from "react";
 
 function HomePage() {
