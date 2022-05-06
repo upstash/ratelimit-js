@@ -5,4 +5,6 @@ redis-server
 
 ./**/yarn.lock
 ./**/package-lock.json
-./**/pnpm-lock.yaml
+./**/pnpm-lock.yam
+
+*.log
