@@ -76,34 +76,30 @@ const testcases: TestCase[] = [
 
 async function run(
   t: Deno.TestContext,
-  limiter: (tc: TestCase) => Ratelimiter,
+  limiter: (tc: TestCase) => Ratelimiter
 ) {
   for (const tc of testcases) {
     await t.step(
-      `Allowed rate: ${tc.rate.toString().padStart(4, " ")}/s - Load: ${
-        (
-          tc.load * 100
-        )
-          .toString()
-          .padStart(3, " ")
-      }% -> Sending ${
-        (tc.rate * tc.load)
-          .toString()
-          .padStart(4, " ")
-      }req/s`,
+      `Allowed rate: ${tc.rate.toString().padStart(4, " ")}/s - Load: ${(
+        tc.load * 100
+      )
+        .toString()
+        .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load)
+        .toString()
+        .padStart(4, " ")}req/s`,
       async () => {
         const h = new TestHarness(
           new Ratelimit({
             redis: Redis.fromEnv(),
             limiter: limiter(tc),
-          }),
+          })
         );
         await h.attack(tc.rate * tc.load, attackDuration);
         assertBetween(h.metrics.success, tc.expected);
         console.log(
-          Object.values(h.latencies).map(({ start, end }) => end - start),
+          Object.values(h.latencies).map(({ start, end }) => end - start)
         );
-      },
+      }
     );
   }
 }
@@ -120,9 +116,9 @@ async function run(
 //   await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
 // });
 
-// Deno.test("FixedWindow", async (t) => {
-//   await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
-// });
+Deno.test("FixedWindow", async (t) => {
+  await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
+});
 
 Deno.test("EventualWrite", async (t) => {
   await run(t, (tc) => Ratelimit.eventualWrite(tc.rate, "1 s"));
