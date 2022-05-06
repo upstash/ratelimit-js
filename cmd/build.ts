@@ -53,11 +53,11 @@ await build({
     "size-limit": [
       {
         path: "esm/mod.js",
-        limit: "2 KB",
+        limit: "15 KB",
       },
       {
         path: "script/mod.js",
-        limit: "52 KB",
+        limit: "15 KB",
       },
     ],
   },
