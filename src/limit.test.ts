@@ -100,23 +100,30 @@ async function run(
         );
         await h.attack(tc.rate * tc.load, attackDuration);
         assertBetween(h.metrics.success, tc.expected);
+        console.log(
+          Object.values(h.latencies).map(({ start, end }) => end - start),
+        );
       },
     );
   }
 }
 
-Deno.test("TokenBucket", async (t) => {
-  await run(t, (tc) => Ratelimit.tokenBucket(tc.rate, "1 s", tc.rate));
-});
-
-// Deno.test("SlidingLogs", async (t) => {
-//   await run(t, (tc) => Ratelimit.slidingLogs("1 s", tc.rate));
+// Deno.test("TokenBucket", async (t) => {
+//   await run(t, (tc) => Ratelimit.tokenBucket(tc.rate, "1 s", tc.rate));
 // });
 
-Deno.test("SlidingWindow", async (t) => {
-  await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
-});
+// // Deno.test("SlidingLogs", async (t) => {
+// //   await run(t, (tc) => Ratelimit.slidingLogs("1 s", tc.rate));
+// // });
 
-Deno.test("FixedWindow", async (t) => {
-  await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
+// Deno.test("SlidingWindow", async (t) => {
+//   await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
+// });
+
+// Deno.test("FixedWindow", async (t) => {
+//   await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
+// });
+
+Deno.test("EventualWrite", async (t) => {
+  await run(t, (tc) => Ratelimit.eventualWrite(tc.rate, "1 s"));
 });

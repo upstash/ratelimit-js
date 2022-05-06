@@ -1,8 +1,11 @@
-export type Redis = {
-  eval: <TArgs extends unknown[], TData = unknown>(
-    ...args: [script: string, keys: string[], args: TArgs]
-  ) => Promise<unknown>;
-};
+import { Redis } from "https://deno.land/x/upstash_redis/mod.ts";
+export { Redis };
+
+// export type Redis = {
+//   eval: <TArgs extends unknown[], TData = unknown>(
+//     ...args: [script: string, keys: string[], args: TArgs]
+//   ) => Promise<unknown>;
+// };
 // Define all methods of @upstash/redis we need, so we don't need to explicitely import it and be tied down
 // to a specific platforms way of importing
 // export type Redis = {

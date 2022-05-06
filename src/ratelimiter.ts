@@ -120,7 +120,7 @@ export class Ratelimit {
      * Maximum duration to wait in milliseconds.
      * After this time the request will be denied.
      */
-    timeout: number,
+    timeout: number
   ): Promise<RatelimitResponse> => {
     if (timeout <= 0) {
       throw new Error("timeout must be positive");
@@ -146,6 +146,29 @@ export class Ratelimit {
     }
     return res!;
   };
+
+  static eventualWrite(tokens: number, window: Duration): Ratelimiter {
+    const windowDuration = ms(window);
+    return async function (ctx: Context, identifier: string) {
+      const bucket = Math.floor(Date.now() / windowDuration);
+      const key = [identifier, bucket].join(":");
+
+      const usedTokensAfterUpdate = (await ctx.redis.get<number>(key)) ?? 1;
+
+      ctx.redis.incr(key).then((res) => {
+        if (res === 1) {
+          ctx.redis.expire(key, windowDuration);
+        }
+      });
+
+      return {
+        success: usedTokensAfterUpdate <= tokens,
+        limit: tokens,
+        remaining: tokens - usedTokensAfterUpdate,
+        reset: (bucket + 1) * windowDuration,
+      };
+    };
+  }
 
   /**
    * Each requests inside a fixed time increases a counter.
@@ -173,7 +196,7 @@ export class Ratelimit {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Ratelimiter {
     const windowDuration = ms(window);
 
@@ -198,7 +221,7 @@ export class Ratelimit {
       const usedTokensAfterUpdate = (await ctx.redis.eval(
         script,
         [key],
-        [windowDuration],
+        [windowDuration]
       )) as number;
 
       return {
@@ -288,7 +311,7 @@ export class Ratelimit {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Ratelimiter {
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
@@ -332,7 +355,7 @@ export class Ratelimit {
       const remaining = (await ctx.redis.eval(
         script,
         [currentKey, previousKey],
-        [tokens, now, windowSize],
+        [tokens, now, windowSize]
       )) as number;
       return {
         success: remaining > 0,
@@ -374,7 +397,7 @@ export class Ratelimit {
      * A newly created bucket starts with this many tokens.
      * Useful to allow higher burst limits.
      */
-    maxTokens: number,
+    maxTokens: number
   ): Ratelimiter {
     const script = `
         local key         = KEYS[1]           -- identifier including prefixes
@@ -424,7 +447,7 @@ export class Ratelimit {
       const [remaining, reset] = (await ctx.redis.eval(
         script,
         [key],
-        [maxTokens, intervalDuration, refillRate, now],
+        [maxTokens, intervalDuration, refillRate, now]
       )) as [number, number];
 
       return { success: remaining > 0, limit: maxTokens, remaining, reset };
