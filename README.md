@@ -94,9 +94,15 @@ export type RatelimitResponse = {
 
 ### Block until ready
 
-In case you don't want to reject a request immediately but wait until it can be processed, we also provide `ratelimit.blockUntilReady(identifier: stirng, timeout: number): Promise<RatelimitResponse>`
+In case you don't want to reject a request immediately but wait until it can be
+processed, we also provide
+`ratelimit.blockUntilReady(identifier: stirng, timeout: number): Promise<RatelimitResponse>`
 
-It is very similar to the `limit` method and takes an identifier and returns the same response. However if the current limit has already been exceeded, it will automatically wait until the next window starts and will try again. Setting the timeout parameter (in milliseconds) will cause the returned Promise to resolve in a finite amount of time.
+It is very similar to the `limit` method and takes an identifier and returns the
+same response. However if the current limit has already been exceeded, it will
+automatically wait until the next window starts and will try again. Setting the
+timeout parameter (in milliseconds) will cause the returned Promise to resolve
+in a finite amount of time.
 
 ```ts
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
