@@ -64,8 +64,8 @@ await build({
 });
 
 // post build steps
-Deno.copyFileSync(".github/LICENSE", `${outDir}/LICENSE`);
-Deno.copyFileSync(".github/README.md", `${outDir}/README.md`);
+Deno.copyFileSync("LICENSE", `${outDir}/LICENSE`);
+Deno.copyFileSync("README.md", `${outDir}/README.md`);
 
 /**
  * Workaround because currently deno can not typecheck the built modules without `@types/node` being installed as regular dependency
