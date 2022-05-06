@@ -45,10 +45,10 @@ await build({
     devDependencies: {
       "size-limit": "latest",
       "@size-limit/preset-small-lib": "latest",
-      "@upstash/redis": "1.3.1",
+      "@upstash/redis": "1.3.3-alpha.1",
     },
     peerDependencies: {
-      "@upstash/redis": "1.3.1",
+      "@upstash/redis": "1.3.3-alpha.1",
     },
     "size-limit": [
       {

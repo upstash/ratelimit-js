@@ -39,10 +39,9 @@ export type RatelimitConfig = {
  * ```ts
  * const { limit } = new Ratelimit({
  *    redis: Redis.fromEnv(),
- *    limiter: Ratelimit.tokenBucket(
+ *    limiter: Ratelimit.slidingWindow(
  *      "30 m", // interval of 30 minutes
- *      10,     // Every 30 minutes 10 tokens are added to the bucket
- *      20      // Every bucket can hold a total of 20 tokens
+ *      10,     // Allow 10 requests per window of 30 minutes
  *    )
  * })
  *
@@ -63,9 +62,89 @@ export class Ratelimit {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
   }
 
+  /**
+   * Determine if a request should pass or be rejected based on the identifier and previously chosen ratelimit.
+   *
+   * Use this if you want to reject all requests that you can not handle right now.
+   *
+   * @example
+   * ```ts
+   *  const ratelimit = new Ratelimit({
+   *    redis: Redis.fromEnv(),
+   *    limiter: Ratelimit.slidingWindow(10, "10 s")
+   *  })
+   *
+   *  const { success } = await ratelimit.limit(id)
+   *  if (!success){
+   *    return "Nope"
+   *  }
+   *  return "Yes"
+   * ```
+   */
   public limit = async (identifier: string): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     return await this.limiter({ redis: this.redis }, key);
+  };
+
+  /**
+   * Block until the request may pass or timeout is reached.
+   *
+   * This method returns a promsie that resolves as soon as the request may be processed
+   * or after the timeoue has been reached.
+   *
+   * Use this if you want to delay the request until it is ready to get processed.
+   *
+   * @example
+   * ```ts
+   *  const ratelimit = new Ratelimit({
+   *    redis: Redis.fromEnv(),
+   *    limiter: Ratelimit.slidingWindow(10, "10 s")
+   *  })
+   *
+   *  const { success } = await ratelimit.blockUntilReady(id, 60_000)
+   *  if (!success){
+   *    return "Nope"
+   *  }
+   *  return "Yes"
+   * ```
+   */
+  public blockUntilReady = async (
+    /**
+     * An identifier per user or api.
+     * Choose a userID, or api token, or ip address.
+     *
+     * If you want to globally limit your api, you can set a constant string.
+     */
+    identifier: string,
+    /**
+     * Maximum duration to wait in milliseconds.
+     * After this time the request will be denied.
+     */
+    timeout: number,
+  ): Promise<RatelimitResponse> => {
+    if (timeout <= 0) {
+      throw new Error("timeout must be positive");
+    }
+    let res: RatelimitResponse;
+
+    const deadline = Date.now() + timeout;
+    while (true) {
+      res = await this.limit(identifier);
+      if (res.success) {
+        break;
+      }
+      if (res.reset === 0) {
+        throw new Error("This should not happen");
+      }
+
+      const wait = Math.min(res.reset, deadline) - Date.now();
+      await new Promise((r) => setTimeout(r, wait));
+
+      if (Date.now() > deadline) {
+        break;
+      }
+    }
+    return res!;
   };
 
   /**
@@ -83,14 +162,22 @@ export class Ratelimit {
    * A burst of requests near the boundary of a window can result in a very
    * high request rate because two windows will be filled with requests quickly.
    *
-   * @param window - A fixed timeframe
    * @param tokens - How many requests a user can make in each time window.
+   * @param window - A fixed timeframe
    */
-  static fixedWindow(window: Duration, tokens: number): Ratelimiter {
+  static fixedWindow(
+    /**
+     * How many requests are allowed per window.
+     */
+    tokens: number,
+    /**
+     * The duration in which `tokens` requests are allowed.
+     */
+    window: Duration,
+  ): Ratelimiter {
     const windowDuration = ms(window);
 
     const script = `
-    
     local key     = KEYS[1]
     local window  = ARGV[1]
     
@@ -190,10 +277,19 @@ export class Ratelimit {
    *
    * Nothing major.
    *
-   * @param window - The duration in which the user can max X requests.
    * @param tokens - How many requests a user can make in each time window.
+   * @param window - The duration in which the user can max X requests.
    */
-  static slidingWindow(window: Duration, tokens: number): Ratelimiter {
+  static slidingWindow(
+    /**
+     * How many requests are allowed per window.
+     */
+    tokens: number,
+    /**
+     * The duration in which `tokens` requests are allowed.
+     */
+    window: Duration,
+  ): Ratelimiter {
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
       local previousKey = KEYS[2]           -- key of the previous bucket
@@ -264,27 +360,22 @@ export class Ratelimit {
    */
   static tokenBucket(
     /**
-     * The interval for the `refillRate`
-     */
-    interval: Duration,
-    /**
      * How many tokens are refilled per `interval`
      *
      * An interval of `10s` and refillRate of 5 will cause a new token to be added every 2 seconds.
      */
     refillRate: number,
     /**
+     * The interval for the `refillRate`
+     */
+    interval: Duration,
+    /**
      * Maximum number of tokens.
      * A newly created bucket starts with this many tokens.
+     * Useful to allow higher burst limits.
      */
     maxTokens: number,
   ): Ratelimiter {
-    if (refillRate > maxTokens) {
-      throw new Error(
-        `Setting the refillRate higher than maxTokens doesn't make sense and is probably a mistake.`,
-      );
-    }
-
     const script = `
         local key         = KEYS[1]           -- identifier including prefixes
         local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
@@ -311,7 +402,7 @@ export class Ratelimit {
         local tokens = tonumber(bucket[2])
   
         if now >= updatedAt + interval then
-          remaining = maxTokens - 1
+          remaining = math.min(maxTokens, tokens + refillRate) - 1
           
           redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
           return {remaining, now + interval}

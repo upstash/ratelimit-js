@@ -106,7 +106,7 @@ async function run(
 }
 
 Deno.test("TokenBucket", async (t) => {
-  await run(t, (tc) => Ratelimit.tokenBucket("1 s", tc.rate, tc.rate));
+  await run(t, (tc) => Ratelimit.tokenBucket(tc.rate, "1 s", tc.rate));
 });
 
 // Deno.test("SlidingLogs", async (t) => {
@@ -114,9 +114,9 @@ Deno.test("TokenBucket", async (t) => {
 // });
 
 Deno.test("SlidingWindow", async (t) => {
-  await run(t, (tc) => Ratelimit.slidingWindow("1 s", tc.rate));
+  await run(t, (tc) => Ratelimit.slidingWindow(tc.rate, "1 s"));
 });
 
 Deno.test("FixedWindow", async (t) => {
-  await run(t, (tc) => Ratelimit.fixedWindow("1 s", tc.rate));
+  await run(t, (tc) => Ratelimit.fixedWindow(tc.rate, "1 s"));
 });
