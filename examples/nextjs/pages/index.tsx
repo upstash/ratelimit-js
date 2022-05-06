@@ -1,40 +1,47 @@
-import { Redis } from "@upstash/redis";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-function HomePage({ count }: { count: number }) {
-  const [cacheCount, setCacheCount] = useState(count);
+function HomePage() {
+  const [n, setN] = useState("");
+  const [headers, setHeaders] = useState<Record<string, string | null>>({});
 
-  const incr = async () => {
-    const response = await fetch("/api/incr", { method: "GET" });
-    const data = await response.json();
-    setCacheCount(data.count);
-  };
+  useEffect(() => {}, []);
 
-  const decr = async () => {
-    const response = await fetch("/api/decr", { method: "GET" });
-    const data = await response.json();
-    setCacheCount(data.count);
+  const generate = async () => {
+    const res = await fetch("/api/rng");
+    setHeaders({
+      "RateLimit-Limit": res.headers.get("RateLimit-Limit"),
+      "RateLimit-Remaining": res.headers.get("RateLimit-Remaining"),
+      "RateLimit-Reset": res.headers.get("RateLimit-Reset"),
+    });
+    if (res.ok) {
+      setN(await res.text());
+    } else {
+      setN("");
+      alert(
+        `Ratelimit reached, try again after ${new Date(
+          parseInt(res.headers.get("RateLimit-Reset")!)
+        ).toLocaleString()}`
+      );
+    }
   };
 
   return (
     <div>
-      <h2>Count: {cacheCount}</h2>
-      <button type="button" onClick={incr}>
-        increment
+      <h2>Random number: {n}</h2>
+      <button type="button" onClick={generate}>
+        Get new number
       </button>
-      <button type="button" onClick={decr}>
-        decrement
-      </button>
+      <h3>Headers</h3>
+      <table>
+        {Object.entries(headers).map(([key, value]) => (
+          <tr key={key}>
+            <td>{key}</td>
+            <td>{value}</td>
+          </tr>
+        ))}
+      </table>
     </div>
   );
-}
-
-export async function getStaticProps() {
-  const redis = Redis.fromEnv();
-
-  const count = await redis.incr("nextjs");
-
-  return { props: { count } };
 }
 
 export default HomePage;

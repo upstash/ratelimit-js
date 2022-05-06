@@ -49,22 +49,22 @@ import { Redis } from "@upstash/redis";
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow("10 s", 10),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
 });
 
-function limited() {
-  // Use a constant string to limit all requests with a single ratelimit
-  // Or use a userID, apiKey or ip address for individual limits.
-  const identifier = "api";
-  const { success } = await ratelimit.limit(identifier);
+// Use a constant string to limit all requests with a single ratelimit
+// Or use a userID, apiKey or ip address for individual limits.
+const identifier = "api";
+const { success } = await ratelimit.limit(identifier);
 
-  if (!success) {
-    return "Unable to process at this time";
-  }
-  doExpensiveCalculation();
-  return "Here you go!";
+if (!success) {
+  return "Unable to process at this time";
 }
+doExpensiveCalculation();
+return "Here you go!";
 ```
+
+[Here's a complete nextjs example](https://github.com/upstash/ratelimit/tree/main/examples/nextjs)
 
 The `limit` method returns some more metadata that might be useful to you:
 
@@ -90,6 +90,35 @@ export type RatelimitResponse = {
    */
   reset: number;
 };
+```
+
+### Block until ready
+
+In case you don't want to reject a request immediately but wait until it can be
+processed, we also provide
+`ratelimit.blockUntilReady(identifier: stirng, timeout: number): Promise<RatelimitResponse>`
+
+It is very similar to the `limit` method and takes an identifier and returns the
+same response. However if the current limit has already been exceeded, it will
+automatically wait until the next window starts and will try again. Setting the
+timeout parameter (in milliseconds) will cause the returned Promise to resolve
+in a finite amount of time.
+
+```ts
+// Create a new ratelimiter, that allows 10 requests per 10 seconds
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+});
+
+// `blockUntilReady` returns a promise that resolves as soon as the request is allowed to be processed, or after 30 seconds
+const { success } = await ratelimit.blockUntilReady("id", 30_000);
+
+if (!success) {
+  return "Unable to process, even after 30 seconds";
+}
+doExpensiveCalculation();
+return "Here you go!";
 ```
 
 ## Ratelimiting algorithms
@@ -121,7 +150,7 @@ Create a new ratelimiter, that allows 10 requests per 10 seconds.
 ```ts
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.fixedWindow("10 s", 10),
+  limiter: Ratelimit.fixedWindow(10, "10 s"),
 });
 ```
 
@@ -161,7 +190,7 @@ Create a new ratelimiter, that allows 10 requests per 10 seconds.
 ```ts
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow("10 s", 10),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
 });
 ```
 
@@ -190,7 +219,7 @@ size of 10.
 ```ts
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.tokenBucket("10 s", 5, 10),
+  limiter: Ratelimit.tokenBucket(5, "10 s", 10),
 });
 ```
 
