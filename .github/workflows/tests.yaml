@@ -36,8 +36,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
     name: Tests
     steps:
