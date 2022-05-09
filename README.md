@@ -161,7 +161,7 @@ const ratelimit = new Ratelimit({
 
 Builds on top of fixed window but instead of a fixed window, we use a rolling
 window. Take this example: We have a rate limit of 10 requests per 1 minute. We
-dividie time into 1 minute slices, just like in the fixed window algorithm.
+divide time into 1 minute slices, just like in the fixed window algorithm.
 Window 1 will be from 00:00:00 to 00:01:00 (HH:MM:SS). Let's assume it is
 currently 00:01:15 and we have received 4 requests in the first window and 5
 requests so far in the current window. The approximation to determine if the
