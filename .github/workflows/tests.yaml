@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        fail-fast: false
         algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
     name: Tests
     steps:
@@ -49,12 +50,6 @@ jobs:
       - run: curl -fsSL https://deno.land/x/install/install.sh | sh
 
       - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
-
-      - name: Verify formatting
-        run: deno fmt --check
-
-      - name: Lint
-        run: deno lint
 
       - name: Start redis server
         uses: ./.github/actions/redis
