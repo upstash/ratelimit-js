@@ -144,7 +144,7 @@ function newRegion(
 Deno.test(
   "fixedWindow",
   {
-    skip: Deno.env.get("TEST_ONLY") &&
+    ignore: Deno.env.get("TEST_ONLY") &&
       Deno.env.get("TEST_ONLY") !== "fixedWindow",
   },
   async (t: Deno.TestContext) => {
@@ -158,7 +158,7 @@ Deno.test(
 Deno.test(
   "slidingWindow",
   {
-    skip: Deno.env.get("TEST_ONLY") &&
+    ignore: Deno.env.get("TEST_ONLY") &&
       Deno.env.get("TEST_ONLY") !== "slidingWindow",
   },
   async (t) => {
@@ -172,7 +172,7 @@ Deno.test(
 Deno.test(
   "tokenBucket",
   {
-    skip: Deno.env.get("TEST_ONLY") &&
+    ignore: Deno.env.get("TEST_ONLY") &&
       Deno.env.get("TEST_ONLY") !== "tokenBucket",
   },
   async (t) => {
