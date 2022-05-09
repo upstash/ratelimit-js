@@ -1,22 +1,23 @@
-import { Ratelimit } from "./ratelimiter.ts";
+import { Ratelimit } from "./ratelimit.ts";
+import { Context } from "./types.ts";
 
 type Metrics = {
   requests: number;
   success: number;
   rejected: number;
 };
-export class TestHarness {
+export class TestHarness<TContext extends Context> {
   /**
    * Used as prefix for redis keys
    */
   public readonly id: string;
 
-  private readonly ratelimit: Ratelimit;
+  private readonly ratelimit: Ratelimit<TContext>;
   public metrics: Metrics;
 
   public latencies: Record<string, { start: number; end: number }> = {};
 
-  constructor(ratelimit: Ratelimit) {
+  constructor(ratelimit: Ratelimit<TContext>) {
     this.ratelimit = ratelimit;
     this.id = crypto.randomUUID();
     this.metrics = {

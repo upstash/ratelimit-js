@@ -1,22 +1,12 @@
-import { Redis } from "https://deno.land/x/upstash_redis/mod.ts";
-export { Redis };
+export interface Redis {
+  eval: (script: string, keys: string[], values: unknown[]) => Promise<unknown>;
+  sadd: (key: string, ...members: string[]) => Promise<number>;
+}
 
-// export type Redis = {
-//   eval: <TArgs extends unknown[], TData = unknown>(
-//     ...args: [script: string, keys: string[], args: TArgs]
-//   ) => Promise<unknown>;
-// };
-// Define all methods of @upstash/redis we need, so we don't need to explicitely import it and be tied down
-// to a specific platforms way of importing
-// export type Redis = {
-//   eval: <TValues extends unknown[], TData>(
-//     script: string,
-//     keys: string[],
-//     values: TValues
-//   ) => Promise<TData>;
-// };
-export type Context = { redis: Redis };
+export type RegionContext = { redis: Redis };
+export type GlobalContext = { redis: Redis[] };
 
+export type Context = RegionContext | GlobalContext;
 export type RatelimitResponse = {
   /**
    * Whether the request may pass(true) or exceeded the limit(false)
@@ -36,7 +26,7 @@ export type RatelimitResponse = {
   reset: number;
 };
 
-export type Ratelimiter = (
-  ctx: Context,
+export type Algorithm<TContext> = (
+  ctx: TContext,
   identifier: string,
 ) => Promise<RatelimitResponse>;

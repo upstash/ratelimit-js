@@ -1,13 +1,10 @@
 import type { Duration } from "./duration.ts";
 import { ms } from "./duration.ts";
-import type {
-  Context,
-  Ratelimiter,
-  RatelimitResponse,
-  Redis,
-} from "./types.ts";
+import type { Algorithm, RegionContext } from "./types.ts";
+import type { Redis } from "./types.ts";
 
-export type RatelimitConfig = {
+import { Ratelimit } from "./ratelimit.ts";
+export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
    * @see https://github.com/upstash/upstash-redis#quick-start
@@ -23,7 +20,7 @@ export type RatelimitConfig = {
    * - Ratelimiter.slidingWindow
    * - Ratelimiter.tokenBucket
    */
-  limiter: Ratelimiter;
+  limiter: Algorithm<RegionContext>;
   /**
    * All keys in redis are prefixed with this.
    *
@@ -47,129 +44,18 @@ export type RatelimitConfig = {
  *
  * ```
  */
-export class Ratelimit {
-  private readonly redis: Redis;
-  private readonly limiter: Ratelimiter;
-  private readonly prefix: string;
-
+export class RegionRatelimit extends Ratelimit<RegionContext> {
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
    */
 
-  constructor(config: RatelimitConfig) {
-    this.redis = config.redis;
-    this.limiter = config.limiter;
-    this.prefix = config.prefix ?? "@upstash/ratelimit";
+  constructor(config: RegionRatelimitConfig) {
+    super({
+      prefix: config.prefix,
+      limiter: config.limiter,
+      ctx: { redis: config.redis },
+    });
   }
-
-  /**
-   * Determine if a request should pass or be rejected based on the identifier and previously chosen ratelimit.
-   *
-   * Use this if you want to reject all requests that you can not handle right now.
-   *
-   * @example
-   * ```ts
-   *  const ratelimit = new Ratelimit({
-   *    redis: Redis.fromEnv(),
-   *    limiter: Ratelimit.slidingWindow(10, "10 s")
-   *  })
-   *
-   *  const { success } = await ratelimit.limit(id)
-   *  if (!success){
-   *    return "Nope"
-   *  }
-   *  return "Yes"
-   * ```
-   */
-  public limit = async (identifier: string): Promise<RatelimitResponse> => {
-    const key = [this.prefix, identifier].join(":");
-    return await this.limiter({ redis: this.redis }, key);
-  };
-
-  /**
-   * Block until the request may pass or timeout is reached.
-   *
-   * This method returns a promsie that resolves as soon as the request may be processed
-   * or after the timeoue has been reached.
-   *
-   * Use this if you want to delay the request until it is ready to get processed.
-   *
-   * @example
-   * ```ts
-   *  const ratelimit = new Ratelimit({
-   *    redis: Redis.fromEnv(),
-   *    limiter: Ratelimit.slidingWindow(10, "10 s")
-   *  })
-   *
-   *  const { success } = await ratelimit.blockUntilReady(id, 60_000)
-   *  if (!success){
-   *    return "Nope"
-   *  }
-   *  return "Yes"
-   * ```
-   */
-  public blockUntilReady = async (
-    /**
-     * An identifier per user or api.
-     * Choose a userID, or api token, or ip address.
-     *
-     * If you want to globally limit your api, you can set a constant string.
-     */
-    identifier: string,
-    /**
-     * Maximum duration to wait in milliseconds.
-     * After this time the request will be denied.
-     */
-    timeout: number,
-  ): Promise<RatelimitResponse> => {
-    if (timeout <= 0) {
-      throw new Error("timeout must be positive");
-    }
-    let res: RatelimitResponse;
-
-    const deadline = Date.now() + timeout;
-    while (true) {
-      res = await this.limit(identifier);
-      if (res.success) {
-        break;
-      }
-      if (res.reset === 0) {
-        throw new Error("This should not happen");
-      }
-
-      const wait = Math.min(res.reset, deadline) - Date.now();
-      await new Promise((r) => setTimeout(r, wait));
-
-      if (Date.now() > deadline) {
-        break;
-      }
-    }
-    return res!;
-  };
-
-  // EXPERIMENTAL
-  // static eventualWrite(tokens: number, window: Duration): Ratelimiter {
-  //   const windowDuration = ms(window);
-  //   return async function (ctx: Context, identifier: string) {
-  //     const bucket = Math.floor(Date.now() / windowDuration);
-  //     const key = [identifier, bucket].join(":");
-
-  //     const usedTokensAfterUpdate = (await ctx.redis.get<number>(key)) ?? 1;
-
-  //     ctx.redis.incr(key).then((res) => {
-  //       if (res === 1) {
-  //         ctx.redis.expire(key, windowDuration);
-  //       }
-  //     });
-
-  //     return {
-  //       success: usedTokensAfterUpdate <= tokens,
-  //       limit: tokens,
-  //       remaining: tokens - usedTokensAfterUpdate,
-  //       reset: (bucket + 1) * windowDuration,
-  //     };
-  //   };
-  // }
 
   /**
    * Each requests inside a fixed time increases a counter.
@@ -198,7 +84,7 @@ export class Ratelimit {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-  ): Ratelimiter {
+  ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
     const script = `
@@ -215,7 +101,7 @@ export class Ratelimit {
     return r
     `;
 
-    return async function (ctx: Context, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string) {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
@@ -259,7 +145,7 @@ export class Ratelimit {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-  ): Ratelimiter {
+  ): Algorithm<RegionContext> {
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
       local previousKey = KEYS[2]           -- key of the previous bucket
@@ -291,7 +177,7 @@ export class Ratelimit {
       return tokens - newValue
       `;
     const windowSize = ms(window);
-    return async function (ctx: Context, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string) {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -345,7 +231,7 @@ export class Ratelimit {
      * Useful to allow higher burst limits.
      */
     maxTokens: number,
-  ): Ratelimiter {
+  ): Algorithm<RegionContext> {
     const script = `
         local key         = KEYS[1]           -- identifier including prefixes
         local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
@@ -387,7 +273,7 @@ export class Ratelimit {
        `;
 
     const intervalDuration = ms(interval);
-    return async function (ctx: Context, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string) {
       const now = Date.now();
       const key = [identifier, Math.floor(now / intervalDuration)].join(":");
 
