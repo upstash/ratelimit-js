@@ -8,3 +8,4 @@ redis-server
 ./**/pnpm-lock.yam
 
 *.log
+.vercel

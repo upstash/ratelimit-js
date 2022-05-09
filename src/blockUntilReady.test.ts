@@ -1,4 +1,4 @@
-import { Ratelimit } from "./ratelimiter.ts";
+import { Ratelimit } from "./mod.ts";
 import { assertEquals } from "https://deno.land/std@0.136.0/testing/asserts.ts";
 import type { Redis } from "./types.ts";
 let counter = 0;

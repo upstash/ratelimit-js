@@ -48,7 +48,7 @@ await build({
       "@upstash/redis": "1.3.3-alpha.1",
     },
     peerDependencies: {
-      "@upstash/redis": "1.3.3-alpha.1",
+      "@upstash/redis": "^1.3.4",
     },
     "size-limit": [
       {

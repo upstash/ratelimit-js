@@ -5,10 +5,10 @@ on:
     - cron: "0 0 * * *" # daily
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
-    name: Tests
+    name: Build
     steps:
       - name: Setup repo
         uses: actions/checkout@v2
@@ -26,6 +26,31 @@ jobs:
       - name: Lint
         run: deno lint
 
+      - name: Build
+        run: deno run -A ./cmd/build.ts
+
+      - name: Size limit
+        run: node_modules/.bin/size-limit
+        working-directory: dist
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
+    name: Tests
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+
+      # - uses: denoland/setup-deno@v1
+      #   with:
+      #     deno-version: v1.x
+      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
+
+      - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
+
       - name: Start redis server
         uses: ./.github/actions/redis
         with:
@@ -39,10 +64,4 @@ jobs:
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-
-      - name: Build
-        run: deno run -A ./cmd/build.ts
-
-      - name: Size limit
-        run: node_modules/.bin/size-limit
-        working-directory: dist
+          TEST_ONLY: ${{ matrix.algorithm }}
