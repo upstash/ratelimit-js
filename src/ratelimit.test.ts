@@ -32,7 +32,7 @@ const windowString: Duration = `${window} s`;
 
 const testcases: TestCase[] = [];
 
-for (const rate of [100]) {
+for (const rate of [10, 100]) {
   for (const load of [0.5, 1.0, 1.5]) {
     testcases.push({ load, rate });
   }
@@ -71,7 +71,7 @@ async function run<TContext extends Context>(
           h.recordValue(latency);
         }
         if (isGlobal) {
-          await new Promise((r) => setTimeout(r, 10_000));
+          await new Promise((r) => setTimeout(r, 15_000));
         }
 
         // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
