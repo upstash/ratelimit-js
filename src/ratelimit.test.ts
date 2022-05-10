@@ -135,8 +135,8 @@ Deno.test(
     await t.step({
       name: "global",
       sanitizeOps: false,
+      sanitizeResources: false,
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
-
       fn: async (t) =>
         await run(
           t,
@@ -166,7 +166,7 @@ Deno.test(
     await t.step({
       name: "global",
       sanitizeOps: false,
-
+      sanitizeResources: false,
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
       fn: async (t) =>
         await run(
@@ -199,6 +199,7 @@ Deno.test(
     // await t.step({
     //   name: "global",
     // sanitizeOps:false,
+    // sanitizeResources:false,
 
     //   ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
     //   fn: async (t) =>
