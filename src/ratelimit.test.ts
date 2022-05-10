@@ -163,16 +163,18 @@ Deno.test(
             newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString)),
         ),
     });
-    // await t.step({
-    //   name: "global",
-    // sanitizeOps:false,
+    await t.step({
+      name: "global",
+      sanitizeOps: false,
 
-    //   ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
-    //   fn: async (t) =>
-    //     await run(t, (tc) =>
-    //       newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString))
-    //     ),
-    // });
+      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
+      fn: async (t) =>
+        await run(
+          t,
+          (tc) =>
+            newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString)),
+        ),
+    });
   },
 );
 Deno.test(
