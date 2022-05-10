@@ -68,6 +68,9 @@ async function run<TContext extends Context>(
           const latency = end - start;
           h.recordValue(latency);
         }
+        if (ratelimit instanceof GlobalRatelimit) {
+          await new Promise((r) => setTimeout(r, 10_000));
+        }
 
         // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
       },
