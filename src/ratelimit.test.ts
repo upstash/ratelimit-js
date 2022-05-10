@@ -40,27 +40,25 @@ for (const rate of [10, 100, 200]) {
 
 async function run<TContext extends Context>(
   t: Deno.TestContext,
-  builder: (tc: TestCase) => Ratelimit<TContext>,
+  builder: (tc: TestCase) => Ratelimit<TContext>
 ) {
   for (const tc of testcases) {
     const ratelimit = builder(tc);
+    const isGlobal = ratelimit instanceof GlobalRatelimit;
+    const tolerance = isGlobal ? 0.2 : 0.1;
 
     await t.step(
-      `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
-        (tc.load * 100)
-          .toString()
-          .padStart(3, " ")
-      }% -> Sending ${
-        (tc.rate * tc.load)
-          .toString()
-          .padStart(4, " ")
-      }req/s`,
+      `${tc.rate.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
+        .toString()
+        .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load)
+        .toString()
+        .padStart(4, " ")}req/s`,
       async () => {
         const harness = new TestHarness(ratelimit);
         await harness.attack(tc.rate * tc.load, attackDuration);
         assertBetween(harness.metrics.success, [
-          ((attackDuration * tc.rate) / window) * 0.8,
-          ((attackDuration * tc.rate) / window) * 1.2,
+          ((attackDuration * tc.rate) / window) * (1 - tolerance),
+          ((attackDuration * tc.rate) / window) * (1 + tolerance),
         ]);
 
         const h = hdr.build();
@@ -68,18 +66,18 @@ async function run<TContext extends Context>(
           const latency = end - start;
           h.recordValue(latency);
         }
-        if (ratelimit instanceof GlobalRatelimit) {
+        if (isGlobal) {
           await new Promise((r) => setTimeout(r, 10_000));
         }
 
         // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
-      },
+      }
     );
   }
 }
 
 function newGlobal(
-  limiter: Algorithm<GlobalContext>,
+  limiter: Algorithm<GlobalContext>
 ): Ratelimit<GlobalContext> {
   function ensureEnv(key: string): string {
     const value = Deno.env.get(key);
@@ -110,7 +108,7 @@ function newGlobal(
 }
 
 function newRegion(
-  limiter: Algorithm<RegionContext>,
+  limiter: Algorithm<RegionContext>
 ): Ratelimit<RegionContext> {
   return new RegionRatelimit({
     prefix: crypto.randomUUID(),
@@ -122,7 +120,8 @@ function newRegion(
 Deno.test(
   "fixedWindow",
   {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
+    ignore:
+      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
       Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "fixedWindow",
   },
   async (t) => {
@@ -130,9 +129,8 @@ Deno.test(
       name: "region",
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
-        await run(
-          t,
-          (tc) => newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString)),
+        await run(t, (tc) =>
+          newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString))
         ),
     });
     await t.step({
@@ -141,18 +139,18 @@ Deno.test(
       sanitizeResources: false,
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
       fn: async (t) =>
-        await run(
-          t,
-          (tc) => newGlobal(GlobalRatelimit.fixedWindow(tc.rate, windowString)),
+        await run(t, (tc) =>
+          newGlobal(GlobalRatelimit.fixedWindow(tc.rate, windowString))
         ),
     });
-  },
+  }
 );
 
 Deno.test(
   "slidingWindow",
   {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
+    ignore:
+      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
       Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "slidingWindow",
   },
   async (t) => {
@@ -160,10 +158,8 @@ Deno.test(
       name: "region",
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString)),
+        await run(t, (tc) =>
+          newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString))
         ),
     });
     await t.step({
@@ -172,18 +168,17 @@ Deno.test(
       sanitizeResources: false,
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
       fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString)),
+        await run(t, (tc) =>
+          newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString))
         ),
     });
-  },
+  }
 );
 Deno.test(
   "tokenBucket",
   {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
+    ignore:
+      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
       Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "tokenBucket",
   },
   async (t) => {
@@ -191,12 +186,8 @@ Deno.test(
       name: "region",
       ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newRegion(
-              RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate),
-            ),
+        await run(t, (tc) =>
+          newRegion(RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
         ),
     });
     // await t.step({
@@ -210,5 +201,5 @@ Deno.test(
     //       newGlobal(GlobalRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
     //     ),
     // });
-  },
+  }
 );
