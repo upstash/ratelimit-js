@@ -45,7 +45,7 @@ async function run<TContext extends Context>(
   for (const tc of testcases) {
     const ratelimit = builder(tc);
     const isGlobal = ratelimit instanceof GlobalRatelimit;
-    const tolerance = isGlobal ? 0.2 : 0.1;
+    const tolerance = isGlobal ? 0.4 : 0.1;
 
     await t.step(
       `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
