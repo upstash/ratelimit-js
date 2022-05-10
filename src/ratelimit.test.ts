@@ -59,8 +59,8 @@ async function run<TContext extends Context>(
         const harness = new TestHarness(ratelimit);
         await harness.attack(tc.rate * tc.load, attackDuration);
         assertBetween(harness.metrics.success, [
-          ((attackDuration * tc.rate) / window) * 0.9,
-          ((attackDuration * tc.rate) / window) * 1.1,
+          ((attackDuration * tc.rate) / window) * 0.8,
+          ((attackDuration * tc.rate) / window) * 1.2,
         ]);
 
         const h = hdr.build();
