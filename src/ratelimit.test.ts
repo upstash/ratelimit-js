@@ -45,7 +45,7 @@ async function run<TContext extends Context>(
   for (const tc of testcases) {
     const ratelimit = builder(tc);
     const isGlobal = ratelimit instanceof GlobalRatelimit;
-    const tolerance = isGlobal ? 0.2 : 0.1;
+    const tolerance = isGlobal ? 0.5 : 0.1;
 
     await t.step(
       `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
@@ -121,79 +121,68 @@ function newRegion(
   });
 }
 
-Deno.test(
-  "fixedWindow",
-  async (t) => {
-    await t.step({
-      name: "region",
-      fn: async (t) =>
-        await run(
-          t,
-          (tc) => newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString)),
-        ),
-    });
-    await t.step({
-      name: "global",
-      sanitizeOps: false,
-      sanitizeResources: false,
-      fn: async (t) =>
-        await run(
-          t,
-          (tc) => newGlobal(GlobalRatelimit.fixedWindow(tc.rate, windowString)),
-        ),
-    });
-  },
-);
+Deno.test("fixedWindow", async (t) => {
+  await t.step({
+    name: "region",
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) => newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString)),
+      ),
+  });
+  await t.step({
+    name: "global",
+    sanitizeOps: false,
+    sanitizeResources: false,
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) => newGlobal(GlobalRatelimit.fixedWindow(tc.rate, windowString)),
+      ),
+  });
+});
 
-Deno.test(
-  "slidingWindow",
-  async (t) => {
-    await t.step({
-      name: "region",
-      fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString)),
-        ),
-    });
-    await t.step({
-      name: "global",
-      sanitizeOps: false,
-      sanitizeResources: false,
-      fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString)),
-        ),
-    });
-  },
-);
-Deno.test(
-  "tokenBucket",
-  async (t) => {
-    await t.step({
-      name: "region",
-      fn: async (t) =>
-        await run(
-          t,
-          (tc) =>
-            newRegion(
-              RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate),
-            ),
-        ),
-    });
-    // await t.step({
-    //   name: "global",
-    // sanitizeOps:false,
-    // sanitizeResources:false,
+Deno.test("slidingWindow", async (t) => {
+  await t.step({
+    name: "region",
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) => newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString)),
+      ),
+  });
+  await t.step({
+    name: "global",
+    sanitizeOps: false,
+    sanitizeResources: false,
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) => newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString)),
+      ),
+  });
+});
+Deno.test("tokenBucket", async (t) => {
+  await t.step({
+    name: "region",
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) =>
+          newRegion(
+            RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate),
+          ),
+      ),
+  });
+  // await t.step({
+  //   name: "global",
+  // sanitizeOps:false,
+  // sanitizeResources:false,
 
-    //   ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
-    //   fn: async (t) =>
-    //     await run(t, (tc) =>
-    //       newGlobal(GlobalRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
-    //     ),
-    // });
-  },
-);
+  //   ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
+  //   fn: async (t) =>
+  //     await run(t, (tc) =>
+  //       newGlobal(GlobalRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
+  //     ),
+  // });
+});
