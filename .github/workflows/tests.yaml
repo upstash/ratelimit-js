@@ -39,6 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
+        scope: ["global", "region"]
     name: Tests
     steps:
       - name: Setup repo
@@ -64,4 +65,5 @@ jobs:
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          TEST_ONLY: ${{ matrix.algorithm }}
+          UPSTASH_TEST_ALGORITHM: ${{ matrix.algorithm }}
+          UPSTASH_TEST_SCOPE: ${{ matrix.scope }}

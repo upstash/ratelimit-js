@@ -82,9 +82,9 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
     window: Duration,
   ): Algorithm<GlobalContext> {
     const windowDuration = ms(window);
-    const requestID = crypto.randomUUID();
 
     return async function (ctx: GlobalContext, identifier: string) {
+      const requestID = crypto.randomUUID();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
@@ -104,16 +104,18 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
         return members
     `;
 
-      const state: { redis: Redis; p: Promise<string[]> }[] = ctx.redis.map(
+      const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map(
         (redis) => ({
           redis,
-          p: redis.eval(script, [key], [requestID, windowDuration]) as Promise<
-            string[]
-          >,
+          request: redis.eval(
+            script,
+            [key],
+            [requestID, windowDuration],
+          ) as Promise<string[]>,
         }),
       );
 
-      const firstResponse = await Promise.any(state.map((s) => s.p));
+      const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
       const usedTokens = firstResponse.length;
 
@@ -123,14 +125,13 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
        * If the length between two databases does not match, we sync the two databases
        */
       async function sync() {
+        const individualIDs = await Promise.all(dbs.map((s) => s.request));
         const allIDs = Array.from(
-          new Set(
-            (await Promise.all(state.map((s) => s.p))).flatMap((_) => _),
-          ).values(),
+          new Set(individualIDs.flatMap((_) => _)).values(),
         );
 
-        for (const s of state) {
-          const ids = await s.p;
+        for (const db of dbs) {
+          const ids = await db.request;
           /**
            * If the bucket in this db is already full, it doesn't matter which ids it contains.
            * So we do not have to sync.
@@ -146,12 +147,14 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
             continue;
           }
 
-          await s.redis.sadd(key, ...allIDs);
+          await db.redis.sadd(key, ...allIDs);
         }
       }
 
+      /**
+       * Do not await sync. This should not run in the critical path.
+       */
       sync();
-
       return {
         success: remaining > 0,
         limit: tokens,
