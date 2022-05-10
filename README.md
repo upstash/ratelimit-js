@@ -61,7 +61,7 @@ npm install @upstash/ratelimit
 #### Deno
 
 ```ts
-import { Redis } from "https://deno.land/x/upstash_ratelimit/mod.ts";
+import { Ratelimit } from "https://deno.land/x/upstash_ratelimit/mod.ts";
 ```
 
 ### Create database
