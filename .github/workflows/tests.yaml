@@ -34,11 +34,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
-        scope: ["global", "region"]
     name: Tests
     steps:
       - name: Setup repo
@@ -64,8 +59,6 @@ jobs:
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          UPSTASH_TEST_ALGORITHM: ${{ matrix.algorithm }}
-          UPSTASH_TEST_SCOPE: ${{ matrix.scope }}
           EU2_UPSTASH_REDIS_REST_URL: ${{ secrets.EU2_UPSTASH_REDIS_REST_URL }}
           EU2_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.EU2_UPSTASH_REDIS_REST_TOKEN }}
           APN_UPSTASH_REDIS_REST_URL: ${{ secrets.APN_UPSTASH_REDIS_REST_URL }}

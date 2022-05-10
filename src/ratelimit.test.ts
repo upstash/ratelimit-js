@@ -45,7 +45,7 @@ async function run<TContext extends Context>(
   for (const tc of testcases) {
     const ratelimit = builder(tc);
     const isGlobal = ratelimit instanceof GlobalRatelimit;
-    const tolerance = isGlobal ? 0.4 : 0.1;
+    const tolerance = isGlobal ? 0.2 : 0.1;
 
     await t.step(
       `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
@@ -123,14 +123,9 @@ function newRegion(
 
 Deno.test(
   "fixedWindow",
-  {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
-      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "fixedWindow",
-  },
   async (t) => {
     await t.step({
       name: "region",
-      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
         await run(
           t,
@@ -141,7 +136,6 @@ Deno.test(
       name: "global",
       sanitizeOps: false,
       sanitizeResources: false,
-      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
       fn: async (t) =>
         await run(
           t,
@@ -153,14 +147,9 @@ Deno.test(
 
 Deno.test(
   "slidingWindow",
-  {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
-      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "slidingWindow",
-  },
   async (t) => {
     await t.step({
       name: "region",
-      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
         await run(
           t,
@@ -172,7 +161,6 @@ Deno.test(
       name: "global",
       sanitizeOps: false,
       sanitizeResources: false,
-      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
       fn: async (t) =>
         await run(
           t,
@@ -184,14 +172,9 @@ Deno.test(
 );
 Deno.test(
   "tokenBucket",
-  {
-    ignore: Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "" &&
-      Deno.env.get("UPSTASH_TEST_ALGORITHM") !== "tokenBucket",
-  },
   async (t) => {
     await t.step({
       name: "region",
-      ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "global",
       fn: async (t) =>
         await run(
           t,
