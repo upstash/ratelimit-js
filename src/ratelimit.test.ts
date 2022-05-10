@@ -32,7 +32,7 @@ const windowString: Duration = `${window} s`;
 
 const testcases: TestCase[] = [];
 
-for (const rate of [10, 100, 200]) {
+for (const rate of [100]) {
   for (const load of [0.5, 1.0, 1.5]) {
     testcases.push({ load, rate });
   }

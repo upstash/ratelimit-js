@@ -166,6 +166,8 @@ well as offering lower latencies to more of your users.
 returning immediately. Only afterwards will the state be asynchronously
 replicated to the other datbases leveraging
 [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type).
+Due to the nature of distributed systems, there is no way to guarantee the set ratelimit
+is not exceeded by a small margin. This is the tradeoff for reduced global latency.
 
 ### Usage
 
