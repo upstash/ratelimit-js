@@ -5,7 +5,6 @@ An HTTP/REST based Redis client built on top of Upstash REST API.
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 ![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
-![npm bundle size](https://img.shields.io/bundlephobia/minzip/@upstash/ratelimit)
 
 It is the only connectionless (HTTP based) ratelimiter and designed for:
 
@@ -16,6 +15,38 @@ It is the only connectionless (HTTP based) ratelimiter and designed for:
 - Client side web/mobile applications
 - WebAssembly
 - and other environments where HTTP is preferred over TCP.
+
+<!-- toc -->
+
+- [Quick Start](#quick-start)
+  - [Install](#install)
+    - [npm](#npm)
+    - [Deno](#deno)
+  - [Create database](#create-database)
+  - [Use it](#use-it)
+  - [Block until ready](#block-until-ready)
+- [Globally replicated ratelimiting](#globally-replicated-ratelimiting)
+  - [Usage](#usage)
+  - [Example](#example)
+- [Ratelimiting algorithms](#ratelimiting-algorithms)
+  - [Fixed Window](#fixed-window)
+    - [Pros:](#pros)
+    - [Cons:](#cons)
+    - [Usage:](#usage)
+  - [Sliding Window](#sliding-window)
+    - [Pros:](#pros-1)
+    - [Cons:](#cons-1)
+    - [Usage:](#usage-1)
+  - [Token Bucket](#token-bucket)
+    - [Pros:](#pros-2)
+    - [Cons:](#cons-2)
+    - [Usage:](#usage-2)
+- [Contributing](#contributing)
+  - [Install Deno](#install-deno)
+  - [Database](#database)
+  - [Running tests](#running-tests)
+
+<!-- tocstop -->
 
 ## Quick Start
 
@@ -124,6 +155,51 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
+## Globally replicated ratelimiting
+
+Using a single redis instance has the downside of providing low latencies to the
+part of your userbase closest to the deployed db. That's why we also built
+`GlobalRatelimit` which replicates the state across multiple redis databases as
+well as offering lower latencies to more of your users.
+
+`GlobalRatelimit` does this by checking the current limit in the closest db and
+returning immediately. Only afterwards will the state be asynchronously
+replicated to the other datbases leveraging
+[CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type). Due
+to the nature of distributed systems, there is no way to guarantee the set
+ratelimit is not exceeded by a small margin. This is the tradeoff for reduced
+global latency.
+
+### Usage
+
+The api is the same, except for asking for multiple redis instances:
+
+```ts
+import { GlobalRatelimit } from "@upstash/ratelimit"; // for deno: see above
+import { Redis } from "@upstash/redis";
+
+// Create a new ratelimiter, that allows 10 requests per 10 seconds
+const ratelimit = new GlobalRatelimit({
+  redis: [
+    new Redis({/* auth */}),
+    new Redis({/* auth */}),
+    new Redis({/* auth */}),
+  ],
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+});
+
+// Use a constant string to limit all requests with a single ratelimit
+// Or use a userID, apiKey or ip address for individual limits.
+const identifier = "api";
+const { success } = await ratelimit.limit(identifier);
+```
+
+### Example
+
+Let's assume you have customers in the US and Europe. In this case you can
+create 2 regional redis databases on [Upastash](https://console.upstash.com) and
+your users will enjoy the latency of whichever db is closest to them.
+
 ## Ratelimiting algorithms
 
 We provide different algorithms to use out of the box. Each has pros and cons.
@@ -198,6 +274,8 @@ const ratelimit = new Ratelimit({
 ```
 
 ### Token Bucket
+
+_Not yet supported for `GlobalRatelimit`_
 
 Consider a bucket filled with `{maxTokens}` tokens that refills constantly at
 `{refillRate}` per `{interval}`. Every request will remove one token from the

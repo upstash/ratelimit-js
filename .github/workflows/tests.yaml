@@ -17,7 +17,6 @@ jobs:
       #   with:
       #     deno-version: v1.x
       - run: curl -fsSL https://deno.land/x/install/install.sh | sh
-
       - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
 
       - name: Verify formatting
@@ -35,10 +34,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        algorithm: ["fixedWindow", "slidingWindow", "tokenBucket"]
     name: Tests
     steps:
       - name: Setup repo
@@ -64,4 +59,9 @@ jobs:
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          TEST_ONLY: ${{ matrix.algorithm }}
+          EU2_UPSTASH_REDIS_REST_URL: ${{ secrets.EU2_UPSTASH_REDIS_REST_URL }}
+          EU2_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.EU2_UPSTASH_REDIS_REST_TOKEN }}
+          APN_UPSTASH_REDIS_REST_URL: ${{ secrets.APN_UPSTASH_REDIS_REST_URL }}
+          APN_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.APN_UPSTASH_REDIS_REST_TOKEN }}
+          US1_UPSTASH_REDIS_REST_URL: ${{ secrets.US1_UPSTASH_REDIS_REST_URL }}
+          US1_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.US1_UPSTASH_REDIS_REST_TOKEN }}

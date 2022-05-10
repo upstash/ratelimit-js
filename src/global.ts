@@ -82,38 +82,39 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
     window: Duration,
   ): Algorithm<GlobalContext> {
     const windowDuration = ms(window);
-    const requestID = crypto.randomUUID();
+    const script = `
+    local key     = KEYS[1]
+    local id      = ARGV[1]
+    local window  = ARGV[2]
+    
+    redis.call("SADD", key, id)
+    local members = redis.call("SMEMBERS", key)
+    if #members == 1 then
+    -- The first time this key is set, the value will be 1.
+    -- So we only need the expire command once
+      redis.call("PEXPIRE", key, window)
+    end
+    
+    return members
+`;
 
     return async function (ctx: GlobalContext, identifier: string) {
+      const requestID = crypto.randomUUID();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
-      const script = `
-        local key     = KEYS[1]
-        local id      = ARGV[1]
-        local window  = ARGV[2]
-        
-        redis.call("SADD", key, id)
-        local members = redis.call("SMEMBERS", key)
-        if #members == 1 then
-        -- The first time this key is set, the value will be 1.
-        -- So we only need the expire command once
-          redis.call("PEXPIRE", key, window)
-        end
-        
-        return members
-    `;
-
-      const state: { redis: Redis; p: Promise<string[]> }[] = ctx.redis.map(
+      const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map(
         (redis) => ({
           redis,
-          p: redis.eval(script, [key], [requestID, windowDuration]) as Promise<
-            string[]
-          >,
+          request: redis.eval(
+            script,
+            [key],
+            [requestID, windowDuration],
+          ) as Promise<string[]>,
         }),
       );
 
-      const firstResponse = await Promise.any(state.map((s) => s.p));
+      const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
       const usedTokens = firstResponse.length;
 
@@ -123,14 +124,13 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
        * If the length between two databases does not match, we sync the two databases
        */
       async function sync() {
+        const individualIDs = await Promise.all(dbs.map((s) => s.request));
         const allIDs = Array.from(
-          new Set(
-            (await Promise.all(state.map((s) => s.p))).flatMap((_) => _),
-          ).values(),
+          new Set(individualIDs.flatMap((_) => _)).values(),
         );
 
-        for (const s of state) {
-          const ids = await s.p;
+        for (const db of dbs) {
+          const ids = await db.request;
           /**
            * If the bucket in this db is already full, it doesn't matter which ids it contains.
            * So we do not have to sync.
@@ -146,17 +146,146 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
             continue;
           }
 
-          await s.redis.sadd(key, ...allIDs);
+          await db.redis.sadd(key, ...allIDs);
         }
       }
 
+      /**
+       * Do not await sync. This should not run in the critical path.
+       */
       sync();
-
       return {
         success: remaining > 0,
         limit: tokens,
         remaining,
         reset: (bucket + 1) * windowDuration,
+      };
+    };
+  }
+
+  /**
+   * Combined approach of `slidingLogs` and `fixedWindow` with lower storage
+   * costs than `slidingLogs` and improved boundary behavior by calcualting a
+   * weighted score between two windows.
+   *
+   * **Pro:**
+   *
+   * Good performance allows this to scale to very high loads.
+   *
+   * **Con:**
+   *
+   * Nothing major.
+   *
+   * @param tokens - How many requests a user can make in each time window.
+   * @param window - The duration in which the user can max X requests.
+   */
+  static slidingWindow(
+    /**
+     * How many requests are allowed per window.
+     */
+    tokens: number,
+    /**
+     * The duration in which `tokens` requests are allowed.
+     */
+    window: Duration,
+  ): Algorithm<GlobalContext> {
+    const windowSize = ms(window);
+    const script = `
+      local currentKey  = KEYS[1]           -- identifier including prefixes
+      local previousKey = KEYS[2]           -- key of the previous bucket
+      local tokens      = tonumber(ARGV[1]) -- tokens per window
+      local now         = ARGV[2]           -- current timestamp in milliseconds
+      local window      = ARGV[3]           -- interval in milliseconds
+      local requestID   = ARGV[4]           -- uuid for this request
+
+
+      local currentMembers = redis.call("SMEMBERS", currentKey)
+      local requestsInCurrentWindow = #currentMembers
+      local previousMembers = redis.call("SMEMBERS", previousKey)
+      local requestsInPreviousWindow = #previousMembers
+
+      local percentageInCurrent = ( now % window) / window
+      if requestsInPreviousWindow * ( 1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
+        return {currentMembers, previousMembers}
+      end
+
+      redis.call("SADD", currentKey, requestID)
+      table.insert(currentMembers, requestID)
+      if requestsInCurrentWindow == 0 then 
+        -- The first time this key is set, the value will be 1.
+        -- So we only need the expire command once
+        redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
+      end
+      return {currentMembers, previousMembers}
+      `;
+    const windowDuration = ms(window);
+
+    return async function (ctx: GlobalContext, identifier: string) {
+      const requestID = crypto.randomUUID();
+      const now = Date.now();
+
+      const currentWindow = Math.floor(now / windowSize);
+      const currentKey = [identifier, currentWindow].join(":");
+      const previousWindow = currentWindow - windowSize;
+      const previousKey = [identifier, previousWindow].join(":");
+
+      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] =
+        ctx.redis.map((redis) => ({
+          redis,
+          request: redis.eval(
+            script,
+            [currentKey, previousKey],
+            [tokens, now, windowDuration, requestID],
+          ) as Promise<[string[], string[]]>,
+        }));
+
+      const percentageInCurrent = (now % windowDuration) / windowDuration;
+      const [current, previous] = await Promise.any(dbs.map((s) => s.request));
+
+      const usedTokens = previous.length * (1 - percentageInCurrent) +
+        current.length;
+
+      const remaining = tokens - usedTokens;
+
+      /**
+       * If a database differs from the consensus, we sync it
+       */
+      async function sync() {
+        const [individualIDs] = await Promise.all(dbs.map((s) => s.request));
+        const allIDs = Array.from(
+          new Set(individualIDs.flatMap((_) => _)).values(),
+        );
+
+        for (const db of dbs) {
+          const [ids] = await db.request;
+          /**
+           * If the bucket in this db is already full, it doesn't matter which ids it contains.
+           * So we do not have to sync.
+           */
+          if (ids.length >= tokens) {
+            continue;
+          }
+          const diff = allIDs.filter((id) => !ids.includes(id));
+          /**
+           * Don't waste a request if there is nothing to send
+           */
+          if (diff.length === 0) {
+            continue;
+          }
+
+          await db.redis.sadd(currentKey, ...allIDs);
+        }
+      }
+
+      /**
+       * Do not await sync. This should not run in the critical path.
+       */
+      sync();
+      return {
+        success: remaining > 0,
+        limit: tokens,
+        remaining,
+        reset: (currentWindow + 1) * windowDuration,
       };
     };
   }
