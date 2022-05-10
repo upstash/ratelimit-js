@@ -113,9 +113,6 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
           ) as Promise<string[]>,
         }),
       );
-      for (const db of dbs) {
-        pendingRequests.push(db.request);
-      }
 
       const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
