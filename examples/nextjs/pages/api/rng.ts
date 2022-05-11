@@ -15,9 +15,9 @@ export default async function handler(
 ) {
   const r = await ratelimit.limit("api");
 
-  res.setHeader("RateLimit-Limit", r.limit.toString());
-  res.setHeader("RateLimit-Remaining", r.remaining.toString());
-  res.setHeader("RateLimit-Reset", r.reset.toString());
+  res.setHeader("X-RateLimit-Limit", r.limit.toString());
+  res.setHeader("X-RateLimit-Remaining", r.remaining.toString());
+  res.setHeader("X-RateLimit-Reset", r.reset.toString());
 
   if (!r.success) {
     return res.status(429).send("");
