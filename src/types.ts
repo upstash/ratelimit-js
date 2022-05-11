@@ -24,6 +24,30 @@ export type RatelimitResponse = {
    * Unix timestamp in milliseconds when the limits are reset.
    */
   reset: number;
+
+  /**
+   * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
+   * In most case you can simply ignore this.
+   *
+   * On Vercel Edge or Cloudflare workers, you need to explicitely handle the pending Promise like this:
+   *
+   * **Vercel Edge:**
+   * https://nextjs.org/docs/api-reference/next/server#nextfetchevent
+   *
+   * ```ts
+   * const { pending } = await ratelimit.limit("id")
+   * event.waitUntil(pending)
+   * ```
+   *
+   * **Cloudflare Worker:**
+   * https://developers.cloudflare.com/workers/runtime-apis/fetch-event/#syntax-module-worker
+   *
+   * ```ts
+   * const { pending } = await ratelimit.limit("id")
+   * context.waitUntil(pending)
+   * ```
+   */
+  pending: Promise<unknown>;
 };
 
 export type Algorithm<TContext> = (

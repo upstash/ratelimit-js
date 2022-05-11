@@ -2,7 +2,11 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis/cloudflare";
 import type { Bindings } from "bindings";
 
-export async function handleRequest(_request: Request, env: Bindings) {
+export async function handleRequest(
+  _request: Request,
+  env: Bindings,
+  context: any,
+) {
   const redis = Redis.fromEnv(env);
   const ratelimit = new Ratelimit({
     redis,
@@ -10,6 +14,7 @@ export async function handleRequest(_request: Request, env: Bindings) {
   });
 
   const r = await ratelimit.limit("api");
+  context.waitUntil(r.pending);
 
   return new Response(
     r.success

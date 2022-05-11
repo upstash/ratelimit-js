@@ -153,12 +153,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       /**
        * Do not await sync. This should not run in the critical path.
        */
-      sync();
+
       return {
         success: remaining > 0,
         limit: tokens,
         remaining,
         reset: (bucket + 1) * windowDuration,
+        pending: sync(),
       };
     };
   }
@@ -280,12 +281,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       /**
        * Do not await sync. This should not run in the critical path.
        */
-      sync();
       return {
         success: remaining > 0,
         limit: tokens,
         remaining,
         reset: (currentWindow + 1) * windowDuration,
+        pending: sync(),
       };
     };
   }
