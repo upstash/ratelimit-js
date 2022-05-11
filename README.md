@@ -1,4 +1,4 @@
-# Upstash Redis
+# Upstash Ratelimit
 
 An HTTP/REST based Redis client built on top of Upstash REST API.
 [Upstash REST API](https://docs.upstash.com/features/restapi).
