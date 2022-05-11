@@ -70,9 +70,6 @@ async function run<TContext extends Context>(
           const latency = end - start;
           h.recordValue(latency);
         }
-        if (isMultiRegion) {
-          await new Promise((r) => setTimeout(r, 15_000));
-        }
 
         // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
       },
@@ -132,8 +129,7 @@ Deno.test("fixedWindow", async (t) => {
   });
   await t.step({
     name: "multiRegion",
-    sanitizeOps: false,
-    sanitizeResources: false,
+
     fn: async (t) =>
       await run(
         t,
@@ -156,16 +152,12 @@ Deno.test("slidingWindow", async (t) => {
   });
   await t.step({
     name: "multiRegion",
-    sanitizeOps: false,
-    sanitizeResources: false,
+
     fn: async (t) =>
-      await run(
-        t,
-        (tc) =>
-          newMultiRegion(
-            MultiRegionRatelimit.slidingWindow(tc.rate, windowString),
-          ),
-      ),
+      await run(t, (tc) =>
+        newMultiRegion(
+          MultiRegionRatelimit.slidingWindow(tc.rate, windowString),
+        )),
   });
 });
 Deno.test("tokenBucket", async (t) => {

@@ -32,7 +32,11 @@ export class TestHarness<TContext extends Context> {
    * @param duration - duration in seconds
    */
   public async attack(rate: number, duration: number): Promise<void> {
-    const promises: Promise<{ success: boolean }>[] = [];
+    const promises: Promise<{ success: boolean; pending: Promise<unknown> }>[] =
+      [];
+
+    // Async synchronization requests, that are not in the critical path
+    const asyncPromises: Promise<unknown>[] = [];
 
     for (let i = 0; i < duration; i++) {
       for (let r = 0; r < rate; r++) {
@@ -51,7 +55,8 @@ export class TestHarness<TContext extends Context> {
 
     await Promise.all(
       promises.map(async (p) => {
-        const { success } = await p;
+        const { success, pending } = await p;
+        asyncPromises.push(pending);
         if (success) {
           this.metrics.success++;
         } else {
@@ -59,5 +64,6 @@ export class TestHarness<TContext extends Context> {
         }
       }),
     );
+    await Promise.all(asyncPromises);
   }
 }
