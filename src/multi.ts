@@ -1,10 +1,10 @@
 import type { Duration } from "./duration.ts";
 import { ms } from "./duration.ts";
-import type { Algorithm, GlobalContext } from "./types.ts";
+import type { Algorithm, MultiRegionContext } from "./types.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import type { Redis } from "./types.ts";
 
-export type GlobalRatelimitConfig = {
+export type MultiRegionRatelimitConfig = {
   /**
    * Instances of `@upstash/redis`
    * @see https://github.com/upstash/upstash-redis#quick-start
@@ -15,9 +15,9 @@ export type GlobalRatelimitConfig = {
    *
    * Choose one of the predefined ones or implement your own.
    * Available algorithms are exposed via static methods:
-   * - GlobalRatelimit.fixedWindow
+   * - MultiRegionRatelimit.fixedWindow
    */
-  limiter: Algorithm<GlobalContext>;
+  limiter: Algorithm<MultiRegionContext>;
   /**
    * All keys in redis are prefixed with this.
    *
@@ -31,9 +31,9 @@ export type GlobalRatelimitConfig = {
  *
  * @example
  * ```ts
- * const { limit } = new GlobalRatelimit({
+ * const { limit } = new MultiRegionRatelimit({
  *    redis: Redis.fromEnv(),
- *    limiter: GlobalRatelimit.fixedWindow(
+ *    limiter: MultiRegionRatelimit.fixedWindow(
  *      10,     // Allow 10 requests per window of 30 minutes
  *      "30 m", // interval of 30 minutes
  *    )
@@ -41,11 +41,11 @@ export type GlobalRatelimitConfig = {
  *
  * ```
  */
-export class GlobalRatelimit extends Ratelimit<GlobalContext> {
+export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
    */
-  constructor(config: GlobalRatelimitConfig) {
+  constructor(config: MultiRegionRatelimitConfig) {
     super({
       prefix: config.prefix,
       limiter: config.limiter,
@@ -80,7 +80,7 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-  ): Algorithm<GlobalContext> {
+  ): Algorithm<MultiRegionContext> {
     const windowDuration = ms(window);
     const script = `
     local key     = KEYS[1]
@@ -98,7 +98,7 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
     return members
 `;
 
-    return async function (ctx: GlobalContext, identifier: string) {
+    return async function (ctx: MultiRegionContext, identifier: string) {
       const requestID = crypto.randomUUID();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
@@ -153,12 +153,13 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
       /**
        * Do not await sync. This should not run in the critical path.
        */
-      sync();
+
       return {
         success: remaining > 0,
         limit: tokens,
         remaining,
         reset: (bucket + 1) * windowDuration,
+        pending: sync(),
       };
     };
   }
@@ -188,7 +189,7 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-  ): Algorithm<GlobalContext> {
+  ): Algorithm<MultiRegionContext> {
     const windowSize = ms(window);
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
@@ -220,7 +221,7 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
       `;
     const windowDuration = ms(window);
 
-    return async function (ctx: GlobalContext, identifier: string) {
+    return async function (ctx: MultiRegionContext, identifier: string) {
       const requestID = crypto.randomUUID();
       const now = Date.now();
 
@@ -280,12 +281,12 @@ export class GlobalRatelimit extends Ratelimit<GlobalContext> {
       /**
        * Do not await sync. This should not run in the critical path.
        */
-      sync();
       return {
         success: remaining > 0,
         limit: tokens,
         remaining,
         reset: (currentWindow + 1) * windowDuration,
+        pending: sync(),
       };
     };
   }

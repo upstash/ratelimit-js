@@ -116,6 +116,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         limit: tokens,
         remaining: tokens - usedTokensAfterUpdate,
         reset: (bucket + 1) * windowDuration,
+        pending: Promise.resolve(),
       };
     };
   }
@@ -195,6 +196,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         limit: tokens,
         remaining,
         reset: (currentWindow + 1) * windowSize,
+        pending: Promise.resolve(),
       };
     };
   }
@@ -283,7 +285,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [maxTokens, intervalDuration, refillRate, now],
       )) as [number, number];
 
-      return { success: remaining > 0, limit: maxTokens, remaining, reset };
+      return {
+        success: remaining > 0,
+        limit: maxTokens,
+        remaining,
+        reset,
+        pending: Promise.resolve(),
+      };
     };
   }
 }
