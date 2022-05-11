@@ -5,7 +5,7 @@ import type { Bindings } from "bindings";
 export async function handleRequest(
   _request: Request,
   env: Bindings,
-  context: any,
+  context: ExecutionContext,
 ) {
   const redis = Redis.fromEnv(env);
   const ratelimit = new Ratelimit({

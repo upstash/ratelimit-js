@@ -99,29 +99,50 @@ return "Here you go!";
 
 The `limit` method returns some more metadata that might be useful to you:
 
-```ts
+````ts
 export type RatelimitResponse = {
   /**
    * Whether the request may pass(true) or exceeded the limit(false)
    */
   success: boolean;
-
   /**
    * Maximum number of requests allowed within a window.
    */
   limit: number;
-
   /**
    * How many requests the user has left within the current window.
    */
   remaining: number;
-
   /**
    * Unix timestamp in milliseconds when the limits are reset.
    */
   reset: number;
+
+  /**
+   * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
+   * In most case you can simply ignore this.
+   *
+   * On Vercel Edge or Cloudflare workers, you need to explicitely handle the pending Promise like this:
+   *
+   * **Vercel Edge:**
+   * https://nextjs.org/docs/api-reference/next/server#nextfetchevent
+   *
+   * ```ts
+   * const { pending } = await ratelimit.limit("id")
+   * event.waitUntil(pending)
+   * ```
+   *
+   * **Cloudflare Worker:**
+   * https://developers.cloudflare.com/workers/runtime-apis/fetch-event/#syntax-module-worker
+   *
+   * ```ts
+   * const { pending } = await ratelimit.limit("id")
+   * context.waitUntil(pending)
+   * ```
+   */
+  pending: Promise<unknown>;
 };
-```
+````
 
 ### Block until ready
 
@@ -181,9 +202,15 @@ import { Redis } from "@upstash/redis";
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
 const ratelimit = new MultiRegionRatelimit({
   redis: [
-    new Redis({/* auth */}),
-    new Redis({/* auth */}),
-    new Redis({/* auth */}),
+    new Redis({
+      /* auth */
+    }),
+    new Redis({
+      /* auth */
+    }),
+    new Redis({
+      /* auth */
+    }),
   ],
   limiter: Ratelimit.slidingWindow(10, "10 s"),
 });
@@ -192,6 +219,29 @@ const ratelimit = new MultiRegionRatelimit({
 // Or use a userID, apiKey or ip address for individual limits.
 const identifier = "api";
 const { success } = await ratelimit.limit(identifier);
+```
+
+### Asynchronous synchronization between databases
+
+The MultiRegion setup will do some synchronization between databases after
+returning the current limit. This can lead to problems on Cloudflare Workers and
+therefore Vercel Edge functions, because dangling promises must be taken care
+of:
+
+**Vercel Edge:**
+[docs](https://nextjs.org/docs/api-reference/next/server#nextfetchevent)
+
+```ts
+const { pending } = await ratelimit.limit("id");
+event.waitUntil(pending);
+```
+
+**Cloudflare Worker:**
+[docs](https://developers.cloudflare.com/workers/runtime-apis/fetch-event/#syntax-module-worker)
+
+```ts
+const { pending } = await ratelimit.limit("id");
+context.waitUntil(pending);
 ```
 
 ### Example
