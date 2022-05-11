@@ -102,7 +102,7 @@ export abstract class Ratelimit<TContext extends Context> {
      * An identifier per user or api.
      * Choose a userID, or api token, or ip address.
      *
-     * If you want to globally limit your api, you can set a constant string.
+     * If you want to limit your api across all users, you can set a constant string.
      */
     identifier: string,
     /**

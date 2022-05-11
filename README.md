@@ -155,15 +155,15 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
-## Globally replicated ratelimiting
+## MultiRegionly replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies to the
 part of your userbase closest to the deployed db. That's why we also built
-`GlobalRatelimit` which replicates the state across multiple redis databases as
-well as offering lower latencies to more of your users.
+`MultiRegionRatelimit` which replicates the state across multiple redis
+databases as well as offering lower latencies to more of your users.
 
-`GlobalRatelimit` does this by checking the current limit in the closest db and
-returning immediately. Only afterwards will the state be asynchronously
+`MultiRegionRatelimit` does this by checking the current limit in the closest db
+and returning immediately. Only afterwards will the state be asynchronously
 replicated to the other datbases leveraging
 [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type). Due
 to the nature of distributed systems, there is no way to guarantee the set
@@ -175,11 +175,11 @@ global latency.
 The api is the same, except for asking for multiple redis instances:
 
 ```ts
-import { GlobalRatelimit } from "@upstash/ratelimit"; // for deno: see above
+import { MultiRegionRatelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
 
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
-const ratelimit = new GlobalRatelimit({
+const ratelimit = new MultiRegionRatelimit({
   redis: [
     new Redis({/* auth */}),
     new Redis({/* auth */}),
@@ -275,7 +275,7 @@ const ratelimit = new Ratelimit({
 
 ### Token Bucket
 
-_Not yet supported for `GlobalRatelimit`_
+_Not yet supported for `MultiRegionRatelimit`_
 
 Consider a bucket filled with `{maxTokens}` tokens that refills constantly at
 `{refillRate}` per `{interval}`. Every request will remove one token from the

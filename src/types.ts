@@ -4,9 +4,9 @@ export interface Redis {
 }
 
 export type RegionContext = { redis: Redis };
-export type GlobalContext = { redis: Redis[] };
+export type MultiRegionContext = { redis: Redis[] };
 
-export type Context = RegionContext | GlobalContext;
+export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
   /**
    * Whether the request may pass(true) or exceeded the limit(false)

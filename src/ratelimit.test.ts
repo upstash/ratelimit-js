@@ -4,10 +4,10 @@ import { assertEquals } from "https://deno.land/std@0.136.0/testing/asserts.ts";
 import { TestHarness } from "./test_utils.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import * as hdr from "https://esm.sh/hdr-histogram-js";
-import { RegionRatelimit } from "./region.ts";
-import { GlobalRatelimit } from "./global.ts";
+import { RegionRatelimit } from "./single.ts";
+import { MultiRegionRatelimit } from "./multi.ts";
 import type { Duration } from "./duration.ts";
-import type { Context, GlobalContext, RegionContext } from "./types.ts";
+import type { Context, MultiRegionContext, RegionContext } from "./types.ts";
 import { config } from "https://deno.land/x/dotenv@v3.2.0/mod.ts";
 
 config({ export: true });
@@ -44,8 +44,8 @@ async function run<TContext extends Context>(
 ) {
   for (const tc of testcases) {
     const ratelimit = builder(tc);
-    const isGlobal = ratelimit instanceof GlobalRatelimit;
-    const tolerance = isGlobal ? 0.5 : 0.1;
+    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
+    const tolerance = isMultiRegion ? 0.5 : 0.1;
 
     await t.step(
       `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
@@ -70,7 +70,7 @@ async function run<TContext extends Context>(
           const latency = end - start;
           h.recordValue(latency);
         }
-        if (isGlobal) {
+        if (isMultiRegion) {
           await new Promise((r) => setTimeout(r, 15_000));
         }
 
@@ -80,9 +80,9 @@ async function run<TContext extends Context>(
   }
 }
 
-function newGlobal(
-  limiter: Algorithm<GlobalContext>,
-): Ratelimit<GlobalContext> {
+function newMultiRegion(
+  limiter: Algorithm<MultiRegionContext>,
+): Ratelimit<MultiRegionContext> {
   function ensureEnv(key: string): string {
     const value = Deno.env.get(key);
     if (!value) {
@@ -91,7 +91,7 @@ function newGlobal(
     return value;
   }
 
-  return new GlobalRatelimit({
+  return new MultiRegionRatelimit({
     prefix: crypto.randomUUID(),
     redis: [
       new Redis({
@@ -131,13 +131,16 @@ Deno.test("fixedWindow", async (t) => {
       ),
   });
   await t.step({
-    name: "global",
+    name: "multiRegion",
     sanitizeOps: false,
     sanitizeResources: false,
     fn: async (t) =>
       await run(
         t,
-        (tc) => newGlobal(GlobalRatelimit.fixedWindow(tc.rate, windowString)),
+        (tc) =>
+          newMultiRegion(
+            MultiRegionRatelimit.fixedWindow(tc.rate, windowString),
+          ),
       ),
   });
 });
@@ -152,13 +155,16 @@ Deno.test("slidingWindow", async (t) => {
       ),
   });
   await t.step({
-    name: "global",
+    name: "multiRegion",
     sanitizeOps: false,
     sanitizeResources: false,
     fn: async (t) =>
       await run(
         t,
-        (tc) => newGlobal(GlobalRatelimit.slidingWindow(tc.rate, windowString)),
+        (tc) =>
+          newMultiRegion(
+            MultiRegionRatelimit.slidingWindow(tc.rate, windowString),
+          ),
       ),
   });
 });
@@ -175,14 +181,14 @@ Deno.test("tokenBucket", async (t) => {
       ),
   });
   // await t.step({
-  //   name: "global",
+  //   name: "multiRegion",
   // sanitizeOps:false,
   // sanitizeResources:false,
 
   //   ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
   //   fn: async (t) =>
   //     await run(t, (tc) =>
-  //       newGlobal(GlobalRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
+  //       newMultiRegion(MultiRegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate))
   //     ),
   // });
 });
