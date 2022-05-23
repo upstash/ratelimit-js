@@ -48,7 +48,7 @@ await build({
       "@upstash/redis": "1.3.3-alpha.1",
     },
     peerDependencies: {
-      "@upstash/redis": "^1.3.4",
+      "@upstash/redis": "^1.4.0",
     },
     "size-limit": [
       {
@@ -66,6 +66,7 @@ await build({
 // post build steps
 Deno.copyFileSync("LICENSE", `${outDir}/LICENSE`);
 Deno.copyFileSync("README.md", `${outDir}/README.md`);
+Deno.copyFileSync(".releaserc", `${outDir}/.releaserc`);
 
 /**
  * Workaround because currently deno can not typecheck the built modules without `@types/node` being installed as regular dependency

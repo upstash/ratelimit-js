@@ -9,3 +9,4 @@ redis-server
 
 *.log
 .vercel
+.next
