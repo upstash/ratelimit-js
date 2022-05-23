@@ -1,17 +1,17 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with
-[`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Next.js + Tailwind CSS Example
 
-## Getting Started
+This example shows how to use [Tailwind CSS](https://tailwindcss.com/)
+[(v3.0)](https://tailwindcss.com/blog/tailwindcss-v3) with Next.js. It follows
+the steps outlined in the official
+[Tailwind docs](https://tailwindcss.com/docs/guides/nextjs).
 
-1. Create a database on [https://console.upstash.com/](Upstash)
-2. Copy the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` into `.env`
-3. Run the development server:
+## How to use
+
+Execute
+[`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app)
+with [npm](https://docs.npmjs.com/cli/init) or
+[Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
 
 ```bash
-npm run dev
-# or
-yarn dev
+yarn create next-app -e https://github.com/upstash/next-template your-app-name
 ```
-
-4. Open [http://localhost:3000](http://localhost:3000) with your browser to see
-   the result.

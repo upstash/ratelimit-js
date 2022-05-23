@@ -1,33 +1,43 @@
 import type { NextFetchEvent, NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import { MultiRegionRatelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+
 export default async function middleware(
-  _request: NextRequest,
+  request: NextRequest,
   event: NextFetchEvent,
 ): Promise<Response | undefined> {
+  const start = Date.now();
   const ratelimit = new MultiRegionRatelimit({
     redis: [
       new Redis({
-        url: "https://eu2-funny-slug-30130.upstash.io",
-        token:
-          "AXWyASQgNjhlYWZlZmYtZjE3ZC00ZTc3LWJiOWEtMGVmZjFhYjgyNDdjYmU2ZjEwNDQ4YjYxNGY0M2JjNmU3OWVhNGFkNmQ5ODY=",
+        url: process.env.UPSTASH_REDIS_REST_URL_FRA!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN_FRA!,
       }),
       new Redis({
-        url: "https://apn1-charming-orca-33033.upstash.io",
-        token:
-          "AYEJASQgMDk3NzkyOGUtMDdkNS00ZWE2LWFmMDItYmYxNWIyNDI1ZWY1YmU4YWU5NGI5ZDViNDhmMDg1YTVlY2I1YTk5ZjQ1ZTc=",
-      }),
-      new Redis({
-        url: "https://us1-close-crab-37047.upstash.io",
-        token:
-          "AZC3ASQgYTRiNDFiMjYtYjQ5MS00ZTQ2LTgzMmQtNjIzYTM4MWRlNWM2MTM4M2ViNWRmZGFjNDgxYWE1NTRmYmExNWNmNzMyMTM=",
+        url: process.env.UPSTASH_REDIS_REST_URL_IOWA!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN_IOWA!,
       }),
     ],
     limiter: MultiRegionRatelimit.fixedWindow(10, "10 s"),
   });
-  const { success, pending } = await ratelimit.limit("middleware");
+
+  const ip = request.ip ?? "127.0.0.1";
+
+  const { success, pending, limit, reset, remaining } = await ratelimit.limit(
+    `mw_${ip}`,
+  );
   event.waitUntil(pending);
   console.log("Middleware", success);
-  return NextResponse.next();
+  return new Response(
+    JSON.stringify({ success, latency: Date.now() - start, ip }),
+    {
+      status: success ? 200 : 429,
+      headers: {
+        "Content-Type": "application/json",
+        "X-RateLimit-Limit": limit.toString(),
+        "X-RateLimit-Remaining": remaining.toString(),
+        "X-RateLimit-Reset": reset.toString(),
+      },
+    },
+  );
 }
