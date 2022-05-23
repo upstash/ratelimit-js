@@ -21,7 +21,6 @@ export default async function middleware(
   event: NextFetchEvent,
 ): Promise<Response | undefined> {
   const start = Date.now();
- 
 
   const ip = request.ip ?? "127.0.0.1";
 
