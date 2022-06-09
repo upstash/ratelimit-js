@@ -25,7 +25,7 @@ It is the only connectionless (HTTP based) ratelimiter and designed for:
   - [Create database](#create-database)
   - [Use it](#use-it)
   - [Block until ready](#block-until-ready)
-- [MultiRegionly replicated ratelimiting](#multiregionly-replicated-ratelimiting)
+- [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting)
   - [Usage](#usage)
   - [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
   - [Example](#example)
@@ -177,7 +177,7 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
-## MultiRegionly replicated ratelimiting
+## MultiRegion replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies to the
 part of your userbase closest to the deployed db. That's why we also built
