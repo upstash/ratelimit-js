@@ -248,7 +248,7 @@ context.waitUntil(pending);
 ### Example
 
 Let's assume you have customers in the US and Europe. In this case you can
-create 2 regional redis databases on [Upastash](https://console.upstash.com) and
+create 2 regional redis databases on [Upstash](https://console.upstash.com) and
 your users will enjoy the latency of whichever db is closest to them.
 
 ## Ratelimiting algorithms
