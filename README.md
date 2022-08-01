@@ -1,4 +1,4 @@
-# Upstash Ratelimit
+# Upstash Serverless Rate Limiting
 
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
