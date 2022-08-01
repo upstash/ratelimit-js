@@ -1,12 +1,10 @@
 # Upstash Ratelimit
 
-An HTTP/REST based Redis client built on top of Upstash REST API.
-[Upstash REST API](https://docs.upstash.com/features/restapi).
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 ![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
 
-It is the only connectionless (HTTP based) ratelimiter and designed for:
+It is the only connectionless (HTTP based) ratelimiting library and designed for:
 
 - Serverless functions (AWS Lambda ...)
 - Cloudflare Workers
