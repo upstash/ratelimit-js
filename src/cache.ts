@@ -4,7 +4,11 @@ export class Cache implements EphermeralCache {
   /**
    * Stores identifier -> reset (in milliseconds)
    */
-  private readonly cache: Map<string, number> = new Map();
+  private readonly cache: Map<string, number>;
+
+  constructor(cache: Map<string, number>) {
+    this.cache = cache;
+  }
 
   public isBlocked(identifier: string): { blocked: boolean; reset: number } {
     if (!this.cache.has(identifier)) {

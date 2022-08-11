@@ -1,10 +1,5 @@
 import { Cache } from "./cache.ts";
-import type {
-  Algorithm,
-  Context,
-  EphermeralCache,
-  RatelimitResponse,
-} from "./types.ts";
+import type { Algorithm, Context, RatelimitResponse } from "./types.ts";
 
 export type RatelimitConfig<TContext> = {
   /**
@@ -29,19 +24,22 @@ export type RatelimitConfig<TContext> = {
   prefix?: string;
 
   /**
-   * If enabled, the ratelimiter will keep a global cache of identifiers, that have exhausted their
-   * ratelimit. In serverless environments this is only possible if you create the ratelimiter
-   * instance outside of your handler function. While the function is still hot, the ratelimiter
-   * can block requests without having to request data from redis, thus saving time and money.
+   * If enabled, the ratelimiter will keep a global cache of identifiers, that have
+   * exhausted their ratelimit. In serverless environments this is only possible if
+   * you create the ratelimiter instance outside of your handler function. While the
+   * function is still hot, the ratelimiter can block requests without having to
+   * request data from redis, thus saving time and money.
    *
-   * How it works:
-   * Whenever an identifier has exceeded its ratelimit, the ratelimiter will add it to an internal
-   * list together with the current window. If the same identifier makes a new request within the
-   * same window, we can immediately reject it.
+   * Whenever an identifier has exceeded its limit, the ratelimiter will add it to an
+   * internal list together with its reset timestamp. If the same identifier makes a
+   * new request before it is reset, we can immediately reject it.
    *
-   * @default true
+   * Set to `false` to disable.
+   *
+   * If left undefined, a map is created automatically, but it can only work
+   * if the map or the  ratelimit instance is created outside your serverless function handler.
    */
-  ephermeralCache?: boolean;
+  ephermeralCache?: Map<string, number> | false;
 };
 
 /**
@@ -66,14 +64,15 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly prefix: string;
 
-  protected readonly cache?: EphermeralCache;
-
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
-    if (config.ephermeralCache) {
-      this.cache = new Cache();
+
+    if (config.ephermeralCache instanceof Map) {
+      this.ctx.cache = new Cache(config.ephermeralCache);
+    } else if (typeof config.ephermeralCache === "undefined") {
+      this.ctx.cache = new Cache(new Map());
     }
   }
 

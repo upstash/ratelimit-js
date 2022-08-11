@@ -177,6 +177,36 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
+### Ephemeral Cache
+
+For extreme load or denial of service attacks, it might be too expensive to call
+redis for every incoming request, just to find out the request should be blocked
+because they have exceeded the limit.
+
+You can use an ephemeral in memory cache by passing the `ephemeralCache`
+options:
+
+```ts
+const cache = new Map(); // must be outside of your serverless function handler
+
+// ...
+
+const ratelimit = new Ratelimit({
+  // ...
+  ephemeralCache: cache,
+});
+```
+
+If enabled, the ratelimiter will keep a global cache of identifiers and a reset
+timestamp, that have exhausted their ratelimit. In serverless environments this
+is only possible if you create the ratelimiter instance outside of your handler
+function. While the function is still hot, the ratelimiter can block requests
+without having to request data from redis, thus saving time and money.
+
+Whenever an identifier has exceeded its limit, the ratelimiter will add it to an
+internal list together with its reset timestamp. If the same identifier makes a
+new request before it is reset, we can immediately reject it.
+
 ## MultiRegionly replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies to the
