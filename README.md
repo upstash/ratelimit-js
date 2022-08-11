@@ -180,11 +180,11 @@ return "Here you go!";
 ### Ephemeral Cache
 
 For extreme load or denial of service attacks, it might be too expensive to call
-redis for every incoming request, just to find out the request should be blocked
+redis for every incoming request, just to find out it should be blocked
 because they have exceeded the limit.
 
 You can use an ephemeral in memory cache by passing the `ephemeralCache`
-options:
+option:
 
 ```ts
 const cache = new Map(); // must be outside of your serverless function handler
