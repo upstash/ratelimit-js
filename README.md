@@ -203,10 +203,6 @@ instance outside of your handler function. While the function is still hot, the
 ratelimiter can block requests without having to request data from redis, thus
 saving time and money.
 
-Whenever an identifier has exceeded its limit, the ratelimiter will add it to an
-internal list together with its reset timestamp. If the same identifier makes a
-new request before it is reset, we can immediately reject it.
-
 ## MultiRegionly replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies to the
