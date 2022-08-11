@@ -197,8 +197,8 @@ const ratelimit = new Ratelimit({
 });
 ```
 
-If enabled, the ratelimiter will keep a global cache of identifiers and a reset
-timestamp, that have exhausted their ratelimit. In serverless environments this
+If enabled, the ratelimiter will keep a global cache of identifiers and their reset
+timestamps, that have exhausted their ratelimit. In serverless environments this
 is only possible if you create the ratelimiter instance outside of your handler
 function. While the function is still hot, the ratelimiter can block requests
 without having to request data from redis, thus saving time and money.
