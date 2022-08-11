@@ -70,8 +70,6 @@ async function run<TContext extends Context>(
           const latency = end - start;
           h.recordValue(latency);
         }
-
-        // console.log(h.summary); // { "p50": 123, ... , max: 1244, totalCount: 3 }
       },
     );
   }

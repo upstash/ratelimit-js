@@ -20,8 +20,6 @@ export class Cache implements EphermeralCache {
       return { blocked: false, reset: 0 };
     }
 
-    console.log(`[CACHE] isBlocked(${identifier}) -> true`);
-
     return { blocked: true, reset: reset };
   }
 
