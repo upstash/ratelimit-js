@@ -4,6 +4,7 @@ import type { Algorithm, RegionContext } from "./types.ts";
 import type { Redis } from "./types.ts";
 
 import { Ratelimit } from "./ratelimit.ts";
+import { Cache } from "./cache.ts";
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
@@ -27,6 +28,21 @@ export type RegionRatelimitConfig = {
    * @default `@upstash/ratelimit`
    */
   prefix?: string;
+
+  /**
+   * If enabled, the ratelimiter will keep a global cache of identifiers, that have exhausted their
+   * ratelimit. In serverless environments this is only possible if you create the ratelimiter
+   * instance outside of your handler function. While the function is still hot, the ratelimiter
+   * can block requests without having to request data from redis, thus saving time and money.
+   *
+   * How it works:
+   * Whenever an identifier has exceeded its ratelimit, the ratelimiter will add it to an internal
+   * list together with the current window. If the same identifier makes a new request within the
+   * same window, we can immediately reject it.
+   *
+   * @default true
+   */
+  ephermeralCache?: boolean;
 };
 
 /**
@@ -53,7 +69,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     super({
       prefix: config.prefix,
       limiter: config.limiter,
-      ctx: { redis: config.redis },
+      ctx: {
+        redis: config.redis,
+        cache: config.ephermeralCache ? new Cache() : undefined,
+      },
     });
   }
 
@@ -105,17 +124,35 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
       const usedTokensAfterUpdate = (await ctx.redis.eval(
         script,
         [key],
         [windowDuration],
       )) as number;
 
+      const success = usedTokensAfterUpdate <= tokens;
+      const reset = (bucket + 1) * windowDuration;
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
+
       return {
-        success: usedTokensAfterUpdate <= tokens,
+        success,
         limit: tokens,
         remaining: tokens - usedTokensAfterUpdate,
-        reset: (bucket + 1) * windowDuration,
+        reset,
         pending: Promise.resolve(),
       };
     };
@@ -186,16 +223,35 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       const previousWindow = currentWindow - windowSize;
       const previousKey = [identifier, previousWindow].join(":");
 
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const remaining = (await ctx.redis.eval(
         script,
         [currentKey, previousKey],
         [tokens, now, windowSize],
       )) as number;
+
+      const success = remaining > 0;
+      const reset = (currentWindow + 1) * windowSize;
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
       return {
-        success: remaining > 0,
+        success,
         limit: tokens,
         remaining,
-        reset: (currentWindow + 1) * windowSize,
+        reset,
         pending: Promise.resolve(),
       };
     };
@@ -276,6 +332,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
     const intervalDuration = ms(interval);
     return async function (ctx: RegionContext, identifier: string) {
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: maxTokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const now = Date.now();
       const key = [identifier, Math.floor(now / intervalDuration)].join(":");
 
@@ -285,8 +354,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [maxTokens, intervalDuration, refillRate, now],
       )) as [number, number];
 
+      const success = remaining > 0;
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
+
       return {
-        success: remaining > 0,
+        success,
         limit: maxTokens,
         remaining,
         reset,

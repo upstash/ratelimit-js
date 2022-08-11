@@ -99,6 +99,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 `;
 
     return async function (ctx: MultiRegionContext, identifier: string) {
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const requestID = crypto.randomUUID();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
@@ -154,11 +167,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        * Do not await sync. This should not run in the critical path.
        */
 
+      const success = remaining > 0;
+      const reset = (bucket + 1) * windowDuration;
+
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
       return {
-        success: remaining > 0,
+        success,
         limit: tokens,
         remaining,
-        reset: (bucket + 1) * windowDuration,
+        reset,
         pending: sync(),
       };
     };
@@ -222,6 +241,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     const windowDuration = ms(window);
 
     return async function (ctx: MultiRegionContext, identifier: string) {
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const requestID = crypto.randomUUID();
       const now = Date.now();
 
@@ -278,14 +310,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
       }
 
-      /**
-       * Do not await sync. This should not run in the critical path.
-       */
+      const success = remaining > 0;
+      const reset = (currentWindow + 1) * windowDuration;
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
       return {
-        success: remaining > 0,
+        success,
         limit: tokens,
         remaining,
-        reset: (currentWindow + 1) * windowDuration,
+        reset,
         pending: sync(),
       };
     };
