@@ -70,7 +70,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       limiter: config.limiter,
       ctx: {
         redis: config.redis,
-        cache: config.ephermeralCache ? new Cache() : undefined,
+        cache: config.ephermeralCache
+          ? new Cache(config.ephermeralCache)
+          : undefined,
       },
     });
   }

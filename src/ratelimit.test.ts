@@ -1,6 +1,6 @@
-import { Redis } from "https://deno.land/x/upstash_redis@v1.3.3/mod.ts";
+import { Redis } from "https://deno.land/x/upstash_redis@v1.12.0-next.1/mod.ts";
 import { Algorithm } from "./mod.ts";
-import { assertEquals } from "https://deno.land/std@0.136.0/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std@0.152.0/testing/asserts.ts";
 import { TestHarness } from "./test_utils.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import * as hdr from "https://esm.sh/hdr-histogram-js";

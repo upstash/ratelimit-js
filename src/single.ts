@@ -271,8 +271,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    * rate.
    * - Allows to set a higher initial burst limit by setting `maxTokens` higher
    * than `refillRate`
-   *
-   * **Usage of Upstash Redis requests:**
    */
   static tokenBucket(
     /**

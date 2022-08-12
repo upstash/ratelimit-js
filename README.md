@@ -19,36 +19,40 @@ It is the only connectionless (HTTP based) ratelimiter and designed for:
 <!-- toc -->
 
 - [Quick Start](#quick-start)
-  * [Install](#install)
-    + [npm](#npm)
-    + [Deno](#deno)
-  * [Create database](#create-database)
-  * [Use it](#use-it)
-  * [Block until ready](#block-until-ready)
-  * [Ephemeral Cache](#ephemeral-cache)
+  - [Install](#install)
+    - [npm](#npm)
+    - [Deno](#deno)
+  - [Create database](#create-database)
+  - [Use it](#use-it)
+  - [Block until ready](#block-until-ready)
+  - [Ephemeral Cache](#ephemeral-cache)
 - [MultiRegionly replicated ratelimiting](#multiregionly-replicated-ratelimiting)
-  * [Usage](#usage)
-  * [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
-  * [Example](#example)
+  - [Usage](#usage)
+  - [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
+  - [Example](#example)
 - [Ratelimiting algorithms](#ratelimiting-algorithms)
-  * [Fixed Window](#fixed-window)
-    + [Pros:](#pros)
-    + [Cons:](#cons)
-    + [Usage:](#usage)
-  * [Sliding Window](#sliding-window)
-    + [Pros:](#pros-1)
-    + [Cons:](#cons-1)
-    + [Usage:](#usage-1)
-  * [Token Bucket](#token-bucket)
-    + [Pros:](#pros-2)
-    + [Cons:](#cons-2)
-    + [Usage:](#usage-2)
+  - [Fixed Window](#fixed-window)
+    - [Pros:](#pros)
+    - [Cons:](#cons)
+    - [Usage:](#usage)
+  - [Sliding Window](#sliding-window)
+    - [Pros:](#pros-1)
+    - [Cons:](#cons-1)
+    - [Usage:](#usage-1)
+  - [Token Bucket](#token-bucket)
+    - [Pros:](#pros-2)
+    - [Cons:](#cons-2)
+    - [Usage:](#usage-2)
 - [Contributing](#contributing)
-  * [Install Deno](#install-deno)
-  * [Database](#database)
-  * [Running tests](#running-tests)
+  - [Install Deno](#install-deno)
+  - [Database](#database)
+  - [Running tests](#running-tests)
 
 <!-- tocstop -->
+
+## Docs
+
+[doc.deno.land](https://doc.deno.land/https://deno.land/x/upstash_ratelimit/src/mod.ts)
 
 ## Quick Start
 
@@ -204,11 +208,11 @@ instance outside of your handler function. While the function is still hot, the
 ratelimiter can block requests without having to request data from redis, thus
 saving time and money.
 
-## MultiRegionly replicated ratelimiting
+## MultiRegionaly replicated ratelimiting
 
-Using a single redis instance has the downside of providing low latencies to the
-part of your userbase closest to the deployed db. That's why we also built
-`MultiRegionRatelimit` which replicates the state across multiple redis
+Using a single redis instance has the downside of providing low latencies only
+to the part of your userbase closest to the deployed db. That's why we also
+built `MultiRegionRatelimit` which replicates the state across multiple redis
 databases as well as offering lower latencies to more of your users.
 
 `MultiRegionRatelimit` does this by checking the current limit in the closest db
