@@ -6,6 +6,7 @@ export interface Env {
 }
 
 const cache = new Map();
+
 export default {
   async fetch(
     request: Request,
