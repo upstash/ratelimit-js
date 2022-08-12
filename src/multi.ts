@@ -2,6 +2,7 @@ import type { Duration } from "./duration.ts";
 import { ms } from "./duration.ts";
 import type { Algorithm, MultiRegionContext } from "./types.ts";
 import { Ratelimit } from "./ratelimit.ts";
+import { Cache } from "./cache.ts";
 import type { Redis } from "./types.ts";
 
 export type MultiRegionRatelimitConfig = {
@@ -24,6 +25,24 @@ export type MultiRegionRatelimitConfig = {
    * @default `@upstash/ratelimit`
    */
   prefix?: string;
+
+  /**
+   * If enabled, the ratelimiter will keep a global cache of identifiers, that have
+   * exhausted their ratelimit. In serverless environments this is only possible if
+   * you create the ratelimiter instance outside of your handler function. While the
+   * function is still hot, the ratelimiter can block requests without having to
+   * request data from redis, thus saving time and money.
+   *
+   * Whenever an identifier has exceeded its limit, the ratelimiter will add it to an
+   * internal list together with its reset timestamp. If the same identifier makes a
+   * new request before it is reset, we can immediately reject it.
+   *
+   * Set to `false` to disable.
+   *
+   * If left undefined, a map is created automatically, but it can only work
+   * if the map or th ratelimit instance is created outside your serverless function handler.
+   */
+  ephermeralCache?: Map<string, number> | false;
 };
 
 /**
@@ -49,7 +68,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     super({
       prefix: config.prefix,
       limiter: config.limiter,
-      ctx: { redis: config.redis },
+      ctx: {
+        redis: config.redis,
+        cache: config.ephermeralCache
+          ? new Cache(config.ephermeralCache)
+          : undefined,
+      },
     });
   }
 
@@ -99,6 +123,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 `;
 
     return async function (ctx: MultiRegionContext, identifier: string) {
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const requestID = crypto.randomUUID();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
@@ -154,11 +191,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        * Do not await sync. This should not run in the critical path.
        */
 
+      const success = remaining > 0;
+      const reset = (bucket + 1) * windowDuration;
+
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
       return {
-        success: remaining > 0,
+        success,
         limit: tokens,
         remaining,
-        reset: (bucket + 1) * windowDuration,
+        reset,
         pending: sync(),
       };
     };
@@ -222,6 +265,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     const windowDuration = ms(window);
 
     return async function (ctx: MultiRegionContext, identifier: string) {
+      if (ctx.cache) {
+        const { blocked, reset } = ctx.cache.isBlocked(identifier);
+        if (blocked) {
+          return {
+            success: false,
+            limit: tokens,
+            remaining: 0,
+            reset: reset,
+            pending: Promise.resolve(),
+          };
+        }
+      }
+
       const requestID = crypto.randomUUID();
       const now = Date.now();
 
@@ -278,14 +334,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
       }
 
-      /**
-       * Do not await sync. This should not run in the critical path.
-       */
+      const success = remaining > 0;
+      const reset = (currentWindow + 1) * windowDuration;
+      if (ctx.cache && !success) {
+        ctx.cache.blockUntil(identifier, reset);
+      }
       return {
-        success: remaining > 0,
+        success,
         limit: tokens,
         remaining,
-        reset: (currentWindow + 1) * windowDuration,
+        reset,
         pending: sync(),
       };
     };

@@ -3,8 +3,16 @@ export interface Redis {
   sadd: (key: string, ...members: string[]) => Promise<number>;
 }
 
-export type RegionContext = { redis: Redis };
-export type MultiRegionContext = { redis: Redis[] };
+/**
+ * EphermeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
+ */
+export interface EphermeralCache {
+  isBlocked: (identifier: string) => { blocked: boolean; reset: number };
+  blockUntil: (identifier: string, reset: number) => void;
+}
+
+export type RegionContext = { redis: Redis; cache?: EphermeralCache };
+export type MultiRegionContext = { redis: Redis[]; cache?: EphermeralCache };
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
@@ -53,4 +61,7 @@ export type RatelimitResponse = {
 export type Algorithm<TContext> = (
   ctx: TContext,
   identifier: string,
+  opts?: {
+    cache?: EphermeralCache;
+  },
 ) => Promise<RatelimitResponse>;

@@ -1,10 +1,10 @@
 # Upstash RateLimit
 
-
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 ![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
 
-It is the only connectionless (HTTP based) rate limiting library and designed for:
+It is the only connectionless (HTTP based) rate limiting library and designed
+for:
 
 - Serverless functions (AWS Lambda ...)
 - Cloudflare Workers
@@ -16,6 +16,7 @@ It is the only connectionless (HTTP based) rate limiting library and designed fo
 
 <!-- toc -->
 
+- [Docs](#docs)
 - [Quick Start](#quick-start)
   - [Install](#install)
     - [npm](#npm)
@@ -23,6 +24,7 @@ It is the only connectionless (HTTP based) rate limiting library and designed fo
   - [Create database](#create-database)
   - [Use it](#use-it)
   - [Block until ready](#block-until-ready)
+  - [Ephemeral Cache](#ephemeral-cache)
 - [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting)
   - [Usage](#usage)
   - [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
@@ -46,6 +48,10 @@ It is the only connectionless (HTTP based) rate limiting library and designed fo
   - [Running tests](#running-tests)
 
 <!-- tocstop -->
+
+## Docs
+
+[doc.deno.land](https://doc.deno.land/https://deno.land/x/upstash_ratelimit/src/mod.ts)
 
 ## Quick Start
 
@@ -175,11 +181,37 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
+### Ephemeral Cache
+
+For extreme load or denial of service attacks, it might be too expensive to call
+redis for every incoming request, just to find out it should be blocked because
+they have exceeded the limit.
+
+You can use an ephemeral in memory cache by passing the `ephemeralCache` option:
+
+```ts
+const cache = new Map(); // must be outside of your serverless function handler
+
+// ...
+
+const ratelimit = new Ratelimit({
+  // ...
+  ephemeralCache: cache,
+});
+```
+
+If enabled, the ratelimiter will keep a global cache of identifiers and their
+reset timestamps, that have exhausted their ratelimit. In serverless
+environments this is only possible if you create the cache or ratelimiter
+instance outside of your handler function. While the function is still hot, the
+ratelimiter can block requests without having to request data from redis, thus
+saving time and money.
+
 ## MultiRegion replicated ratelimiting
 
-Using a single redis instance has the downside of providing low latencies to the
-part of your userbase closest to the deployed db. That's why we also built
-`MultiRegionRatelimit` which replicates the state across multiple redis
+Using a single redis instance has the downside of providing low latencies only
+to the part of your userbase closest to the deployed db. That's why we also
+built `MultiRegionRatelimit` which replicates the state across multiple redis
 databases as well as offering lower latencies to more of your users.
 
 `MultiRegionRatelimit` does this by checking the current limit in the closest db
