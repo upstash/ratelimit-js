@@ -16,6 +16,7 @@ for:
 
 <!-- toc -->
 
+- [Docs](#docs)
 - [Quick Start](#quick-start)
   - [Install](#install)
     - [npm](#npm)
@@ -26,7 +27,7 @@ for:
   - [Ephemeral Cache](#ephemeral-cache)
 - [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting)
   * [Ephemeral Cache](#ephemeral-cache)
-- [MultiRegionly replicated ratelimiting](#multiregionly-replicated-ratelimiting)
+- [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting-1)
   * [Usage](#usage)
   * [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
   * [Example](#example)
