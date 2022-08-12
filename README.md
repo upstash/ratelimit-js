@@ -1,12 +1,10 @@
-# Upstash Ratelimit
+# Upstash RateLimit
 
-An HTTP/REST based Redis client built on top of Upstash REST API.
-[Upstash REST API](https://docs.upstash.com/features/restapi).
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 ![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
 
-It is the only connectionless (HTTP based) ratelimiter and designed for:
+It is the only connectionless (HTTP based) rate limiting library and designed for:
 
 - Serverless functions (AWS Lambda ...)
 - Cloudflare Workers
@@ -26,7 +24,7 @@ It is the only connectionless (HTTP based) ratelimiter and designed for:
   - [Use it](#use-it)
   - [Block until ready](#block-until-ready)
   - [Ephemeral Cache](#ephemeral-cache)
-- [MultiRegionly replicated ratelimiting](#multiregionly-replicated-ratelimiting)
+- [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting)
   - [Usage](#usage)
   - [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
   - [Example](#example)
@@ -208,7 +206,7 @@ instance outside of your handler function. While the function is still hot, the
 ratelimiter can block requests without having to request data from redis, thus
 saving time and money.
 
-## MultiRegionaly replicated ratelimiting
+## MultiRegion replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies only
 to the part of your userbase closest to the deployed db. That's why we also
@@ -279,7 +277,7 @@ context.waitUntil(pending);
 ### Example
 
 Let's assume you have customers in the US and Europe. In this case you can
-create 2 regional redis databases on [Upastash](https://console.upstash.com) and
+create 2 regional redis databases on [Upstash](https://console.upstash.com) and
 your users will enjoy the latency of whichever db is closest to them.
 
 ## Ratelimiting algorithms
