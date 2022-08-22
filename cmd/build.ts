@@ -32,15 +32,15 @@ await build({
     description: "A serverless ratelimiter built on top of Upstash REST API.",
     repository: {
       type: "git",
-      url: "git+https://github.com/upstash/ratelimiter.git",
+      url: "git+https://github.com/upstash/ratelimit.git",
     },
     keywords: ["rate", "limit", "redis", "serverless", "edge", "upstash"],
     author: "Andreas Thomas <andreas.thomas@chronark.com>",
     license: "MIT",
     bugs: {
-      url: "https://github.com/upstash/ratelimiter/issues",
+      url: "https://github.com/upstash/ratelimit/issues",
     },
-    homepage: "https://github.com/upstash/ratelimiter#readme",
+    homepage: "https://github.com/upstash/ratelimit#readme",
 
     devDependencies: {
       "size-limit": "latest",
