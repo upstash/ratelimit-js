@@ -1,4 +1,5 @@
 import type { NextPage } from "next";
+import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 const Home: NextPage = () => {
@@ -6,10 +7,11 @@ const Home: NextPage = () => {
     null,
   );
 
+  const router = useRouter();
   useEffect(() => {}, []);
 
   const generate = async () => {
-    const res = await fetch("/api");
+    const res = await fetch("/api/hello");
 
     if (res.ok) {
       setResponse({
@@ -24,6 +26,7 @@ const Home: NextPage = () => {
     } else {
       console.log(JSON.stringify(res.headers, null, 2));
       setResponse(null);
+
       alert(
         `Ratelimit reached, try again after ${
           new Date(

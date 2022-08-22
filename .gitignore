@@ -3,10 +3,11 @@ dist
 .env
 redis-server
 
-./**/yarn.lock
-./**/package-lock.json
-./**/pnpm-lock.yaml
+**/yarn.lock
+**/package-lock.json
+**/pnpm-lock.yaml
 
 *.log
 .vercel
 .next
+
