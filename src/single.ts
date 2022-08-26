@@ -44,7 +44,7 @@ export type RegionRatelimitConfig = {
    * If left undefined, a map is created automatically, but it can only work
    * if the map or the ratelimit instance is created outside your serverless function handler.
    */
-  ephermeralCache?: Map<string, number> | false;
+  ephemeralCache?: Map<string, number> | false;
 };
 
 /**
@@ -74,7 +74,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       ctx: {
         redis: config.redis,
       },
-      ephermeralCache: config.ephermeralCache,
+      ephemeralCache: config.ephemeralCache,
     });
   }
 

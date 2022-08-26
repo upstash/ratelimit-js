@@ -39,7 +39,7 @@ export type RatelimitConfig<TContext> = {
    * If left undefined, a map is created automatically, but it can only work
    * if the map or the  ratelimit instance is created outside your serverless function handler.
    */
-  ephermeralCache?: Map<string, number> | false;
+  ephemeralCache?: Map<string, number> | false;
 };
 
 /**
@@ -69,9 +69,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.limiter = config.limiter;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
 
-    if (config.ephermeralCache instanceof Map) {
-      this.ctx.cache = new Cache(config.ephermeralCache);
-    } else if (typeof config.ephermeralCache === "undefined") {
+    if (config.ephemeralCache instanceof Map) {
+      this.ctx.cache = new Cache(config.ephemeralCache);
+    } else if (typeof config.ephemeralCache === "undefined") {
       this.ctx.cache = new Cache(new Map());
     }
   }

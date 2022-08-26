@@ -29,14 +29,14 @@ class RedisMock implements Redis {
 }
 
 Deno.test({
-  name: "ephermeral cache",
+  name: "ephemeral cache",
   fn: async (_t) => {
     const maxTokens = 10;
     const redis = new RedisMock();
     const ratelimit = new Ratelimit({
       redis,
       limiter: Ratelimit.tokenBucket(maxTokens, "5 s", maxTokens),
-      ephermeralCache: new Map(),
+      ephemeralCache: new Map(),
     });
 
     let passes = 0;
