@@ -42,7 +42,7 @@ export type MultiRegionRatelimitConfig = {
    * If left undefined, a map is created automatically, but it can only work
    * if the map or th ratelimit instance is created outside your serverless function handler.
    */
-  ephermeralCache?: Map<string, number> | false;
+  ephemeralCache?: Map<string, number> | false;
 };
 
 /**
@@ -70,8 +70,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       limiter: config.limiter,
       ctx: {
         redis: config.redis,
-        cache: config.ephermeralCache
-          ? new Cache(config.ephermeralCache)
+        cache: config.ephemeralCache
+          ? new Cache(config.ephemeralCache)
           : undefined,
       },
     });

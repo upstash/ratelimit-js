@@ -20,7 +20,7 @@ export default {
     const ratelimit = new Ratelimit({
       redis: Redis.fromEnv(env),
       limiter: Ratelimit.fixedWindow(5, "5 s"),
-      ephermeralCache: cache,
+      ephemeralCache: cache,
     });
 
     const res = await ratelimit.limit("identifier");
