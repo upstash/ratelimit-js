@@ -1,6 +1,6 @@
-import { ephemeralCache } from "./types.ts";
+import { EphemeralCache } from "./types.ts";
 
-export class Cache implements ephemeralCache {
+export class Cache implements EphemeralCache {
   /**
    * Stores identifier -> reset (in milliseconds)
    */
