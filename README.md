@@ -243,7 +243,7 @@ const ratelimit = new MultiRegionRatelimit({
       /* auth */
     }),
   ],
-  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  limiter: MultiRegionRatelimit.slidingWindow(10, "10 s"),
 });
 
 // Use a constant string to limit all requests with a single ratelimit
