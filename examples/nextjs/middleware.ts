@@ -19,7 +19,7 @@ export default async function middleware(
   event.waitUntil(pending);
 
   const res = success
-    ? NextResponse.next(request)
+    ? NextResponse.next()
     : NextResponse.rewrite(new URL("/api/blocked", request.url), request);
 
   res.headers.set("X-RateLimit-Limit", limit.toString());
