@@ -6,9 +6,10 @@
 It is the only connectionless (HTTP based) rate limiting library and designed
 for:
 
-- Serverless functions (AWS Lambda ...)
+- Serverless functions (AWS Lambda, Vercel ...)
 - Cloudflare Workers
-- Fastly Compute@Edge (see
+- Vercel Edge
+- Fastly Compute@Edge 
 - Next.js, Jamstack ...
 - Client side web/mobile applications
 - WebAssembly
