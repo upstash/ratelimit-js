@@ -26,7 +26,7 @@ for:
   - [Use it](#use-it)
   - [Block until ready](#block-until-ready)
   - [Ephemeral Cache](#ephemeral-cache)
-- [MultiRegion ratelimiting](#multiregion-replicated-ratelimiting)
+  - [MultiRegion replicated ratelimiting](#multiregion-replicated-ratelimiting)
   - [Usage](#usage)
   - [Asynchronous synchronization between databases](#asynchronous-synchronization-between-databases)
   - [Example](#example)
