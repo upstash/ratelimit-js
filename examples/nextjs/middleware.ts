@@ -20,7 +20,7 @@ export default async function middleware(
 
   const res = success
     ? NextResponse.next()
-    : NextResponse.rewrite(new URL("/api/blocked", request.url), request);
+    : NextResponse.redirect(new URL("/api/blocked", request.url), request);
 
   res.headers.set("X-RateLimit-Limit", limit.toString());
   res.headers.set("X-RateLimit-Remaining", remaining.toString());
