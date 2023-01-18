@@ -368,4 +368,104 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       };
     };
   }
+
+  /**
+   * cachedFixedWindow first uses the local cache to decide if a request may pass and then updates
+   * it asynchronously.
+   * This is experimental and not yet recommended for production use.
+   *
+   * @experimental
+   *
+   * Each requests inside a fixed time increases a counter.
+   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * rejected.
+   *
+   * **Pro:**
+   *
+   * - Newer requests are not starved by old ones.
+   * - Low storage cost.
+   *
+   * **Con:**
+   *
+   * A burst of requests near the boundary of a window can result in a very
+   * high request rate because two windows will be filled with requests quickly.
+   *
+   * @param tokens - How many requests a user can make in each time window.
+   * @param window - A fixed timeframe
+   */
+  static cachedFixedWindow(
+    /**
+     * How many requests are allowed per window.
+     */
+    tokens: number,
+    /**
+     * The duration in which `tokens` requests are allowed.
+     */
+    window: Duration,
+  ): Algorithm<RegionContext> {
+    const windowDuration = ms(window);
+
+    const script = `
+      local key     = KEYS[1]
+      local window  = ARGV[1]
+      
+      local r = redis.call("INCR", key)
+      if r == 1 then 
+      -- The first time this key is set, the value will be 1.
+      -- So we only need the expire command once
+      redis.call("PEXPIRE", key, window)
+      end
+      
+      return r
+      `;
+
+    return async function (ctx: RegionContext, identifier: string) {
+      if (!ctx.cache) {
+        throw new Error("This algorithm requires a cache");
+      }
+      const bucket = Math.floor(Date.now() / windowDuration);
+      const key = [identifier, bucket].join(":");
+      const reset = (bucket + 1) * windowDuration;
+
+      const hit = typeof ctx.cache.get(key) === "number";
+      if (hit) {
+        const cachedTokensAfterUpdate = ctx.cache.incr(key);
+        const success = cachedTokensAfterUpdate < tokens;
+
+        const pending = success
+          ? ctx.redis.eval(
+            script,
+            [key],
+            [windowDuration],
+          ).then((t) => {
+            ctx.cache!.set(key, t as number);
+          })
+          : Promise.resolve();
+
+        return {
+          success,
+          limit: tokens,
+          remaining: tokens - cachedTokensAfterUpdate,
+          reset: reset,
+          pending,
+        };
+      }
+
+      const usedTokensAfterUpdate = (await ctx.redis.eval(
+        script,
+        [key],
+        [windowDuration],
+      )) as number;
+      ctx.cache.set(key, usedTokensAfterUpdate);
+      const remaining = tokens - usedTokensAfterUpdate;
+
+      return {
+        success: remaining >= 0,
+        limit: tokens,
+        remaining,
+        reset: reset,
+        pending: Promise.resolve(),
+      };
+    };
+  }
 }
