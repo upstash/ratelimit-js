@@ -8,11 +8,11 @@
   },
   "private": true,
   "scripts": {
-    "start": "wrangler dev",
+    "dev": "wrangler dev",
     "deploy": "wrangler publish"
   },
   "dependencies": {
-    "@upstash/ratelimit": "latest",
+    "@upstash/ratelimit": "../../dist",
     "@upstash/redis": "latest"
   }
 }

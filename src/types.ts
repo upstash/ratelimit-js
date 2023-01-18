@@ -9,6 +9,11 @@ export interface Redis {
 export interface EphemeralCache {
   isBlocked: (identifier: string) => { blocked: boolean; reset: number };
   blockUntil: (identifier: string, reset: number) => void;
+
+  set: (key: string, value: number) => void;
+  get: (key: string) => number | null;
+
+  incr: (key: string) => number;
 }
 
 export type RegionContext = { redis: Redis; cache?: EphemeralCache };

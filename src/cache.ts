@@ -26,4 +26,18 @@ export class Cache implements EphemeralCache {
   public blockUntil(identifier: string, reset: number): void {
     this.cache.set(identifier, reset);
   }
+
+  public set(key: string, value: number): void {
+    this.cache.set(key, value);
+  }
+  public get(key: string): number | null {
+    return this.cache.get(key) || null;
+  }
+
+  public incr(key: string): number {
+    let value = this.cache.get(key) ?? 0;
+    value += 1;
+    this.cache.set(key, value);
+    return value;
+  }
 }

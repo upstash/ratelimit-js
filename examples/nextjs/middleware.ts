@@ -4,7 +4,8 @@ import { Redis } from "@upstash/redis";
 
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.fixedWindow(10, "10 s"),
+  limiter: Ratelimit.cachedFixedWindow(10, "10 s"),
+  ephemeralCache: new Map(),
 });
 
 export default async function middleware(
@@ -16,7 +17,7 @@ export default async function middleware(
   const { success, pending, limit, reset, remaining } = await ratelimit.limit(
     `mw_${ip}`,
   );
-  event.waitUntil(pending);
+  // event.waitUntil(pending);
 
   const res = success
     ? NextResponse.next(request)
