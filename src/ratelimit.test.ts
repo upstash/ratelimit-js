@@ -20,7 +20,7 @@ type TestCase = {
   // allowed per second
   rate: number;
   /**
-   * Multilier for rate
+   * Multiplier for rate
    *
    * rate = 10, load = 0.5 -> attack rate will be 5
    */
