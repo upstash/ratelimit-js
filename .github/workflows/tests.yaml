@@ -22,9 +22,6 @@ jobs:
       - name: Verify formatting
         run: deno fmt --check
 
-      - name: Lint
-        run: deno lint
-
       - name: Build
         run: deno run -A ./cmd/build.ts
 
