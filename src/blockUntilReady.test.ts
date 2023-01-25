@@ -1,12 +1,13 @@
 import { Ratelimit } from "./mod.ts";
 import { assertEquals } from "https://deno.land/std@0.152.0/testing/asserts.ts";
-import type { Redis } from "./types.ts";
+import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 let counter = 0;
 
 const redis = {
   eval: (_script: string, _keys: string[], _values: unknown[]) => {
     return Promise.resolve(counter++ as unknown);
   },
+  sadd: (_key: string, _value: unknown) => {},
 } as Redis;
 
 const limiter = new Ratelimit({

@@ -5,6 +5,12 @@ const outDir = "./dist";
 
 await emptyDir(outDir);
 
+const version = Deno.args.length > 0 ? Deno.args[0] : "development";
+Deno.writeFileSync(
+  "src/version.ts",
+  new TextEncoder().encode(`export const VERSION = "${version}";`),
+);
+
 await build({
   packageManager,
   entryPoints: ["src/mod.ts"],
@@ -28,7 +34,7 @@ await build({
   package: {
     // package.json properties
     name: "@upstash/ratelimit",
-    version: Deno.args[0],
+    version,
     description: "A serverless ratelimiter built on top of Upstash REST API.",
     repository: {
       type: "git",

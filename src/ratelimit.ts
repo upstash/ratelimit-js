@@ -1,5 +1,16 @@
 import { Cache } from "./cache.ts";
 import type { Algorithm, Context, RatelimitResponse } from "./types.ts";
+import { Analytics } from "./analytics.ts";
+import { config } from "https://deno.land/x/dotenv@v3.2.0/mod.ts";
+
+config({ export: true });
+
+class TimeoutError extends Error {
+  constructor() {
+    super("timeout reached");
+    this.name = "TimeoutError";
+  }
+}
 
 export type RatelimitConfig<TContext> = {
   /**
@@ -40,6 +51,21 @@ export type RatelimitConfig<TContext> = {
    * if the map or the  ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
+
+  /**
+   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
+   * https://upstash.com/ratelimit
+   *
+   * @default true
+   */
+  analytics?: boolean;
+
+  /**
+   * If defined, the request will be allowed to pass through after this timeout.
+   *
+   * Use this if you require low latency at the cost of accuracy.
+   */
+  timeout?: number;
 };
 
 /**
@@ -64,10 +90,24 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly prefix: string;
 
+  protected readonly analytics?: Analytics;
+
+  protected readonly timeout?: number;
+
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.timeout = config.timeout;
+
+    if (config.analytics !== false) {
+      this.analytics = new Analytics({
+        redis: Array.isArray(config.ctx.redis)
+          ? config.ctx.redis[0]
+          : config.ctx.redis,
+        prefix: this.prefix,
+      });
+    }
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
@@ -75,6 +115,12 @@ export abstract class Ratelimit<TContext extends Context> {
       this.ctx.cache = new Cache(new Map());
     }
   }
+
+  public getLimit = async (
+    identifier: string,
+  ): Promise<Omit<RatelimitResponse, "success">> => {
+    throw new Error("Not implemented yet");
+  };
 
   /**
    * Determine if a request should pass or be rejected based on the identifier and previously chosen ratelimit.
@@ -95,9 +141,54 @@ export abstract class Ratelimit<TContext extends Context> {
    *  return "Yes"
    * ```
    */
-  public limit = async (identifier: string): Promise<RatelimitResponse> => {
+  public limit = async (identifier: string, req?: {
+    geo?: {
+      city?: string;
+      country?: string;
+      region?: string;
+      latitude?: string;
+      longitude?: string;
+      ip?: string;
+    };
+  }): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    return await this.limiter(this.ctx, key);
+    let timeoutId: number | null = null;
+    try {
+      if (this.timeout) {
+        timeoutId = setTimeout(() => {
+          throw new TimeoutError();
+        }, this.timeout);
+      }
+
+      const res = await this.limiter(this.ctx, key);
+      if (this.analytics) {
+        res.pending = Promise.all([
+          res.pending,
+          this.analytics.record({
+            time: Date.now(),
+            success: res.success,
+            identifier,
+            ...req?.geo,
+          }),
+        ]);
+      }
+      return res;
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        return {
+          success: true,
+          limit: 0,
+          remaining: 0,
+          reset: 0,
+          pending: Promise.resolve(),
+        };
+      }
+      throw err;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   };
 
   /**

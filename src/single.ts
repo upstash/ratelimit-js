@@ -1,9 +1,12 @@
 import type { Duration } from "./duration.ts";
 import { ms } from "./duration.ts";
 import type { Algorithm, RegionContext } from "./types.ts";
-import type { Redis } from "./types.ts";
+import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import { VERSION } from "./version.ts"
 
 import { Ratelimit } from "./ratelimit.ts";
+
+
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
@@ -45,6 +48,23 @@ export type RegionRatelimitConfig = {
    * if the map or the ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
+
+
+
+  /**
+   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
+   * https://upstash.com/ratelimit
+   * 
+   * @default true 
+   */
+  analytics?: boolean
+
+  /**
+   * If defined, the request will be allowed to pass through after this timeout.
+   * 
+   * Use this if you require low latency at the cost of accuracy.
+   */
+  timeout?:number
 };
 
 /**
@@ -66,17 +86,27 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
    */
-
   constructor(config: RegionRatelimitConfig) {
+    try {
+      // @ts-ignore - might not exist on older versions of @upstash/redis
+      config.redis.addTelemetry({ sdk: `@upstash/ratelimit@${VERSION}` });
+
+    } catch {
+      // ignore
+    }
     super({
       prefix: config.prefix,
       limiter: config.limiter,
+      timeout: config.timeout
       ctx: {
         redis: config.redis,
       },
       ephemeralCache: config.ephemeralCache,
+      analytics: config.analytics
     });
   }
+
+
 
   /**
    * Each requests inside a fixed time increases a counter.
@@ -331,7 +361,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
        `;
 
     const intervalDuration = ms(interval);
-    return async function (ctx: RegionContext, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string, ) {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -430,7 +460,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       const hit = typeof ctx.cache.get(key) === "number";
       if (hit) {
         const cachedTokensAfterUpdate = ctx.cache.incr(key);
-        const success = cachedTokensAfterUpdate < tokens;
+        const success = cachedTokensAfterUpdate <= tokens;
 
         const pending = success
           ? ctx.redis.eval(

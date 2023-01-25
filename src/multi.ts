@@ -3,7 +3,7 @@ import { ms } from "./duration.ts";
 import type { Algorithm, MultiRegionContext } from "./types.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import { Cache } from "./cache.ts";
-import type { Redis } from "./types.ts";
+import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 
 export type MultiRegionRatelimitConfig = {
   /**
@@ -43,6 +43,13 @@ export type MultiRegionRatelimitConfig = {
    * if the map or th ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
+
+  /**
+   * If defined, the request will be allowed to pass through after this timeout.
+   *
+   * Use this if you require low latency at the cost of accuracy.
+   */
+  timeout?: number;
 };
 
 /**
@@ -65,9 +72,18 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
    */
   constructor(config: MultiRegionRatelimitConfig) {
+    for (const redis of config.redis) {
+      try {
+        // @ts-ignore - might not exist on older versions of @upstash/redis
+        redis.addTelemetry({ sdk: `@upstash/ratelimit@${VERSION}` });
+      } catch {
+        // ignore
+      }
+    }
     super({
       prefix: config.prefix,
       limiter: config.limiter,
+      timeout: config.timeout,
       ctx: {
         redis: config.redis,
         cache: config.ephemeralCache

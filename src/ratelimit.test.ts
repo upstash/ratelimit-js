@@ -1,4 +1,4 @@
-import { Redis } from "https://deno.land/x/upstash_redis@v1.12.0-next.1/mod.ts";
+import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 import { Algorithm } from "./mod.ts";
 import { assertEquals } from "https://deno.land/std@0.152.0/testing/asserts.ts";
 import { TestHarness } from "./test_utils.ts";
@@ -41,11 +41,12 @@ for (const rate of [10, 100]) {
 async function run<TContext extends Context>(
   t: Deno.TestContext,
   builder: (tc: TestCase) => Ratelimit<TContext>,
+  tolerance: number,
 ) {
+  const h = hdr.build();
+
   for (const tc of testcases) {
     const ratelimit = builder(tc);
-    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
-    const tolerance = isMultiRegion ? 0.5 : 0.1;
 
     await t.step(
       `${tc.rate.toString().padStart(4, " ")}/s - Load: ${
@@ -59,17 +60,40 @@ async function run<TContext extends Context>(
       }req/s`,
       async () => {
         const harness = new TestHarness(ratelimit);
-        await harness.attack(tc.rate * tc.load, attackDuration);
+        const p = await harness.attack(tc.rate * tc.load, attackDuration);
         assertBetween(harness.metrics.success, [
           ((attackDuration * tc.rate) / window) * (1 - tolerance),
           ((attackDuration * tc.rate) / window) * (1 + tolerance),
         ]);
 
-        const h = hdr.build();
         for (const { start, end } of Object.values(harness.latencies)) {
           const latency = end - start;
           h.recordValue(latency);
         }
+
+        console.log(
+          tc.rate.toString().padStart(4, " "),
+          "@",
+          (tc.load * 100).toString().padStart(3, ""),
+          "p95  ",
+          h.getValueAtPercentile(95),
+        );
+        console.log(
+          tc.rate.toString().padStart(4, " "),
+          "@",
+          (tc.load * 100).toString().padStart(3, ""),
+          "p99  ",
+          h.getValueAtPercentile(99),
+        );
+        console.log(
+          tc.rate.toString().padStart(4, " "),
+          "@",
+          (tc.load * 100).toString().padStart(3, ""),
+          "p99.9",
+          h.getValueAtPercentile(99.9),
+        );
+
+        await p;
       },
     );
   }
@@ -113,8 +137,22 @@ function newRegion(
     prefix: crypto.randomUUID(),
     redis: Redis.fromEnv(),
     limiter,
+    ephemeralCache: new Map(),
   });
 }
+
+Deno.test("cachedFixedWindow", async (t) => {
+  await t.step({
+    name: "region",
+    fn: async (t) =>
+      await run(
+        t,
+        (tc) =>
+          newRegion(RegionRatelimit.cachedFixedWindow(tc.rate, windowString)),
+        0.2,
+      ),
+  });
+});
 
 Deno.test("fixedWindow", async (t) => {
   await t.step({
@@ -123,11 +161,12 @@ Deno.test("fixedWindow", async (t) => {
       await run(
         t,
         (tc) => newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString)),
+        0.2,
       ),
   });
   await t.step({
     name: "multiRegion",
-
+    ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
     fn: async (t) =>
       await run(
         t,
@@ -135,6 +174,7 @@ Deno.test("fixedWindow", async (t) => {
           newMultiRegion(
             MultiRegionRatelimit.fixedWindow(tc.rate, windowString),
           ),
+        0.5,
       ),
   });
 });
@@ -146,21 +186,23 @@ Deno.test("slidingWindow", async (t) => {
       await run(
         t,
         (tc) => newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString)),
+        0.15,
       ),
   });
   await t.step({
     name: "multiRegion",
-
+    ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
     fn: async (t) =>
       await run(t, (tc) =>
         newMultiRegion(
           MultiRegionRatelimit.slidingWindow(tc.rate, windowString),
-        )),
+        ), 0.15),
   });
 });
 Deno.test("tokenBucket", async (t) => {
   await t.step({
     name: "region",
+    ignore: Deno.env.get("UPSTASH_TEST_SCOPE") === "region",
     fn: async (t) =>
       await run(
         t,
@@ -168,6 +210,7 @@ Deno.test("tokenBucket", async (t) => {
           newRegion(
             RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate),
           ),
+        0.1,
       ),
   });
   // await t.step({

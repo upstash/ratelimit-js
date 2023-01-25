@@ -1,7 +1,4 @@
-export interface Redis {
-  eval: (script: string, keys: string[], values: unknown[]) => Promise<unknown>;
-  sadd: (key: string, ...members: string[]) => Promise<number>;
-}
+import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
@@ -16,8 +13,16 @@ export interface EphemeralCache {
   incr: (key: string) => number;
 }
 
-export type RegionContext = { redis: Redis; cache?: EphemeralCache };
-export type MultiRegionContext = { redis: Redis[]; cache?: EphemeralCache };
+export type RegionContext = {
+  redis: Redis;
+  cache?: EphemeralCache;
+  timeout?: number;
+};
+export type MultiRegionContext = {
+  redis: Redis[];
+  cache?: EphemeralCache;
+  timeout?: number;
+};
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
