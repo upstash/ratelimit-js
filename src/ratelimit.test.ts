@@ -1,6 +1,10 @@
 import { Redis } from "https://deno.land/x/upstash_redis@v1.12.0-next.1/mod.ts";
 import { Algorithm } from "./mod.ts";
-import { assertEquals } from "https://deno.land/std@0.152.0/testing/asserts.ts";
+import {
+  assert,
+  assertAlmostEquals,
+  assertEquals,
+} from "https://deno.land/std@0.152.0/testing/asserts.ts";
 import { TestHarness } from "./test_utils.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import * as hdr from "https://esm.sh/hdr-histogram-js";
@@ -115,6 +119,32 @@ function newRegion(
     limiter,
   });
 }
+
+Deno.test("timeout", async (t) => {
+  await t.step({
+    name: "pass after timeout",
+    fn: async () => {
+      const r = new RegionRatelimit({
+        prefix: crypto.randomUUID(),
+        // @ts-ignore - I just want to test the timeout
+        redis: { eval: () => new Promise((r) => setTimeout(r, 2000)) } as Redis,
+        limiter: RegionRatelimit.fixedWindow(1, "1 s"),
+        timeout: 1000,
+      });
+      const start = Date.now();
+      const res = await r.limit("id");
+      const duration = Date.now() - start;
+      assertEquals(res.success, true);
+      assertEquals(res.limit, 0);
+      assertEquals(res.remaining, 0);
+      assertEquals(res.reset, 0);
+      assertAlmostEquals(duration, 1000, 100);
+
+      // stop the test from leaking
+      await new Promise((r) => setTimeout(r, 5000));
+    },
+  });
+});
 
 Deno.test("fixedWindow", async (t) => {
   await t.step({

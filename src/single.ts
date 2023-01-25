@@ -45,6 +45,13 @@ export type RegionRatelimitConfig = {
    * if the map or the ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
+
+  /**
+   * If set, the ratelimiter will allow requests to pass after this many milliseconds.
+   *
+   * Use this if you want to allow requests in case of network problems
+   */
+  timeout?: number;
 };
 
 /**
@@ -71,6 +78,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     super({
       prefix: config.prefix,
       limiter: config.limiter,
+      timeout: config.timeout,
       ctx: {
         redis: config.redis,
       },

@@ -1,6 +1,12 @@
 import { Cache } from "./cache.ts";
 import type { Algorithm, Context, RatelimitResponse } from "./types.ts";
 
+export class TimeoutError extends Error {
+  constructor() {
+    super("Timeout");
+    this.name = "TimeoutError";
+  }
+}
 export type RatelimitConfig<TContext> = {
   /**
    * The ratelimiter function to use.
@@ -40,6 +46,13 @@ export type RatelimitConfig<TContext> = {
    * if the map or the  ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
+
+  /**
+   * If set, the ratelimiter will allow requests to pass after this many milliseconds.
+   *
+   * Use this if you want to allow requests in case of network problems
+   */
+  timeout?: number;
 };
 
 /**
@@ -52,7 +65,7 @@ export type RatelimitConfig<TContext> = {
  *    limiter: Ratelimit.slidingWindow(
  *      10,     // Allow 10 requests per window of 30 minutes
  *      "30 m", // interval of 30 minutes
- *    )
+ *    ),
  * })
  *
  * ```
@@ -64,9 +77,11 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly prefix: string;
 
+  protected readonly timeout?: number;
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
+    this.timeout = config.timeout;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
 
     if (config.ephemeralCache instanceof Map) {
@@ -97,7 +112,31 @@ export abstract class Ratelimit<TContext extends Context> {
    */
   public limit = async (identifier: string): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    return await this.limiter(this.ctx, key);
+    let timeoutId: number | null = null;
+    try {
+      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key)];
+      if (this.timeout) {
+        arr.push(
+          new Promise((resolve) => {
+            timeoutId = setTimeout(() => {
+              resolve({
+                success: true,
+                limit: 0,
+                remaining: 0,
+                reset: 0,
+                pending: Promise.resolve(),
+              });
+            }, this.timeout);
+          }),
+        );
+      }
+
+      return await Promise.race(arr);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   };
 
   /**

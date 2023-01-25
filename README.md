@@ -9,7 +9,7 @@ for:
 - Serverless functions (AWS Lambda, Vercel ...)
 - Cloudflare Workers
 - Vercel Edge
-- Fastly Compute@Edge 
+- Fastly Compute@Edge
 - Next.js, Jamstack ...
 - Client side web/mobile applications
 - WebAssembly
