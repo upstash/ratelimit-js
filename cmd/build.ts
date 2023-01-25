@@ -11,7 +11,7 @@ await build({
   outDir,
   shims: {
     deno: "dev",
-    crypto: "dev",
+    crypto: true,
     custom: [
       /**
        * Workaround for testing the build in nodejs
