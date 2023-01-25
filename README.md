@@ -150,6 +150,20 @@ export type RatelimitResponse = {
 };
 ````
 
+### Timeout
+
+You can define an optional timeout in milliseconds, after which the request will
+be allowed to pass regardless of what the current limit is. This can be useful
+if you don't want network issues to cause your application to reject requests.
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  timeout: 1000, // 1 second
+});
+```
+
 ### Block until ready
 
 In case you don't want to reject a request immediately but wait until it can be
