@@ -1,7 +1,7 @@
 import type { Duration } from "./duration.ts";
 import { ms } from "./duration.ts";
 import type { Algorithm, RegionContext } from "./types.ts";
-import type { Redis } from "./types.ts";
+import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 
 import { Ratelimit } from "./ratelimit.ts";
 export type RegionRatelimitConfig = {
@@ -52,6 +52,14 @@ export type RegionRatelimitConfig = {
    * Use this if you want to allow requests in case of network problems
    */
   timeout?: number;
+
+  /**
+   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
+   * https://upstash.com/ratelimit
+   *
+   * @default true
+   */
+  analytics?: boolean;
 };
 
 /**
@@ -79,6 +87,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
+      analytics: config.analytics,
       ctx: {
         redis: config.redis,
       },

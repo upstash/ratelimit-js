@@ -1,10 +1,9 @@
-import { Redis } from "https://deno.land/x/upstash_redis@v1.12.0-next.1/mod.ts";
+import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 import { Algorithm } from "./mod.ts";
 import {
-  assert,
   assertAlmostEquals,
   assertEquals,
-} from "https://deno.land/std@0.152.0/testing/asserts.ts";
+} from "https://deno.land/std@0.174.0/testing/asserts.ts";
 import { TestHarness } from "./test_utils.ts";
 import { Ratelimit } from "./ratelimit.ts";
 import * as hdr from "https://esm.sh/hdr-histogram-js";
@@ -127,7 +126,10 @@ Deno.test("timeout", async (t) => {
       const r = new RegionRatelimit({
         prefix: crypto.randomUUID(),
         // @ts-ignore - I just want to test the timeout
-        redis: { eval: () => new Promise((r) => setTimeout(r, 2000)) } as Redis,
+        redis: {
+          ...Redis.fromEnv(),
+          eval: () => new Promise((r) => setTimeout(r, 2000)),
+        },
         limiter: RegionRatelimit.fixedWindow(1, "1 s"),
         timeout: 1000,
       });

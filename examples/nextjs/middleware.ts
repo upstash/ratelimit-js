@@ -17,7 +17,7 @@ export default async function middleware(
   const { success, pending, limit, reset, remaining } = await ratelimit.limit(
     `mw_${ip}`,
   );
-  // event.waitUntil(pending);
+  event.waitUntil(pending);
 
   const res = success
     ? NextResponse.next()
