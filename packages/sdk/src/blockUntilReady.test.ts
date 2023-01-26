@@ -1,6 +1,7 @@
-import { Ratelimit } from "./mod.ts";
-import { assertEquals } from "https://deno.land/std@0.174.0/testing/asserts.ts";
-import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import { Ratelimit } from "./index";
+import { test, expect, describe } from "@jest/globals";
+import { Redis } from "@upstash/redis";
+import crypto from "node:crypto";
 
 const redis = Redis.fromEnv();
 
@@ -21,8 +22,8 @@ const limiter = new Ratelimit({
   limiter: Ratelimit.fixedWindow(5, "5 s"),
 });
 
-Deno.test("blockUntilReady", async (t) => {
-  await t.step("reaching the timeout", async () => {
+describe("blockUntilReady", () => {
+  test("reaching the timeout", async () => {
     const id = crypto.randomUUID();
 
     // Use up all tokens in the current window
@@ -32,12 +33,12 @@ Deno.test("blockUntilReady", async (t) => {
 
     const start = Date.now();
     const res = await limiter.blockUntilReady(id, 1000);
-    assertEquals(res.success, false, "Should not be allowed");
-    assertEquals(start + 1000 <= Date.now(), true, "Should be after 1000 ms");
-    await new Promise((r) => setTimeout(r, 5000));
-  });
+    expect(res.success).toBe(false);
+    expect(start + 1000).toBeLessThanOrEqual(Date.now());
+    await res.pending;
+  }, 20000);
 
-  await t.step("resolving before the timeout", async () => {
+  test("resolving before the timeout", async () => {
     const id = crypto.randomUUID();
 
     // Use up all tokens in the current window
@@ -47,8 +48,9 @@ Deno.test("blockUntilReady", async (t) => {
 
     const start = Date.now();
     const res = await limiter.blockUntilReady(id, 1000);
-    assertEquals(res.success, true, "Should be allowed");
-    assertEquals(start + 1000 >= Date.now(), true, "Should be within 1000 ms");
-    await new Promise((r) => setTimeout(r, 5000));
-  });
+    expect(res.success).toBe(true);
+    expect(start + 1000).toBeGreaterThanOrEqual(Date.now());
+
+    await res.pending;
+  }, 20000);
 });

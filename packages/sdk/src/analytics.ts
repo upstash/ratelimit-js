@@ -1,4 +1,4 @@
-import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import { Redis } from "@upstash/redis";
 
 export type Geo = {
   country?: string;
@@ -36,7 +36,7 @@ export class Analytics {
 
   public async record(event: Event): Promise<void> {
     // Bucket is a unix timestamp in milliseconds marking the beginning of a day
-    const bucket = (new Date().setUTCHours(0, 0, 0, 0)).toFixed(0);
+    const bucket = new Date().setUTCHours(0, 0, 0, 0).toFixed(0);
     const key = [this.prefix, "events", bucket].join(":");
     await this.redis.hincrby(
       key,
@@ -62,10 +62,10 @@ export class Analytics {
     const keys: string[] = [];
     let cursor = 0;
     do {
-      const [nextCursor, found] = await this.redis.scan(
-        cursor,
-        { match: [this.prefix, "events", "*"].join(":"), count: 1000 },
-      );
+      const [nextCursor, found] = await this.redis.scan(cursor, {
+        match: [this.prefix, "events", "*"].join(":"),
+        count: 1000,
+      });
 
       cursor = nextCursor;
       for (const key of found) {

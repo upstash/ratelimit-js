@@ -7,8 +7,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@upstash/ratelimit": "../../dist",
-    "@upstash/redis": "latest",
+    "@upstash/ratelimit": "workspace:*",
+    "@upstash/redis": "^1.19.3",
     "next": "^12.2.5",
     "react": "^18.1.0",
     "react-dom": "^18.1.0"

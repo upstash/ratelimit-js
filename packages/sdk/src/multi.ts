@@ -1,9 +1,19 @@
-import type { Duration } from "./duration.ts";
-import { ms } from "./duration.ts";
-import type { Algorithm, MultiRegionContext } from "./types.ts";
-import { Ratelimit } from "./ratelimit.ts";
-import { Cache } from "./cache.ts";
-import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import type { Duration } from "./duration";
+import { ms } from "./duration";
+import type { Algorithm, MultiRegionContext } from "./types";
+import { Ratelimit } from "./ratelimit";
+import { Cache } from "./cache";
+import type { Redis } from "@upstash/redis";
+
+function randomId(): string {
+  let result = "";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const charactersLength = characters.length;
+  for (let i = 0; i < 16; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
 
 export type MultiRegionRatelimitConfig = {
   /**
@@ -87,9 +97,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       analytics: config.analytics,
       ctx: {
         redis: config.redis,
-        cache: config.ephemeralCache
-          ? new Cache(config.ephemeralCache)
-          : undefined,
+        cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
       },
     });
   }
@@ -153,20 +161,14 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
       }
 
-      const requestID = crypto.randomUUID();
+      const requestID = randomId();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
-      const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map(
-        (redis) => ({
-          redis,
-          request: redis.eval(
-            script,
-            [key],
-            [requestID, windowDuration],
-          ) as Promise<string[]>,
-        }),
-      );
+      const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
+        redis,
+        request: redis.eval(script, [key], [requestID, windowDuration]) as Promise<string[]>,
+      }));
 
       const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
@@ -179,9 +181,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        */
       async function sync() {
         const individualIDs = await Promise.all(dbs.map((s) => s.request));
-        const allIDs = Array.from(
-          new Set(individualIDs.flatMap((_) => _)).values(),
-        );
+        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _)).values());
 
         for (const db of dbs) {
           const ids = await db.request;
@@ -295,7 +295,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
       }
 
-      const requestID = crypto.randomUUID();
+      const requestID = randomId();
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -303,21 +303,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const previousWindow = currentWindow - windowSize;
       const previousKey = [identifier, previousWindow].join(":");
 
-      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] =
-        ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
-            script,
-            [currentKey, previousKey],
-            [tokens, now, windowDuration, requestID],
-          ) as Promise<[string[], string[]]>,
-        }));
+      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] = ctx.redis.map((redis) => ({
+        redis,
+        request: redis.eval(script, [currentKey, previousKey], [tokens, now, windowDuration, requestID]) as Promise<
+          [string[], string[]]
+        >,
+      }));
 
       const percentageInCurrent = (now % windowDuration) / windowDuration;
       const [current, previous] = await Promise.any(dbs.map((s) => s.request));
 
-      const usedTokens = previous.length * (1 - percentageInCurrent) +
-        current.length;
+      const usedTokens = previous.length * (1 - percentageInCurrent) + current.length;
 
       const remaining = tokens - usedTokens;
 
@@ -326,9 +322,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        */
       async function sync() {
         const [individualIDs] = await Promise.all(dbs.map((s) => s.request));
-        const allIDs = Array.from(
-          new Set(individualIDs.flatMap((_) => _)).values(),
-        );
+        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _)).values());
 
         for (const db of dbs) {
           const [ids] = await db.request;

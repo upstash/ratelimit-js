@@ -1,5 +1,6 @@
-import { Ratelimit } from "./ratelimit.ts";
-import { Context } from "./types.ts";
+import { Ratelimit } from "./ratelimit";
+import { Context } from "./types";
+import crypto from "node:crypto";
 
 type Metrics = {
   requests: number;
@@ -32,8 +33,7 @@ export class TestHarness<TContext extends Context> {
    * @param duration - duration in seconds
    */
   public async attack(rate: number, duration: number): Promise<void> {
-    const promises: Promise<{ success: boolean; pending: Promise<unknown> }>[] =
-      [];
+    const promises: Promise<{ success: boolean; pending: Promise<unknown> }>[] = [];
 
     // Async synchronization requests, that are not in the critical path
     const asyncPromises: Promise<unknown>[] = [];

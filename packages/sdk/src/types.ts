@@ -1,4 +1,4 @@
-import type { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import type { Redis } from "@upstash/redis";
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
  */

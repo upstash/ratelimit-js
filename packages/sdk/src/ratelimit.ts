@@ -1,6 +1,6 @@
-import { Analytics, Geo } from "./analytics.ts";
-import { Cache } from "./cache.ts";
-import type { Algorithm, Context, RatelimitResponse } from "./types.ts";
+import { Analytics, Geo } from "./analytics";
+import { Cache } from "./cache";
+import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -93,14 +93,13 @@ export abstract class Ratelimit<TContext extends Context> {
     this.limiter = config.limiter;
     this.timeout = config.timeout;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
-    this.analytics = config.analytics !== false
-      ? new Analytics({
-        redis: Array.isArray(this.ctx.redis)
-          ? this.ctx.redis[0]
-          : this.ctx.redis,
-        prefix: this.prefix,
-      })
-      : undefined;
+    this.analytics =
+      config.analytics !== false
+        ? new Analytics({
+            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+            prefix: this.prefix,
+          })
+        : undefined;
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
@@ -128,12 +127,9 @@ export abstract class Ratelimit<TContext extends Context> {
    *  return "Yes"
    * ```
    */
-  public limit = async (
-    identifier: string,
-    req?: { geo?: Geo },
-  ): Promise<RatelimitResponse> => {
+  public limit = async (identifier: string, req?: { geo?: Geo }): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    let timeoutId: number | null = null;
+    let timeoutId: any = null;
     try {
       const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key)];
       if (this.timeout) {

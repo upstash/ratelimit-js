@@ -3,9 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 const Home: NextPage = () => {
-  const [response, setResponse] = useState<Record<string, unknown> | null>(
-    null,
-  );
+  const [response, setResponse] = useState<Record<string, unknown> | null>(null);
 
   const router = useRouter();
   useEffect(() => {}, []);
@@ -28,11 +26,9 @@ const Home: NextPage = () => {
       setResponse(null);
 
       alert(
-        `Ratelimit reached, try again after ${
-          new Date(
-            parseInt(res.headers.get("X-RateLimit-Reset")!),
-          ).toLocaleString()
-        }`,
+        `Ratelimit reached, try again after ${new Date(
+          parseInt(res.headers.get("X-RateLimit-Reset")!),
+        ).toLocaleString()}`,
       );
     }
   };
@@ -41,19 +37,14 @@ const Home: NextPage = () => {
       <main>
         <header>
           <h1 className="text-4xl font-bold">
-            Welcome to{" "}
-            <span className="text-primary-500">@upstash/ratelimit</span>
+            Welcome to <span className="text-primary-500">@upstash/ratelimit</span>
           </h1>
 
           <p className="mt-4">
-            This is an example of how to ratelimit your nextjs app at the edge
-            using Vercel Edge and Upstash Redis
+            This is an example of how to ratelimit your nextjs app at the edge using Vercel Edge and Upstash Redis
           </p>
 
-          <p className="mt-4">
-            Click the button below to make a request, that will be ratelimited
-            by your IP.
-          </p>
+          <p className="mt-4">Click the button below to make a request, that will be ratelimited by your IP.</p>
         </header>
 
         <hr className="my-10" />

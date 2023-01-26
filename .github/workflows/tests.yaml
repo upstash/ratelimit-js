@@ -13,21 +13,22 @@ jobs:
       - name: Setup repo
         uses: actions/checkout@v2
 
-      # - uses: denoland/setup-deno@v1
-      #   with:
-      #     deno-version: v1.x
-      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
-      - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Verify formatting
-        run: deno fmt --check
+        run: pnpm fmt 
 
       - name: Build
-        run: deno run -A ./cmd/build.ts
+        run: pnpm build
 
-      - name: Size limit
-        run: node_modules/.bin/size-limit
-        working-directory: dist
 
   test:
     runs-on: ubuntu-latest
@@ -36,12 +37,15 @@ jobs:
       - name: Setup repo
         uses: actions/checkout@v2
 
-      # - uses: denoland/setup-deno@v1
-      #   with:
-      #     deno-version: v1.x
-      - run: curl -fsSL https://deno.land/x/install/install.sh | sh
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-      - run: echo "$HOME/.deno/bin" > $GITHUB_PATH
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Start redis server
         uses: ./.github/actions/redis
@@ -52,7 +56,7 @@ jobs:
           REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
 
       - name: Run tests
-        run: deno test -A --fail-fast --shuffle ./src
+        run: pnpm test
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
