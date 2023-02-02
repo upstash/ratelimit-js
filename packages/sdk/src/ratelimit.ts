@@ -98,9 +98,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.analytics =
       config.analytics !== false
         ? new Analytics({
-          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-          prefix: this.prefix,
-        })
+            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+            prefix: this.prefix,
+          })
         : undefined;
 
     if (config.ephemeralCache instanceof Map) {
