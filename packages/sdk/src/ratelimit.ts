@@ -52,6 +52,8 @@ export type RatelimitConfig<TContext> = {
    * If set, the ratelimiter will allow requests to pass after this many milliseconds.
    *
    * Use this if you want to allow requests in case of network problems
+   *
+   * @default 5000
    */
   timeout?: number;
 
@@ -86,19 +88,19 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly prefix: string;
 
-  protected readonly timeout?: number;
+  protected readonly timeout: number;
   protected readonly analytics?: Analytics;
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
-    this.timeout = config.timeout;
+    this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics =
       config.analytics !== false
         ? new Analytics({
-            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-            prefix: this.prefix,
-          })
+          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          prefix: this.prefix,
+        })
         : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -132,7 +134,7 @@ export abstract class Ratelimit<TContext extends Context> {
     let timeoutId: any = null;
     try {
       const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key)];
-      if (this.timeout) {
+      if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
             timeoutId = setTimeout(() => {
