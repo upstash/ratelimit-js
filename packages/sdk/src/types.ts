@@ -1,8 +1,4 @@
-export interface Redis {
-  eval: (script: string, keys: string[], values: unknown[]) => Promise<unknown>;
-  sadd: (key: string, ...members: string[]) => Promise<number>;
-}
-
+import type { Redis } from "@upstash/redis";
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
  */

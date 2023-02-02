@@ -11,3 +11,4 @@ redis-server
 .vercel
 .next
 
+coverage

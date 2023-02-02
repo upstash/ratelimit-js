@@ -8,15 +8,11 @@ export interface Env {
 const cache = new Map();
 
 export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    _ctx: ExecutionContext,
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     try {
       console.log("URL:", env.UPSTASH_REDIS_REST_URL);
 
-      if (new URL(request.url).pathname != "/limit") {
+      if (new URL(request.url).pathname !== "/limit") {
         return new Response("go to /limit", { status: 400 });
       }
 

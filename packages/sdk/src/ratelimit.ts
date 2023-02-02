@@ -1,5 +1,6 @@
-import { Cache } from "./cache.ts";
-import type { Algorithm, Context, RatelimitResponse } from "./types.ts";
+import { Analytics, Geo } from "./analytics";
+import { Cache } from "./cache";
+import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -53,6 +54,14 @@ export type RatelimitConfig<TContext> = {
    * Use this if you want to allow requests in case of network problems
    */
   timeout?: number;
+
+  /**
+   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
+   * https://upstash.com/ratelimit
+   *
+   * @default true
+   */
+  analytics?: boolean;
 };
 
 /**
@@ -78,11 +87,19 @@ export abstract class Ratelimit<TContext extends Context> {
   protected readonly prefix: string;
 
   protected readonly timeout?: number;
+  protected readonly analytics?: Analytics;
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.analytics =
+      config.analytics !== false
+        ? new Analytics({
+            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+            prefix: this.prefix,
+          })
+        : undefined;
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
@@ -110,9 +127,9 @@ export abstract class Ratelimit<TContext extends Context> {
    *  return "Yes"
    * ```
    */
-  public limit = async (identifier: string): Promise<RatelimitResponse> => {
+  public limit = async (identifier: string, req?: { geo?: Geo }): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    let timeoutId: number | null = null;
+    let timeoutId: any = null;
     try {
       const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key)];
       if (this.timeout) {
@@ -131,7 +148,18 @@ export abstract class Ratelimit<TContext extends Context> {
         );
       }
 
-      return await Promise.race(arr);
+      const res = await Promise.race(arr);
+      if (this.analytics) {
+        const geo = req ? this.analytics.extractGeo(req) : undefined;
+        const analyticsP = this.analytics.record({
+          identifier,
+          time: Date.now(),
+          success: res.success,
+          ...geo,
+        });
+        res.pending = Promise.all([res.pending, analyticsP]);
+      }
+      return res;
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);

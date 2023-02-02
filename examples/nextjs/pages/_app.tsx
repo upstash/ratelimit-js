@@ -25,8 +25,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         }}
       />
 
-      {
-        /*<ReadBlogPost>
+      {/*<ReadBlogPost>
         This is a sample project for the blogpost{" "}
         <a
           className="text-primary-600"
@@ -36,8 +35,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         >
           Example Post
         </a>
-      </ReadBlogPost>*/
-      }
+      </ReadBlogPost>*/}
 
       <div className="w-full max-w-3xl px-6 mx-auto py-14">
         <Component {...pageProps} />

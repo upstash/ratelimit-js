@@ -1,4 +1,4 @@
-import { EphemeralCache } from "./types.ts";
+import { EphemeralCache } from "./types";
 
 export class Cache implements EphemeralCache {
   /**

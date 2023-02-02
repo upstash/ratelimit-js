@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/rome/configuration_schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    },
+    "ignore": [
+      "node_modules",
+      ".next",
+      "dist",
+      ".turbo"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "lineWidth": 120,
+    "indentStyle": "space",
+    "ignore": [
+      "node_modules",
+      ".next",
+      "dist",
+      ".turbo"
+    ]
+  }
+}

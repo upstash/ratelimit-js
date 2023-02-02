@@ -1,9 +1,9 @@
-import type { Duration } from "./duration.ts";
-import { ms } from "./duration.ts";
-import type { Algorithm, RegionContext } from "./types.ts";
-import type { Redis } from "./types.ts";
+import type { Duration } from "./duration";
+import { ms } from "./duration";
+import type { Algorithm, RegionContext } from "./types";
+import type { Redis } from "@upstash/redis";
 
-import { Ratelimit } from "./ratelimit.ts";
+import { Ratelimit } from "./ratelimit";
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
@@ -52,6 +52,14 @@ export type RegionRatelimitConfig = {
    * Use this if you want to allow requests in case of network problems
    */
   timeout?: number;
+
+  /**
+   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
+   * https://upstash.com/ratelimit
+   *
+   * @default true
+   */
+  analytics?: boolean;
 };
 
 /**
@@ -79,6 +87,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
+      analytics: config.analytics,
       ctx: {
         redis: config.redis,
       },
@@ -146,11 +155,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
       }
-      const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
-        [key],
-        [windowDuration],
-      )) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
 
       const success = usedTokensAfterUpdate <= tokens;
       const reset = (bucket + 1) * windowDuration;
@@ -246,11 +251,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const remaining = (await ctx.redis.eval(
-        script,
-        [currentKey, previousKey],
-        [tokens, now, windowSize],
-      )) as number;
+      const remaining = (await ctx.redis.eval(script, [currentKey, previousKey], [tokens, now, windowSize])) as number;
 
       const success = remaining > 0;
       const reset = (currentWindow + 1) * windowSize;
@@ -441,13 +442,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const success = cachedTokensAfterUpdate < tokens;
 
         const pending = success
-          ? ctx.redis.eval(
-            script,
-            [key],
-            [windowDuration],
-          ).then((t) => {
-            ctx.cache!.set(key, t as number);
-          })
+          ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
+              ctx.cache!.set(key, t as number);
+            })
           : Promise.resolve();
 
         return {
@@ -459,11 +456,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       }
 
-      const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
-        [key],
-        [windowDuration],
-      )) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
       ctx.cache.set(key, usedTokensAfterUpdate);
       const remaining = tokens - usedTokensAfterUpdate;
 
