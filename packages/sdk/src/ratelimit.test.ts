@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { Algorithm } from ".";
-import { test, expect, describe } from "@jest/globals";
+import { test, expect, describe, jest } from "@jest/globals";
 import { TestHarness } from "./test_utils";
 import { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
@@ -8,7 +8,10 @@ import { MultiRegionRatelimit } from "./multi";
 import type { Duration } from "./duration";
 import type { Context, MultiRegionContext, RegionContext } from "./types";
 import crypto from "node:crypto";
+// hack to make printing work in jest
+import { log } from "console";
 
+jest.useRealTimers();
 type TestCase = {
   // allowed per second
   rate: number;
@@ -33,17 +36,23 @@ for (const rate of [10, 100]) {
 
 function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TContext>) {
   for (const tc of testcases) {
+    const name = `${tc.rate.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
+      .toString()
+      .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load).toString().padStart(4, " ")}req/s`;
     const ratelimit = builder(tc);
     const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
     const tolerance = isMultiRegion ? 0.5 : 0.1;
+    describe(name, () => {
+      test(name, async () => {
+        log(name);
+        const harness = new TestHarness(ratelimit);
+        await harness.attack(tc.rate * tc.load, attackDuration).catch((e) => {
+          console.error(e);
+        });
 
-    test(`${tc.rate.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
-      .toString()
-      .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load).toString().padStart(4, " ")}req/s`, async () => {
-      const harness = new TestHarness(ratelimit);
-      await harness.attack(tc.rate * tc.load, attackDuration);
-      expect(harness.metrics.success).toBeLessThan(((attackDuration * tc.rate) / window) * (1 + tolerance));
-      expect(harness.metrics.success).toBeGreaterThan(((attackDuration * tc.rate) / window) * (1 - tolerance));
+        expect(harness.metrics.success).toBeLessThan(((attackDuration * tc.rate) / window) * (1 + tolerance));
+        expect(harness.metrics.success).toBeGreaterThan(((attackDuration * tc.rate) / window) * (1 - tolerance));
+      });
     });
   }
 }

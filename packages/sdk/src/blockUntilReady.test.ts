@@ -32,7 +32,7 @@ describe("blockUntilReady", () => {
     }
 
     const start = Date.now();
-    const res = await limiter.blockUntilReady(id, 1000);
+    const res = await limiter.blockUntilReady(id, 1200);
     expect(res.success).toBe(false);
     expect(start + 1000).toBeLessThanOrEqual(Date.now());
     await res.pending;

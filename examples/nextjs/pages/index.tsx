@@ -16,20 +16,15 @@ const Home: NextPage = () => {
         status: res.status,
         body: await res.json(),
         headers: {
-          "X-Ratelimit-Limit": res.headers.get("X-Ratelimit-Limit"),
-          "X-Ratelimit-Remaining": res.headers.get("X-Ratelimit-Remaining"),
-          "X-Ratelimit-Reset": res.headers.get("X-Ratelimit-Reset"),
+          "X-RateLimit-Limit": res.headers.get("X-RateLimit-Limit"),
+          "X-RateLimit-Remaining": res.headers.get("X-RateLimit-Remaining"),
+          "X-RateLimit-Reset": res.headers.get("X-RateLimit-Reset"),
         },
       });
     } else {
-      console.log(JSON.stringify(res.headers, null, 2));
       setResponse(null);
 
-      alert(
-        `Ratelimit reached, try again after ${new Date(
-          parseInt(res.headers.get("X-RateLimit-Reset")!),
-        ).toLocaleString()}`,
-      );
+      alert("Ratelimit reached, try again later");
     }
   };
   return (

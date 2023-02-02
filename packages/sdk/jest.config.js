@@ -3,4 +3,6 @@ module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
   injectGlobals: false,
+  verbose: true,
+  maxConcurrency: 1,
 };

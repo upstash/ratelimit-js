@@ -23,7 +23,7 @@
   "author": "Andreas Thomas <andreas@upstash.com>",
   "scripts": {
     "build": "tsup",
-    "test": "dotenv -e ../../.env jest --verbose --collect-coverage -- --silent=false"
+    "test": "dotenv -e ../../.env jest"
   },
   "devDependencies": {
     "@jest/globals": "^29.3.1",
