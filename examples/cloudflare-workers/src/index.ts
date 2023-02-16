@@ -24,7 +24,6 @@ export default {
 
       const res = await ratelimit.limit("identifier");
       // ctx.waitUntil(res.pending);
-      console.log({ res });
       if (res.success) {
         return new Response(JSON.stringify(res, null, 2), { status: 200 });
       } else {
