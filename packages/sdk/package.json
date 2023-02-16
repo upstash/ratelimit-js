@@ -38,6 +38,6 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "@upstash/core-analytics": "0.0.1"
+    "@upstash/core-analytics": "0.0.2"
   }
 }
