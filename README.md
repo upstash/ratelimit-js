@@ -87,6 +87,7 @@ import { Redis } from "@upstash/redis";
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
+  analytics: true
 });
 
 // Use a constant string to limit all requests with a single ratelimit
@@ -161,6 +162,7 @@ const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
   timeout: 1000, // 1 second
+  analytics: true
 });
 ```
 
@@ -184,6 +186,7 @@ in a finite amount of time.
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
+  analytics: true
 });
 
 // `blockUntilReady` returns a promise that resolves as soon as the request is allowed to be processed, or after 30 seconds
@@ -259,6 +262,7 @@ const ratelimit = new MultiRegionRatelimit({
     }),
   ],
   limiter: MultiRegionRatelimit.slidingWindow(10, "10 s"),
+  analytics: true
 });
 
 // Use a constant string to limit all requests with a single ratelimit
@@ -326,6 +330,7 @@ Create a new ratelimiter, that allows 10 requests per 10 seconds.
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.fixedWindow(10, "10 s"),
+  analytics: true
 });
 ```
 
@@ -366,6 +371,7 @@ Create a new ratelimiter, that allows 10 requests per 10 seconds.
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
+  analytics: true
 });
 ```
 
@@ -397,8 +403,29 @@ size of 10.
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.tokenBucket(5, "10 s", 10),
+  analytics: true
 });
 ```
+
+## Analytics
+
+You can enable analytics to get a better understanding of how your ratelimiting
+is performing. This is done by setting `analytics: true` in the options.
+
+All data is stored in the same Redis database.
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.tokenBucket(5, "10 s", 10),
+  analytics: true // <- Enable analytics
+});
+```
+
+Go to the [Ratelimit Dashboard](https://console.upstash.com/rate-limit) and select the database you are using.
+
+![Ratelimit Dashboard](/.github/img/dashboard.png)
+
 
 ## Contributing
 
