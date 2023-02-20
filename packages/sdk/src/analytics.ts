@@ -28,7 +28,7 @@ export class Analytics {
   constructor(config: AnalyticsConfig) {
     this.analytics = new CoreAnalytics({
       redis: config.redis,
-      window: "1h",
+      window: "1d",
       prefix: config.prefix ?? "@upstash/ratelimit",
       retention: "90d",
     });
@@ -58,17 +58,17 @@ export class Analytics {
 
   async series<TFilter extends keyof Omit<Event, "time">>(
     filter: TFilter,
-    cutoff = 0,
+    cutoff: number,
   ): Promise<({ time: number } & Record<string, number>)[]> {
     const records = await this.analytics.query(this.table, {
       filter: [filter],
-      range: cutoff ? [cutoff] : undefined,
+      range: [cutoff, Date.now()],
     });
     return records;
   }
   public async getUsage(cutoff = 0): Promise<Record<string, { success: number; blocked: number }>> {
     const records = await this.analytics.aggregateBy(this.table, "identifier", {
-      range: cutoff ? [cutoff] : undefined,
+      range: [cutoff, Date.now()],
     });
     const usage = {} as Record<string, { success: number; blocked: number }>;
     for (const bucket of records) {

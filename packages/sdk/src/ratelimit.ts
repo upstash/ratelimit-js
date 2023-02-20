@@ -98,9 +98,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.analytics =
       config.analytics !== false
         ? new Analytics({
-          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-          prefix: this.prefix,
-        })
+            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+            prefix: this.prefix,
+          })
         : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -153,19 +153,20 @@ export abstract class Ratelimit<TContext extends Context> {
       const res = await Promise.race(arr);
       if (this.analytics) {
         try {
-
           const geo = req ? this.analytics.extractGeo(req) : undefined;
-          const analyticsP = this.analytics.record({
-            identifier,
-            time: Date.now(),
-            success: res.success,
-            ...geo,
-          }).catch((err) => {
-            console.warn("Failed to record analytics", err)
-          })
+          const analyticsP = this.analytics
+            .record({
+              identifier,
+              time: Date.now(),
+              success: res.success,
+              ...geo,
+            })
+            .catch((err) => {
+              console.warn("Failed to record analytics", err);
+            });
           res.pending = Promise.all([res.pending, analyticsP]);
         } catch (err) {
-          console.warn("Failed to record analytics", err)
+          console.warn("Failed to record analytics", err);
         }
       }
       return res;
