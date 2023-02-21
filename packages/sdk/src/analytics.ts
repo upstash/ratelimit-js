@@ -76,16 +76,14 @@ export class Analytics {
         if (k === "time") {
           continue;
         }
-        if (k === "success") {
-          if (!usage[k]) {
-            usage[k] = { success: 0, blocked: 0 };
-          }
-          if (bucket[k]) {
-            usage[k].success += v as number;
-          } else {
-            usage[k].blocked += v as number;
-          }
+
+        if (!usage[k]) {
+          usage[k] = { success: 0, blocked: 0 };
         }
+        // @ts-ignore
+        usage[k].success += v["true"] ?? 0;
+        // @ts-ignore
+        usage[k].blocked += v["false"] ?? 0;
       }
     }
     return usage;
