@@ -76,11 +76,16 @@ export class Analytics {
         if (k === "time") {
           continue;
         }
-        if (!usage[k]) {
-          usage[k] = { success: 0, blocked: 0 };
+        if (k === "success") {
+          if (!usage[k]) {
+            usage[k] = { success: 0, blocked: 0 };
+          }
+          if (bucket[k]) {
+            usage[k].success += v as number;
+          } else {
+            usage[k].blocked += v as number;
+          }
         }
-        usage[k].success += v as number;
-        usage[k].blocked += v as number;
       }
     }
     return usage;
