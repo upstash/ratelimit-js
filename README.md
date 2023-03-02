@@ -44,7 +44,6 @@ for:
     - [Cons:](#cons-2)
     - [Usage:](#usage-2)
 - [Contributing](#contributing)
-  - [Install Deno](#install-deno)
   - [Database](#database)
   - [Running tests](#running-tests)
 
@@ -67,7 +66,7 @@ npm install @upstash/ratelimit
 #### Deno
 
 ```ts
-import { Ratelimit } from "https://deno.land/x/upstash_ratelimit/mod.ts";
+import { Ratelimit } from "https://cdn.skypack.dev/@upstash/ratelimit@latest"
 ```
 
 ### Create database
@@ -429,7 +428,6 @@ Go to the [Ratelimit Dashboard](https://console.upstash.com/rate-limit) and sele
 
 ## Contributing
 
-### [Install Deno](https://deno.land/#installation)
 
 ### Database
 
@@ -439,5 +437,5 @@ the url and token.
 ### Running tests
 
 ```sh
-UPSTASH_REDIS_REST_URL=".." UPSTASH_REDIS_REST_TOKEN=".." deno test -A
+UPSTASH_REDIS_REST_URL=".." UPSTASH_REDIS_REST_TOKEN=".." pnpm test
 ```
