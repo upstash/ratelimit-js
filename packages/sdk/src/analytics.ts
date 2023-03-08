@@ -28,7 +28,7 @@ export class Analytics {
   constructor(config: AnalyticsConfig) {
     this.analytics = new CoreAnalytics({
       redis: config.redis,
-      window: "1d",
+      window: "1h",
       prefix: config.prefix ?? "@upstash/ratelimit",
       retention: "90d",
     });
