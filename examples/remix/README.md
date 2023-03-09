@@ -1,34 +1,59 @@
-# Welcome to Remix!
+# @upstash/ratelimit in Remix
 
-- [Remix Docs](https://remix.run/docs)
+This example shows how to use `@upstash/ratelimit` in a Remix app.
 
-## Deployment
+## Getting Started
 
-After having run the `create-remix` command and selected "Vercel" as a deployment target, you only need to [import your Git repository](https://vercel.com/new) into Vercel, and it will be deployed.
+Create a database on [Upstash](https://console.upstash.com/redis?new=true) and copy the `Upstash_REDIS_REST_URL` and `Upstash_REDIS_REST_TOKEN` from the database settings to your `.env` file.
 
-If you'd like to avoid using a Git repository, you can also deploy the directory by running [Vercel CLI](https://vercel.com/cli):
+Then add a `loader` to your route like this:
 
-```sh
-npm i -g vercel
-vercel
+```tsx
+import { json } from "@remix-run/node";
+import type { LoaderArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.fixedWindow(10, "60 s"),
+  analytics: true,
+});
+
+export const loader = async (args: LoaderArgs) => {
+  // getting the ip can be different depending on your hosting provider
+  const ip = args.request.headers.get("X-Forwarded-For") ?? args.request.headers.get("x-real-ip");
+  const identifier = ip ?? "global";
+  const { success, limit, remaining, reset } = await ratelimit.limit(identifier);
+  return json(
+    {
+      success,
+      limit,
+      remaining,
+      reset,
+      identifier,
+    },
+    {
+      headers: {
+        "X-RateLimit-Limit": limit.toString(),
+        "X-RateLimit-Remaining": remaining.toString(),
+        "X-RateLimit-Reset": reset.toString(),
+      },
+    },
+  );
+};
+
+export default function Index() {
+  const ratelimitResponse = useLoaderData<typeof loader>();
+
+  return (
+    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.4" }}>
+      <h1>Welcome to @upstash/ratelimit in Remix app</h1>
+      <code>
+        <pre>{JSON.stringify(ratelimitResponse, null, 2)}</pre>
+      </code>
+    </div>
+  );
+}
 ```
-
-It is generally recommended to use a Git repository, because future commits will then automatically be deployed by Vercel, through its [Git Integration](https://vercel.com/docs/concepts/git).
-
-## Development
-
-To run your Remix app locally, make sure your project's local dependencies are installed:
-
-```sh
-npm install
-```
-
-Afterwards, start the Remix development server like so:
-
-```sh
-npm run dev
-```
-
-Open up [http://localhost:3000](http://localhost:3000) and you should be ready to go!
-
-If you're used to using the `vercel dev` command provided by [Vercel CLI](https://vercel.com/cli) instead, you can also use that, but it's not needed.
