@@ -421,7 +421,7 @@ const ratelimit = new Ratelimit({
 });
 ```
 
-Go to the [Ratelimit Dashboard](https://console.upstash.com/rate-limit) and select the database you are using.
+Go to the [Ratelimit Dashboard](https://console.upstash.com/ratelimit) and select the database you are using.
 
 ![Ratelimit Dashboard](/.github/img/dashboard.png)
 
