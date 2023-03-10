@@ -51,7 +51,7 @@ for:
 
 ## Docs
 
-[doc.deno.land](https://doc.deno.land/https://deno.land/x/upstash_ratelimit/src/mod.ts)
+[doc.deno.land](https://deno.land/x/upstash_ratelimit/packages/sdk/src/index.ts)
 
 ## Quick Start
 
