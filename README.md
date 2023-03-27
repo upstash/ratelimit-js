@@ -224,6 +224,41 @@ instance outside of your handler function. While the function is still hot, the
 ratelimiter can block requests without having to request data from redis, thus
 saving time and money.
 
+
+## Using multiple limits
+
+Sometimes you might want to apply different limits to different users. For example you might want to allow 10 requests per 10 seconds for free users, but 60 requests per 10 seconds for payed users.
+
+Here's how you could do that:
+
+```ts
+import { Redis } from "@upstash/redis"
+import { Ratelimit from "@upstash/ratelimit"
+
+const redis = Redis.fromEnv()
+
+const ratelimit = {
+  free: new Ratelimit({
+    redis,
+    analytics: true,
+    prefix: "ratelimit:free",
+    limiter: Ratelimit.slidingWindow(10, "10s"),
+  }),
+  payed: new Ratelimit({
+    redis,
+    analytics: true,
+    prefix: "ratelimit:payed",
+    limiter: Ratelimit.slidingWindow(60, "10s"),
+  })
+}
+
+
+await ratelimit.free.limit(ip)
+// or for a payed user you might have an email or userId available:
+await ratelimit.payed.limit(userId)
+
+```
+
 ## MultiRegion replicated ratelimiting
 
 Using a single redis instance has the downside of providing low latencies only
