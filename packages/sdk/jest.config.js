@@ -5,4 +5,5 @@ module.exports = {
   injectGlobals: false,
   verbose: true,
   maxConcurrency: 1,
+  testTimeout: 120_000,
 };
