@@ -208,7 +208,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       local requestsInCurrentWindow = redis.call("GET", currentKey)
       if requestsInCurrentWindow == false then
-        requestsInCurrentWindow = 0
+        requestsInCurrentWindow = -1
       end
 
 
@@ -218,7 +218,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       end
       local percentageInCurrent = ( now % window) / window
       if requestsInPreviousWindow * ( 1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
-        return 0
+        return -1
       end
 
       local newValue = redis.call("INCR", currentKey)
@@ -253,7 +253,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       const remaining = (await ctx.redis.eval(script, [currentKey, previousKey], [tokens, now, windowSize])) as number;
 
-      const success = remaining > 0;
+      const success = remaining >= 0;
       const reset = (currentWindow + 1) * windowSize;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
@@ -261,7 +261,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        remaining,
+        remaining: Math.max(0, remaining),
         reset,
         pending: Promise.resolve(),
       };
