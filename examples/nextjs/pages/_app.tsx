@@ -1,10 +1,10 @@
 import "styles/globals.css";
 
-import React from "react";
-import type { AppProps } from "next/app";
 import Header from "components/Header";
 import ReadBlogPost from "components/ReadBlogPost";
+import type { AppProps } from "next/app";
 import Head from "next/head";
+import React from "react";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (

@@ -1,5 +1,5 @@
 import { Ratelimit } from "./index";
-import { test, expect, describe } from "@jest/globals";
+import { describe, expect, test } from "@jest/globals";
 import { Redis } from "@upstash/redis";
 import crypto from "node:crypto";
 

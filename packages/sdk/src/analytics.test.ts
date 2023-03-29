@@ -1,6 +1,6 @@
-import { Redis } from "@upstash/redis";
 import { Analytics } from "./analytics";
-import { test, expect } from "@jest/globals";
+import { expect, test } from "@jest/globals";
+import { Redis } from "@upstash/redis";
 import crypto from "node:crypto";
 
 test("analytics", async () => {

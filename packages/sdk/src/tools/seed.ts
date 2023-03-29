@@ -1,5 +1,5 @@
-import { Redis } from "@upstash/redis";
 import { Analytics } from "../analytics";
+import { Redis } from "@upstash/redis";
 
 const redis = Redis.fromEnv();
 

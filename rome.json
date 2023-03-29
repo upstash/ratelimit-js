@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/rome/configuration_schema.json",
+
   "linter": {
     "enabled": true,
     "rules": {
@@ -9,7 +10,8 @@
       "node_modules",
       ".next",
       "dist",
-      ".turbo"
+      ".turbo",
+      "build"
     ]
   },
   "formatter": {
@@ -20,7 +22,8 @@
       "node_modules",
       ".next",
       "dist",
-      ".turbo"
+      ".turbo",
+      "build"
     ]
   }
 }

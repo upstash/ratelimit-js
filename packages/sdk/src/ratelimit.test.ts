@@ -1,15 +1,15 @@
-import { Redis } from "@upstash/redis";
 import { Algorithm } from ".";
-import { test, expect, describe, jest } from "@jest/globals";
-import { TestHarness } from "./test_utils";
+import type { Duration } from "./duration";
+import { MultiRegionRatelimit } from "./multi";
 import { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
-import { MultiRegionRatelimit } from "./multi";
-import type { Duration } from "./duration";
+import { TestHarness } from "./test_utils";
 import type { Context, MultiRegionContext, RegionContext } from "./types";
-import crypto from "node:crypto";
+import { describe, expect, jest, test } from "@jest/globals";
+import { Redis } from "@upstash/redis";
 // hack to make printing work in jest
 import { log } from "console";
+import crypto from "node:crypto";
 
 jest.useRealTimers();
 type TestCase = {

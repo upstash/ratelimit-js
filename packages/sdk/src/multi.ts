@@ -1,8 +1,8 @@
+import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
-import type { Algorithm, MultiRegionContext } from "./types";
 import { Ratelimit } from "./ratelimit";
-import { Cache } from "./cache";
+import type { Algorithm, MultiRegionContext } from "./types";
 import type { Redis } from "@upstash/redis";
 
 function randomId(): string {
