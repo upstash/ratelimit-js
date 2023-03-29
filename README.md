@@ -1,4 +1,4 @@
-# Upstash RateLimit
+# Upstash Rate Limit
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 ![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
