@@ -61,7 +61,7 @@ export type RatelimitConfig<TContext> = {
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
    * https://upstash.com/ratelimit
    *
-   * @default true
+   * @default false
    */
   analytics?: boolean;
 };
@@ -95,13 +95,12 @@ export abstract class Ratelimit<TContext extends Context> {
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
-    this.analytics =
-      config.analytics !== false
-        ? new Analytics({
-            redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-            prefix: this.prefix,
-          })
-        : undefined;
+    this.analytics = config.analytics
+      ? new Analytics({
+          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          prefix: this.prefix,
+        })
+      : undefined;
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
