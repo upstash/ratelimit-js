@@ -233,7 +233,7 @@ saving time and money.
 
 ## Using multiple limits
 
-Sometimes you might want to apply different limits to different users. For example you might want to allow 10 requests per 10 seconds for free users, but 60 requests per 10 seconds for payed users.
+Sometimes you might want to apply different limits to different users. For example you might want to allow 10 requests per 10 seconds for free users, but 60 requests per 10 seconds for paid users.
 
 Here's how you could do that:
 
@@ -250,18 +250,18 @@ const ratelimit = {
     prefix: "ratelimit:free",
     limiter: Ratelimit.slidingWindow(10, "10s"),
   }),
-  payed: new Ratelimit({
+  paid: new Ratelimit({
     redis,
     analytics: true,
-    prefix: "ratelimit:payed",
+    prefix: "ratelimit:paid",
     limiter: Ratelimit.slidingWindow(60, "10s"),
   })
 }
 
 
 await ratelimit.free.limit(ip)
-// or for a payed user you might have an email or userId available:
-await ratelimit.payed.limit(userId)
+// or for a paid user you might have an email or userId available:
+await ratelimit.paid.limit(userId)
 
 ```
 

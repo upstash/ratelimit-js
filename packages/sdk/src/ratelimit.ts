@@ -179,7 +179,7 @@ export abstract class Ratelimit<TContext extends Context> {
   /**
    * Block until the request may pass or timeout is reached.
    *
-   * This method returns a promsie that resolves as soon as the request may be processed
+   * This method returns a promise that resolves as soon as the request may be processed
    * or after the timeoue has been reached.
    *
    * Use this if you want to delay the request until it is ready to get processed.
