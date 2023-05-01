@@ -97,7 +97,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
   /**
    * Each requests inside a fixed time increases a counter.
-   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * Once the counter reaches a maximum allowed number, all further requests are
    * rejected.
    *
    * **Pro:**
@@ -386,7 +386,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    * @experimental
    *
    * Each requests inside a fixed time increases a counter.
-   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * Once the counter reaches a maximum allowed number, all further requests are
    * rejected.
    *
    * **Pro:**
