@@ -374,6 +374,20 @@ const ratelimit = new Ratelimit({
 });
 ```
 
+#### Checking remaining tokens
+
+The simplicity of the fixed window algorithm allows for an easy calculation of remaining tokens for a given identifier and time window.
+
+```ts
+const intervalDuration = 1000 // time window in ms
+const prefix = "@upstash/ratelimit" // default prefix
+const maxLimit = 10
+const key = [prefix, identifier, Math.floor(Date.now() / intervalDuration)].join(":")
+
+const used = await redis.get<number>(key)
+const remaining = maxLimit - used
+```
+
 ### Sliding Window
 
 Builds on top of fixed window but instead of a fixed window, we use a rolling
