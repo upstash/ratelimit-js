@@ -452,7 +452,7 @@ const ratelimit = new Ratelimit({
 You can enable analytics to get a better understanding of how your ratelimiting
 is performing. This is done by setting `analytics: true` in the options.
 
-All data is stored in the same Redis database.
+All data is stored in the same Redis database and writing analytics uses 1 command per `.limit` invocation.
 
 ```ts
 const ratelimit = new Ratelimit({
