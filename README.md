@@ -464,6 +464,8 @@ const ratelimit = new Ratelimit({
 
 Go to the [Ratelimit Dashboard](https://console.upstash.com/ratelimit) and select the database you are using.
 
+If you are using a custom prefix, you need to use the same in the dashboard's top right corner.
+
 ![Ratelimit Dashboard](/.github/img/dashboard.png)
 
 
