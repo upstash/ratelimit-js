@@ -63,7 +63,7 @@ export type MultiRegionRatelimitConfig = {
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
-   * https://upstash.com/ratelimit
+   * https://console.upstash.com/ratelimit
    *
    * @default true
    */
