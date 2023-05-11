@@ -3,7 +3,7 @@ import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
-import type { Redis } from "@upstash/redis";
+import type { Redis } from "./types";
 
 function randomId(): string {
   let result = "";

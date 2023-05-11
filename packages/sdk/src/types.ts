@@ -1,4 +1,3 @@
-import type { Redis } from "@upstash/redis";
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
  */
@@ -66,3 +65,14 @@ export type Algorithm<TContext> = (
     cache?: EphemeralCache;
   },
 ) => Promise<RatelimitResponse>;
+
+/**
+ * This is all we need from the redis sdk.
+ */
+export interface Redis {
+  sadd: <TData>(key: string, ...members: TData[]) => Promise<number>;
+
+  eval: <TArgs extends unknown[], TData = unknown>(
+    ...args: [script: string, keys: string[], args: TArgs]
+  ) => Promise<TData>;
+}

@@ -1,7 +1,7 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import type { Algorithm, RegionContext } from "./types";
-import type { Redis } from "@upstash/redis";
+import type { Redis } from "./types";
 
 import { Ratelimit } from "./ratelimit";
 export type RegionRatelimitConfig = {
