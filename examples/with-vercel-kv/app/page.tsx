@@ -4,10 +4,8 @@ import { headers } from "next/headers";
 import kv from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import Link from "next/link";
-const inter = Inter({ subsets: ["latin"] });
 
 const ratelimit = new Ratelimit({
-  // @ts-ignore - This is only a type error, the value is correct, we'll fix it asap
   redis: kv,
   limiter: Ratelimit.fixedWindow(10, "60s"),
 });
