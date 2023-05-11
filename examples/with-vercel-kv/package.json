@@ -9,13 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@types/node": "18.16.3",
-    "@types/react": "18.2.1",
-    "@types/react-dom": "18.2.2",
+    "@types/node": "20.1.2",
+    "@types/react": "18.2.6",
+    "@types/react-dom": "18.2.4",
     "@upstash/ratelimit": "^0.4.2",
-    "@vercel/kv": "^0.1.1",
+    "@vercel/kv": "^0.1.2",
     "autoprefixer": "10.4.14",
-    "next": "13.3.4",
+    "next": "13.4.1",
     "postcss": "8.4.23",
     "react": "18.2.0",
     "react-dom": "18.2.0",

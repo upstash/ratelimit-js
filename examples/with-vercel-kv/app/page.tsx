@@ -4,19 +4,15 @@ import { headers } from "next/headers";
 import kv from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import Link from "next/link";
-const inter = Inter({ subsets: ["latin"] });
 
 const ratelimit = new Ratelimit({
-  // @ts-ignore - This is only a type error, the value is correct, we'll fix it asap
   redis: kv,
   limiter: Ratelimit.fixedWindow(10, "60s"),
 });
 
 export default async function Home() {
   const ip = headers().get("x-forwarded-for");
-  const { success, limit, remaining, reset } = await ratelimit.limit(
-    ip ?? "anonymous",
-  );
+  const { success, limit, remaining, reset } = await ratelimit.limit(ip ?? "anonymous");
 
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
@@ -33,60 +29,41 @@ export default async function Home() {
       </div>
 
       <div className="relative text-4xl lg:text-7xl font-semibold text-center flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full  before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 ">
-        {success
-          ? (
-            <>
-              @upstash/ratelimit
-              <br />
-              +
-              <br />
-              Vercel KV
-            </>
-          )
-          : (
-            <>
-              You have reached the limit,
-              <br />
-              please come back later
-            </>
-          )}
+        {success ? (
+          <>
+            @upstash/ratelimit
+            <br />+
+            <br />
+            Vercel KV
+          </>
+        ) : (
+          <>
+            You have reached the limit,
+            <br />
+            please come back later
+          </>
+        )}
       </div>
 
       <div className="grid mb-32 text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Success?
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            {success}
-          </p>
+          <h2 className={"mb-3 text-2xl font-semibold"}>Success</h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{success.toString()}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30">
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Limit{" "}
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            {limit}
-          </p>
+          <h2 className={"mb-3 text-2xl font-semibold"}>Limit </h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{limit}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Remaining
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            {remaining}
-          </p>
+          <h2 className={"mb-3 text-2xl font-semibold"}>Remaining</h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{remaining}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Reset
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            {new Date(reset).toUTCString()}
-          </p>
+          <h2 className={"mb-3 text-2xl font-semibold"}>Reset</h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{new Date(reset).toUTCString()}</p>
         </div>
       </div>
     </main>

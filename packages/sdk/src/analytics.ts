@@ -1,5 +1,5 @@
 import { Analytics as CoreAnalytics } from "@upstash/core-analytics";
-import type { Redis } from "@upstash/redis";
+import type { Redis } from "./types";
 
 export type Geo = {
   country?: string;
@@ -27,6 +27,7 @@ export class Analytics {
 
   constructor(config: AnalyticsConfig) {
     this.analytics = new CoreAnalytics({
+      // @ts-expect-error we need to fix the types in core-analytics, it should only require the methods it needs, not the whole sdk
       redis: config.redis,
       window: "1h",
       prefix: config.prefix ?? "@upstash/ratelimit",

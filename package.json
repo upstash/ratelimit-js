@@ -6,12 +6,12 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "dev": "turbo run dev --parallel",
-    "fmt": "pnpm rome check . --apply && pnpm rome format . --write",
+    "fmt": "pnpm rome check . --apply-suggested && pnpm rome format . --write",
     "release": "pnpm fmt && pnpm build && pnpx changeset publish"
   },
   "devDependencies": {
     "rome": "^11.0.0",
-    "turbo": "^1.8.7"
+    "turbo": "^1.9.3"
   },
   "engines": {
     "node": ">=16.0.0"
