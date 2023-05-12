@@ -1,5 +1,5 @@
 /**
- * EphemeralCache is used to block certain identifiers right away in case they have already exceedd the ratelimit.
+ * EphemeralCache is used to block certain identifiers right away in case they have already exceeded the ratelimit.
  */
 export interface EphemeralCache {
   isBlocked: (identifier: string) => { blocked: boolean; reset: number };
@@ -37,7 +37,7 @@ export type RatelimitResponse = {
    * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
    * In most case you can simply ignore this.
    *
-   * On Vercel Edge or Cloudflare workers, you need to explicitely handle the pending Promise like this:
+   * On Vercel Edge or Cloudflare workers, you need to explicitly handle the pending Promise like this:
    *
    * **Vercel Edge:**
    * https://nextjs.org/docs/api-reference/next/server#nextfetchevent

@@ -239,7 +239,7 @@ Here's how you could do that:
 
 ```ts
 import { Redis } from "@upstash/redis"
-import { Ratelimit from "@upstash/ratelimit"
+import { Ratelimit } from "@upstash/ratelimit"
 
 const redis = Redis.fromEnv()
 
