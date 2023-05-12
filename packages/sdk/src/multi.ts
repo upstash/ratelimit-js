@@ -50,7 +50,7 @@ export type MultiRegionRatelimitConfig = {
    * Set to `false` to disable.
    *
    * If left undefined, a map is created automatically, but it can only work
-   * if the map or th ratelimit instance is created outside your serverless function handler.
+   * if the map or the ratelimit instance is created outside your serverless function handler.
    */
   ephemeralCache?: Map<string, number> | false;
 
@@ -103,8 +103,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   }
 
   /**
-   * Each requests inside a fixed time increases a counter.
-   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * Each request inside a fixed time increases a counter.
+   * Once the counter reaches the maximum allowed number, all further requests are
    * rejected.
    *
    * **Pro:**
@@ -226,7 +226,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
   /**
    * Combined approach of `slidingLogs` and `fixedWindow` with lower storage
-   * costs than `slidingLogs` and improved boundary behavior by calcualting a
+   * costs than `slidingLogs` and improved boundary behavior by calculating a
    * weighted score between two windows.
    *
    * **Pro:**

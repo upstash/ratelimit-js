@@ -79,7 +79,7 @@ export type RegionRatelimitConfig = {
  */
 export class RegionRatelimit extends Ratelimit<RegionContext> {
   /**
-   * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
+   * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithm of your choice.
    */
 
   constructor(config: RegionRatelimitConfig) {
@@ -96,8 +96,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   }
 
   /**
-   * Each requests inside a fixed time increases a counter.
-   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * Each request inside a fixed time increases a counter.
+   * Once the counter reaches the maximum allowed number, all further requests are
    * rejected.
    *
    * **Pro:**
@@ -175,7 +175,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
   /**
    * Combined approach of `slidingLogs` and `fixedWindow` with lower storage
-   * costs than `slidingLogs` and improved boundary behavior by calcualting a
+   * costs than `slidingLogs` and improved boundary behavior by calculating a
    * weighted score between two windows.
    *
    * **Pro:**
@@ -385,8 +385,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @experimental
    *
-   * Each requests inside a fixed time increases a counter.
-   * Once the counter reaches a maxmimum allowed number, all further requests are
+   * Each request inside a fixed time increases a counter.
+   * Once the counter reaches the maximum allowed number, all further requests are
    * rejected.
    *
    * **Pro:**
