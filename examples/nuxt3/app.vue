@@ -8,6 +8,8 @@ const { data, pending, refresh } = await useFetch("/api/ratelimit", {
 </script>
 
 <template>
+  <Title>Nuxt + @upstash/ratelimit + Vercel KV</Title>
+
   <UContainer as="main" class="min-h-screen py-6 flex flex-col items-center justify-center gap-10">
     <div class="flex items-center text-4xl lg:text-7xl h-52 lg:h-96 font-semibold text-center">
       <div v-if="data.success">
