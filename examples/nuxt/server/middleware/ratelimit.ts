@@ -7,6 +7,8 @@ const ratelimit = new Ratelimit({
 });
 
 export default eventHandler(async (e) => {
+  if (!e.path.startsWith("/api/")) return;
+
   const headers = getHeaders(e);
 
   const ip = headers["x-forwarded-for"] ?? headers["x-real-ip"];
