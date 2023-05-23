@@ -1,0 +1,20 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@nuxthq/ui": "^2.1.0",
+    "@types/node": "^18",
+    "nuxt": "^3.5.0"
+  },
+  "dependencies": {
+    "@upstash/ratelimit": "^0.4.3",
+    "@vercel/kv": "^0.2.1"
+  }
+}
