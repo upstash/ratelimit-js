@@ -1,3 +1,3 @@
 # Nuxt + @upstash/ratelimit + Vercel KV
 
-> [Demo](https://nuxt-ratelimit-with-vercel-kv.vercel.app/)
+> [Demo](https://ratelimit-nuxt-with-vercel-kv.vercel.app/)
