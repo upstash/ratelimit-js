@@ -12,3 +12,5 @@ redis-server
 .next
 
 coverage
+
+.turbo
