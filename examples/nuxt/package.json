@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@upstash/ratelimit": "^0.4.3",
-    "@vercel/kv": "^0.2.1",
-    "vue": "^3.3.4"
-  }
+    "@vercel/kv": "^0.2.1"
+  },
+  "packageManager": "pnpm@8.5.1"
+
 }
