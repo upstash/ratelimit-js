@@ -315,28 +315,31 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           
           redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
           redis.call("PEXPIRE", key, interval)
-  
+
           return {remaining, now + interval}
         end
 
         -- The bucket does exist
-  
+    
         local updatedAt = tonumber(bucket[1])
         local tokens = tonumber(bucket[2])
-  
+
         if now >= updatedAt + interval then
-          remaining = math.min(maxTokens, tokens + refillRate) - 1
-          
-          redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
-          return {remaining, now + interval}
-        end
-  
-        if tokens > 0 then
-          remaining = tokens - 1
-          redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
-        end
-  
-        return {remaining, updatedAt + interval}
+          if tokens <= 0 then 
+            -- No more tokens were left before the refill.
+            remaining = math.min(maxTokens, refillRate) - 1
+          else
+            remaining = math.min(maxTokens, tokens + refillRate) - 1
+          end
+        redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
+        return {remaining, now + interval}
+      end
+      
+      remaining = tokens - 1
+      redis.call("HSET", key, "tokens", remaining)
+      return {remaining, updatedAt + interval}
+
+    
        `;
 
     const intervalDuration = ms(interval);

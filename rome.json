@@ -11,7 +11,8 @@
       ".next",
       "dist",
       ".turbo",
-      "build"
+      "build",
+      ".nuxt"
     ]
   },
   "formatter": {

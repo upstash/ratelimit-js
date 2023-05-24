@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@upstash/ratelimit": "^0.4.3",
-    "@vercel/kv": "^0.2.1"
+    "@vercel/kv": "^0.2.1",
+    "vue": "^3.3.4"
   }
 }
