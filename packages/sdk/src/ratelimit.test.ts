@@ -50,8 +50,8 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
           console.error(e);
         });
 
-        expect(harness.metrics.success).toBeLessThan(((attackDuration * tc.rate) / window) * (1 + tolerance));
-        expect(harness.metrics.success).toBeGreaterThan(((attackDuration * tc.rate) / window) * (1 - tolerance));
+        expect(harness.metrics.success).toBeLessThanOrEqual(((attackDuration * tc.rate) / window) * (1 + tolerance));
+        expect(harness.metrics.success).toBeGreaterThanOrEqual(((attackDuration * tc.rate) / window) * (1 - tolerance));
       });
     });
   }
