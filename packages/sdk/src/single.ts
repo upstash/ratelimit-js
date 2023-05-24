@@ -300,43 +300,47 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     maxTokens: number,
   ): Algorithm<RegionContext> {
     const script = `
-    local key                       = KEYS[1]               -- identifier including prefixes
-    local max_number_of_tokens      = tonumber(ARGV[1])     -- max number of tokens
-    local interval                  = tonumber(ARGV[2])     -- size of the window in milliseconds
-    local refill_rate               = tonumber(ARGV[3])     -- how many tokens are refilled after each interval
-    local now                       = tonumber(ARGV[4])     -- current timestamp in milliseconds
-    local remaining                 = 0
+        local key         = KEYS[1]           -- identifier including prefixes
+        local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
+        local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
+        local refillRate  = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
+        local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
+        local remaining   = 0
+        
+        local bucket = redis.call("HMGET", key, "updatedAt", "tokens")
+        
+        if bucket[1] == false then
+          -- The bucket does not exist yet, so we create it and add a ttl.
+          remaining = maxTokens - 1
+          
+          redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
+          redis.call("PEXPIRE", key, interval)
 
-    local bucket = redis.call("HMGET", key, "updated_at", "tokens")
+          return {remaining, now + interval}
+        end
 
-    if bucket[1] == false then
-      -- The bucket does not exist yet, create it and set its ttl to "interval".
-      remaining = max_number_of_tokens - 1
-
-      redis.call("HMSET", key, "updated_at", now, "tokens", remaining)
-
-      return {remaining, now + interval}
-    end
-
-    local updated_at = tonumber(bucket[1])
-    local tokens = tonumber(bucket[2])
-
-    if now >= updated_at + interval then
-      if tokens <= 0 then -- No more tokens were left before the refill.
-        remaining = math.min(max_number_of_tokens, refill_rate) - 1
-      else
-        remaining = math.min(max_number_of_tokens, tokens + refill_rate) - 1
-      end
-
-      redis.call("HMSET", key, "updated_at", now, "tokens", remaining)
-      return {remaining, now + interval}
-    end
+        -- The bucket does exist
     
-    remaining = tokens - 1
-    redis.call("HSET", key, "tokens", remaining)
+        local updatedAt = tonumber(bucket[1])
+        local tokens = tonumber(bucket[2])
 
-    return {remaining, updated_at + interval}
-    `;
+        if now >= updatedAt + interval then
+          if tokens <= 0 then 
+            -- No more tokens were left before the refill.
+            remaining = math.min(maxTokens, refillRate) - 1
+          else
+            remaining = math.min(maxTokens, tokens + refillRate) - 1
+          end
+        redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
+        return {remaining, now + interval}
+      end
+      
+      remaining = tokens - 1
+      redis.call("HSET", key, "tokens", remaining)
+      return {remaining, updatedAt + interval}
+
+    
+       `;
 
     const intervalDuration = ms(interval);
     return async function (ctx: RegionContext, identifier: string) {
