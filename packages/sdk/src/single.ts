@@ -327,9 +327,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if now >= updatedAt + interval then
           if tokens <= 0 then 
             -- No more tokens were left before the refill.
-            remaining = math.min(maxTokens, refillRate) - 1
+            remaining = math.min(maxTokens, math.floor((now - updatedAt)/interval) * refillRate) - 1
           else
-            remaining = math.min(maxTokens, tokens + refillRate) - 1
+            remaining = math.min(maxTokens, tokens + math.floor((now - updatedAt)/interval) * refillRate) - 1
           end
         redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
         return {remaining, now + interval}
