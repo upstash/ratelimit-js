@@ -310,30 +310,32 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         local bucket = redis.call("HMGET", key, "updatedAt", "tokens")
         
         if bucket[1] == false then
-          -- The bucket does not exist yet, so we create it and add a ttl.
+          -- The bucket does not exist yet, so we create it.
           remaining = maxTokens - 1
           
           redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
-          redis.call("PEXPIRE", key, interval)
 
           return {remaining, now + interval}
         end
-
-        -- The bucket does exist
     
         local updatedAt = tonumber(bucket[1])
         local tokens = tonumber(bucket[2])
 
         if now >= updatedAt + interval then
+          local numberOfRefills = math.floor((now - updatedAt)/interval)
+
           if tokens <= 0 then 
             -- No more tokens were left before the refill.
-            remaining = math.min(maxTokens, math.floor((now - updatedAt)/interval) * refillRate) - 1
+            remaining = math.min(maxTokens, numberOfRefills * refillRate) - 1
           else
-            remaining = math.min(maxTokens, tokens + math.floor((now - updatedAt)/interval) * refillRate) - 1
-          end
-        redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
-        return {remaining, now + interval}
-      end
+            remaining = math.min(maxTokens, tokens + numberOfRefills * refillRate) - 1
+          ends
+
+          local lastRefill = updatedAt + numberOfRefills * interval
+
+          redis.call("HMSET", key, "updatedAt", lastRefill, "tokens", remaining)
+          return {remaining, lastRefill + interval}
+        end
       
       remaining = tokens - 1
       redis.call("HSET", key, "tokens", remaining)
