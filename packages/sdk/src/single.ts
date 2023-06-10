@@ -329,7 +329,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             remaining = math.min(maxTokens, numberOfRefills * refillRate) - 1
           else
             remaining = math.min(maxTokens, tokens + numberOfRefills * refillRate) - 1
-          ends
+          end
 
           local lastRefill = updatedAt + numberOfRefills * interval
 
