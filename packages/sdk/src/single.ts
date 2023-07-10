@@ -121,7 +121,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration
+    window: Duration,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -155,11 +155,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
       }
-      const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
-        [key],
-        [windowDuration]
-      )) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
 
       const success = usedTokensAfterUpdate <= tokens;
       const reset = (bucket + 1) * windowDuration;
@@ -201,7 +197,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration
+    window: Duration,
   ): Algorithm<RegionContext> {
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
@@ -255,11 +251,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const remaining = (await ctx.redis.eval(
-        script,
-        [currentKey, previousKey],
-        [tokens, now, windowSize]
-      )) as number;
+      const remaining = (await ctx.redis.eval(script, [currentKey, previousKey], [tokens, now, windowSize])) as number;
 
       const success = remaining >= 0;
       const reset = (currentWindow + 1) * windowSize;
@@ -305,7 +297,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * A newly created bucket starts with this many tokens.
      * Useful to allow higher burst limits.
      */
-    maxTokens: number
+    maxTokens: number,
   ): Algorithm<RegionContext> {
     const script = `
         local key         = KEYS[1]           -- identifier including prefixes
@@ -366,7 +358,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       const [remaining, reset] = (await ctx.redis.eval(
         script,
         [key],
-        [maxTokens, intervalDuration, refillRate, now]
+        [maxTokens, intervalDuration, refillRate, now],
       )) as [number, number];
 
       const success = remaining > 0;
@@ -416,7 +408,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration
+    window: Duration,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -462,11 +454,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       }
 
-      const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
-        [key],
-        [windowDuration]
-      )) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
       ctx.cache.set(key, usedTokensAfterUpdate);
       const remaining = tokens - usedTokensAfterUpdate;
 
