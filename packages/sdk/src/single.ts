@@ -315,35 +315,26 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
         local remaining   = 0
         
-        local bucket = redis.call("HMGET", key, "updatedAt", "tokens")
+        local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
         
         if bucket[1] == false then
-          -- The bucket does not exist yet, so we create it.
-          remaining = maxTokens - 1
-          
-          redis.call("HMSET", key, "updatedAt", now, "tokens", remaining)
-
-          return {remaining, now + interval}
+          refilledAt = now
+          tokens = maxTokens
+        else
+          refilledAt = tonumber(bucket[1])
+          tokens = tonumber(bucket[2])
         end
-    
-        local updatedAt = tonumber(bucket[1])
-        local tokens = tonumber(bucket[2])
 
-        if now >= updatedAt + interval then
-          local numberOfRefills = math.floor((now - updatedAt)/interval)
+        if now >= refilledAt + interval then
+          local numRefills = math.floor((now - refilledAt) / interval)
+          tokens = math.min(maxTokens, tokens + numRefills * refillRate)
 
-          if tokens <= 0 then 
-            -- No more tokens were left before the refill.
-            remaining = math.min(maxTokens, numberOfRefills * refillRate) - 1
-          else
-            remaining = math.min(maxTokens, tokens + numberOfRefills * refillRate) - 1
-          end
-
-          local lastRefill = updatedAt + numberOfRefills * interval
-
-          redis.call("HMSET", key, "updatedAt", lastRefill, "tokens", remaining)
-          return {remaining, lastRefill + interval}
+          refilledAt = refilledAt + numRefills * interval
         end
+
+      if tokens == 0 then
+        return {-1, refilledAt + interval}
+      end
       
       remaining = tokens - 1
       redis.call("HSET", key, "tokens", remaining)
@@ -351,8 +342,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
       redis.call("PEXPIRE", key, expireAt)
 
-      return {remaining, updatedAt + interval}
-    
+      return {remaining, refilledAt + interval}
        `;
 
     const intervalDuration = ms(interval);
@@ -371,7 +361,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       }
 
       const now = Date.now();
-      const key = [identifier, Math.floor(now / intervalDuration)].join(":");
+      const key = identifier;
 
       const [remaining, reset] = (await ctx.redis.eval(
         script,
