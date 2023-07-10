@@ -166,7 +166,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        remaining: tokens - usedTokensAfterUpdate,
+        remaining: Math.max(0, tokens - usedTokensAfterUpdate),
         reset,
         pending: Promise.resolve(),
       };
