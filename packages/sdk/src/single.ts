@@ -305,7 +305,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
         local refillRate  = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
         local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
-        local remaining   = 0
         
         local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
         
@@ -328,7 +327,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         return {-1, refilledAt + interval}
       end
       
-      remaining = tokens - 1
+      local remaining = tokens - 1
       redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
 
       local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
