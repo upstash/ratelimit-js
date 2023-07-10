@@ -308,6 +308,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         
         local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
         
+        local refilledAt
+        local tokens
+
         if bucket[1] == false then
           refilledAt = now
           tokens = maxTokens
