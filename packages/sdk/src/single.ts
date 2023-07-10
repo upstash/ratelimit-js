@@ -329,7 +329,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       end
       
       remaining = tokens - 1
-      redis.call("HSET", key, "tokens", remaining)
+      redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
 
       local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
       redis.call("PEXPIRE", key, expireAt)
