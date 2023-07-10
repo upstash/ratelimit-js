@@ -16,7 +16,6 @@ export type RegionRatelimitConfig = {
    * Choose one of the predefined ones or implement your own.
    * Available algorithms are exposed via static methods:
    * - Ratelimiter.fixedWindow
-   * - Ratelimiter.slidingLogs
    * - Ratelimiter.slidingWindow
    * - Ratelimiter.tokenBucket
    */
@@ -208,16 +207,17 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       local requestsInCurrentWindow = redis.call("GET", currentKey)
       if requestsInCurrentWindow == false then
-        requestsInCurrentWindow = -1
+        requestsInCurrentWindow = 0
       end
-
 
       local requestsInPreviousWindow = redis.call("GET", previousKey)
       if requestsInPreviousWindow == false then
         requestsInPreviousWindow = 0
       end
-      local percentageInCurrent = ( now % window) / window
-      if requestsInPreviousWindow * ( 1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
+      local percentageInCurrent = ( now % window ) / window
+      -- weighted requests to consider from the previous window
+      requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
+      if requestsInPreviousWindow + requestsInCurrentWindow >= tokens then
         return -1
       end
 
@@ -227,7 +227,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         -- So we only need the expire command once
         redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
       end
-      return tokens - newValue
+      return tokens - ( newValue + requestsInPreviousWindow )
       `;
     const windowSize = ms(window);
     return async function (ctx: RegionContext, identifier: string) {
@@ -235,7 +235,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       const currentWindow = Math.floor(now / windowSize);
       const currentKey = [identifier, currentWindow].join(":");
-      const previousWindow = currentWindow - windowSize;
+      const previousWindow = currentWindow - 1;
       const previousKey = [identifier, previousWindow].join(":");
 
       if (ctx.cache) {
