@@ -300,7 +300,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
       const currentWindow = Math.floor(now / windowSize);
       const currentKey = [identifier, currentWindow].join(":");
-      const previousWindow = currentWindow - windowSize;
+      const previousWindow = currentWindow - 1;
       const previousKey = [identifier, previousWindow].join(":");
 
       const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] = ctx.redis.map((redis) => ({

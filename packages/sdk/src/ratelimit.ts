@@ -15,7 +15,6 @@ export type RatelimitConfig<TContext> = {
    * Choose one of the predefined ones or implement your own.
    * Available algorithms are exposed via static methods:
    * - Ratelimiter.fixedWindow
-   * - Ratelimiter.slidingLogs
    * - Ratelimiter.slidingWindow
    * - Ratelimiter.tokenBucket
    */
