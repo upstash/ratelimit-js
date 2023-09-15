@@ -7,7 +7,7 @@ It is the only connectionless (HTTP based) rate limiting library and designed
 for:
 
 - Serverless functions (AWS Lambda, Vercel ...)
-- Cloudflare Workers
+- Cloudflare Workers & Pages
 - Vercel Edge
 - Fastly Compute@Edge
 - Next.js, Jamstack ...
@@ -80,7 +80,7 @@ documentation on how to create a redis instance.
 
 ```ts
 import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
-import { Redis } from "@upstash/redis";
+import { Redis } from "@upstash/redis"; // see below for cloudflare and fastly adapters
 
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
 const ratelimit = new Ratelimit({
@@ -105,6 +105,13 @@ if (!success) {
 }
 doExpensiveCalculation();
 return "Here you go!";
+```
+
+For Cloudflare Workers and Fastly Compute@Edge, you can use the following imports:
+
+```ts
+import { Redis } from "@upstash/redis/cloudflare"; // for cloudflare workers and pages
+import { Redis } from "@upstash/redis/fastly"; // for fastly compute@edge
 ```
 
 [Here's a complete nextjs example](https://github.com/upstash/ratelimit/tree/main/examples/nextjs)
