@@ -17,14 +17,14 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Install bun
+        run: npm install -g bun
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Verify formatting
-        run: pnpm fmt 
+        run: bun run fmt 
 
       - name: Start redis server
         uses: ./.github/actions/redis
@@ -35,7 +35,7 @@ jobs:
           REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
 
       - name: Build
-        run: pnpm build
+        run: bun run build
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
@@ -52,11 +52,11 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Install bun
+        run: npm install -g bun
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Start redis server
         uses: ./.github/actions/redis
@@ -67,7 +67,7 @@ jobs:
           REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
 
       - name: Run tests
-        run: pnpm test
+        run: bun run test
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}

@@ -17,12 +17,11 @@ jobs:
         with:
           node-version: 16
 
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
+      - name: Install bun
+        run: npm install -g bun
 
       - name: Build
-        run: deno run -A ./cmd/build.ts
+        run: bun run build
 
       - name: Release
         env:
