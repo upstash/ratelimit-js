@@ -1,6 +1,6 @@
+import crypto from "node:crypto";
 import { Ratelimit } from "./ratelimit";
 import { Context } from "./types";
-import crypto from "node:crypto";
 
 type Metrics = {
   requests: number;
@@ -29,14 +29,14 @@ export class TestHarness<TContext extends Context> {
   }
 
   /**
-   * @param rate - req per second
+   * @param rps - req per second
    * @param duration - duration in seconds
    */
-  public async attack(rate: number, duration: number): Promise<void> {
+  public async attack(rps: number, duration: number): Promise<void> {
     const promises: Promise<{ success: boolean; pending: Promise<unknown> }>[] = [];
 
     for (let i = 0; i < duration; i++) {
-      for (let r = 0; r < rate; r++) {
+      for (let r = 0; r < rps; r++) {
         this.metrics.requests++;
         const id = crypto.randomUUID();
         this.latencies[id] = { start: Date.now(), end: -1 };
@@ -46,8 +46,8 @@ export class TestHarness<TContext extends Context> {
             return res;
           }),
         );
+        await new Promise((r) => setTimeout(r, 1000 / rps));
       }
-      await new Promise((r) => setTimeout(r, 1000));
     }
 
     await Promise.all(

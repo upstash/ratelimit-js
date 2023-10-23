@@ -1,0 +1,37 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.0.0/schema.json",
+
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "noSvgWithoutTitle": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      },
+      "style": {
+        "useBlockStatements": "error",
+        "noNonNullAssertion": "off"
+      },
+      "performance": {
+        "noDelete": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off"
+      }
+    },
+    "ignore": ["node_modules", ".next", "dist", ".nuxt", ".contentlayer"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "enabled": true,
+    "lineWidth": 100,
+    "ignore": ["node_modules", ".next", "dist", ".nuxt", ".contentlayer"]
+  }
+}

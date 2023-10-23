@@ -154,7 +154,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
       }
-      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(
+        script,
+        [key],
+        [windowDuration],
+      )) as number;
 
       const success = usedTokensAfterUpdate <= tokens;
       const reset = (bucket + 1) * windowDuration;
@@ -251,7 +255,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const remaining = (await ctx.redis.eval(script, [currentKey, previousKey], [tokens, now, windowSize])) as number;
+      const remaining = (await ctx.redis.eval(
+        script,
+        [currentKey, previousKey],
+        [tokens, now, windowSize],
+      )) as number;
 
       const success = remaining >= 0;
       const reset = (currentWindow + 1) * windowSize;
@@ -459,7 +467,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       }
 
-      const usedTokensAfterUpdate = (await ctx.redis.eval(script, [key], [windowDuration])) as number;
+      const usedTokensAfterUpdate = (await ctx.redis.eval(
+        script,
+        [key],
+        [windowDuration],
+      )) as number;
       ctx.cache.set(key, usedTokensAfterUpdate);
       const remaining = tokens - usedTokensAfterUpdate;
 

@@ -17,7 +17,12 @@ export function BreadcrumbDivider() {
 
 export function BreadcrumbItem({ url, name }: BreadcrumbItemProps) {
   return (
-    <a className="cursor-pointer hover:underline" target="_blank" rel="noopener noreferrer" href={url}>
+    <a
+      className="cursor-pointer hover:underline"
+      target="_blank"
+      rel="noopener noreferrer"
+      href={url}
+    >
       {name}
     </a>
   );

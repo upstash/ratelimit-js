@@ -1,8 +1,8 @@
-import Image from "next/image";
+import { Ratelimit } from "@upstash/ratelimit";
+import kv from "@vercel/kv";
 import { Inter } from "next/font/google";
 import { headers } from "next/headers";
-import kv from "@vercel/kv";
-import { Ratelimit } from "@upstash/ratelimit";
+import Image from "next/image";
 import Link from "next/link";
 
 const ratelimit = new Ratelimit({

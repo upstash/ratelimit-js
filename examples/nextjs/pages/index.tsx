@@ -36,10 +36,13 @@ const Home: NextPage = () => {
           </h1>
 
           <p className="mt-4">
-            This is an example of how to ratelimit your nextjs app at the edge using Vercel Edge and Upstash Redis
+            This is an example of how to ratelimit your nextjs app at the edge using Vercel Edge and
+            Upstash Redis
           </p>
 
-          <p className="mt-4">Click the button below to make a request, that will be ratelimited by your IP.</p>
+          <p className="mt-4">
+            Click the button below to make a request, that will be ratelimited by your IP.
+          </p>
         </header>
 
         <hr className="my-10" />

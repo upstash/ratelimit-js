@@ -303,12 +303,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const previousWindow = currentWindow - 1;
       const previousKey = [identifier, previousWindow].join(":");
 
-      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] = ctx.redis.map((redis) => ({
-        redis,
-        request: redis.eval(script, [currentKey, previousKey], [tokens, now, windowDuration, requestID]) as Promise<
-          [string[], string[]]
-        >,
-      }));
+      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] = ctx.redis.map(
+        (redis) => ({
+          redis,
+          request: redis.eval(
+            script,
+            [currentKey, previousKey],
+            [tokens, now, windowDuration, requestID],
+          ) as Promise<[string[], string[]]>,
+        }),
+      );
 
       const percentageInCurrent = (now % windowDuration) / windowDuration;
       const [current, previous] = await Promise.any(dbs.map((s) => s.request));
