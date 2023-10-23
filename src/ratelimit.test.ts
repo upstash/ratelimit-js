@@ -1,6 +1,6 @@
+import { describe, expect, test } from "bun:test";
 import { log } from "console";
 import crypto from "node:crypto";
-import { describe, expect, test } from "bun:test";
 import { Redis } from "@upstash/redis";
 import { Algorithm } from ".";
 import type { Duration } from "./duration";
@@ -27,7 +27,7 @@ const windowString: Duration = `${window} s`;
 const testcases: TestCase[] = [];
 
 for (const rps of [10, 100]) {
-  for (const load of [ 0.5,1, 1.5]) {
+  for (const load of [0.5, 1, 1.5]) {
     testcases.push({ load, rps });
   }
 }
@@ -42,23 +42,30 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
     const limits = {
       lte: ((attackDuration * tc.rps) / window) * 1.2,
       gte: ((attackDuration * tc.rps) / window) * 0.5,
-    }
+    };
     describe(name, () => {
-      test(`should be within ${limits.gte} - ${limits.lte}`, async () => {
-        log(name);
-        const harness = new TestHarness(ratelimit);
-        await harness.attack(tc.rps * tc.load, attackDuration).catch((e) => {
-          console.error(e);
-        });
-        log("success:", harness.metrics.success, ", blocked:", harness.metrics.rejected, "out of:", harness.metrics.requests)
+      test(
+        `should be within ${limits.gte} - ${limits.lte}`,
+        async () => {
+          log(name);
+          const harness = new TestHarness(ratelimit);
+          await harness.attack(tc.rps * tc.load, attackDuration).catch((e) => {
+            console.error(e);
+          });
+          log(
+            "success:",
+            harness.metrics.success,
+            ", blocked:",
+            harness.metrics.rejected,
+            "out of:",
+            harness.metrics.requests,
+          );
 
-        expect(harness.metrics.success).toBeLessThanOrEqual(
-          limits.lte
-        );
-        expect(harness.metrics.success).toBeGreaterThanOrEqual(
-          limits.gte
-        );
-      }, attackDuration * 1000 * 2);
+          expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
+          expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
+        },
+        attackDuration * 1000 * 2,
+      );
     });
   }
 }

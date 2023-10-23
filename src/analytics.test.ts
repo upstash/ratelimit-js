@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
 import { expect, test } from "bun:test";
+import crypto from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { Analytics } from "./analytics";
 

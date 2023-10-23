@@ -82,9 +82,9 @@ export class Analytics {
           usage[k] = { success: 0, blocked: 0 };
         }
         // @ts-ignore
-        usage[k].success += v["true"] ?? 0;
+        usage[k].success += v.true ?? 0;
         // @ts-ignore
-        usage[k].blocked += v["false"] ?? 0;
+        usage[k].blocked += v.false ?? 0;
       }
     }
     return usage;
