@@ -16,10 +16,10 @@
     "bun-types": "latest",
     "rome": "^11.0.0",
     "turbo": "^1.10.15",
+    "tsup": "^7.2.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@upstash/core-analytics": "^0.0.6",
-    "tsup": "^7.2.0"
+    "@upstash/core-analytics": "^0.0.6"
   }
 }
