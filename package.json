@@ -1,21 +1,22 @@
 {
   "name": "@upstash/ratelimit",
   "version": "0.0.0",
-  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "dev": "turbo run dev --parallel",
-    "fmt": "pnpm rome check . --apply-suggested && pnpm rome format . --write",
-    "release": "pnpm fmt && pnpm build && pnpx changeset publish"
+    "build": "tsup",
+    "test": "bun test src --coverage",
+    "fmt": "bunx @biomejs/biome check --apply ./src"
   },
   "devDependencies": {
+    "@upstash/redis": "^1.23.4",
+    "bun-types": "latest",
     "rome": "^11.0.0",
-    "turbo": "^1.9.3"
+    "turbo": "^1.10.15",
+    "typescript": "^5.0.0"
   },
-  "engines": {
-    "node": ">=16.0.0"
-  },
-  "packageManager": "pnpm@8.5.1"
-
+  "dependencies": {
+    "@upstash/core-analytics": "^0.0.6",
+    "tsup": "^7.2.0"
+  }
 }

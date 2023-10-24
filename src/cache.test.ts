@@ -1,6 +1,6 @@
-import { Ratelimit } from "./index";
-import { expect, test } from "@jest/globals";
+import { expect, test } from "bun:test";
 import { Redis } from "@upstash/redis";
+import { Ratelimit } from "./index";
 
 test("ephemeral cache", async () => {
   const maxTokens = 10;

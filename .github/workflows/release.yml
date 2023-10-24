@@ -20,45 +20,27 @@ jobs:
           node-version: 18
 
       - name: Set version
-        run: node cmd/set-version.js packages/sdk ${GITHUB_REF#refs/*/}
+        run: node cmd/set-version.js . ${GITHUB_REF#refs/*/}
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
+      - name: Install bun
+        run: npm install -g bun
+     
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
       
       - name: Build
-        run: pnpm turbo run build --filter=ratelimit  
+        run: bun run build
 
       - name: Add npm token
         run: echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
 
-      - name: Copy README
-        run: cp README.md packages/sdk/README.md
-
-      - name: Publish
-        if: "!github.event.release.prerelease"
-        working-directory: packages/sdk
-        run: pnpm publish --access public --no-git-checks
 
       - name: Publish release candidate
         if: "github.event.release.prerelease"
-        working-directory: packages/sdk
-        run: pnpm publish --access public --tag=next --no-git-checks
+        run: npm publish --access public --tag=canary --no-git-checks
          
+      - name: Publish
+        if: "!github.event.release.prerelease"
+        run: npm publish --access public --no-git-checks
+
+   

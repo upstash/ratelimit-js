@@ -1,7 +1,7 @@
-import { Analytics } from "./analytics";
-import { expect, test } from "@jest/globals";
-import { Redis } from "@upstash/redis";
+import { expect, test } from "bun:test";
 import crypto from "node:crypto";
+import { Redis } from "@upstash/redis";
+import { Analytics } from "./analytics";
 
 test("analytics", async () => {
   const redis = Redis.fromEnv();
@@ -18,6 +18,6 @@ test("analytics", async () => {
   const usage = await a.getUsage(Date.now() - 1000 * 60 * 60 * 24);
   expect(Object.entries(usage).length).toBe(1);
   expect(Object.keys(usage)).toContain("id");
-  expect(usage["id"].success).toBe(20);
-  expect(usage["id"].blocked).toBe(0);
+  expect(usage.id.success).toBe(20);
+  expect(usage.id.blocked).toBe(0);
 });

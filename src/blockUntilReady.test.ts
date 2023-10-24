@@ -1,7 +1,7 @@
-import { Ratelimit } from "./index";
-import { describe, expect, test } from "@jest/globals";
-import { Redis } from "@upstash/redis";
+import { describe, expect, test } from "bun:test";
 import crypto from "node:crypto";
+import { Redis } from "@upstash/redis";
+import { Ratelimit } from "./index";
 
 const redis = Redis.fromEnv();
 

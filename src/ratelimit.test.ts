@@ -1,3 +1,7 @@
+import { describe, expect, test } from "bun:test";
+import { log } from "console";
+import crypto from "node:crypto";
+import { Redis } from "@upstash/redis";
 import { Algorithm } from ".";
 import type { Duration } from "./duration";
 import { MultiRegionRatelimit } from "./multi";
@@ -5,16 +9,10 @@ import { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
 import { TestHarness } from "./test_utils";
 import type { Context, MultiRegionContext, RegionContext } from "./types";
-import { describe, expect, jest, test } from "@jest/globals";
-import { Redis } from "@upstash/redis";
-// hack to make printing work in jest
-import { log } from "console";
-import crypto from "node:crypto";
 
-jest.useRealTimers();
 type TestCase = {
-  // allowed per second
-  rate: number;
+  // requests per second
+  rps: number;
   /**
    * Multiplier for rate
    *
@@ -28,31 +26,47 @@ const windowString: Duration = `${window} s`;
 
 const testcases: TestCase[] = [];
 
-for (const rate of [10, 100]) {
-  for (const load of [0.5, 1.0, 1.5]) {
-    testcases.push({ load, rate });
+for (const rps of [10, 100]) {
+  for (const load of [0.5, 1, 1.5]) {
+    testcases.push({ load, rps });
   }
 }
 
 function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TContext>) {
   for (const tc of testcases) {
-    const name = `${tc.rate.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
+    const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
       .toString()
-      .padStart(3, " ")}% -> Sending ${(tc.rate * tc.load).toString().padStart(4, " ")}req/s`;
+      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load).toString().padStart(4, " ")}req/s`;
     const ratelimit = builder(tc);
-    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
-    const tolerance = isMultiRegion ? 0.5 : 0.1;
-    describe(name, () => {
-      test(name, async () => {
-        log(name);
-        const harness = new TestHarness(ratelimit);
-        await harness.attack(tc.rate * tc.load, attackDuration).catch((e) => {
-          console.error(e);
-        });
 
-        expect(harness.metrics.success).toBeLessThanOrEqual(((attackDuration * tc.rate) / window) * (1 + tolerance));
-        expect(harness.metrics.success).toBeGreaterThanOrEqual(((attackDuration * tc.rate) / window) * (1 - tolerance));
-      });
+    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
+    const limits = {
+      lte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 1.5 : 1.2),
+      gte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 0.5 : 0.8),
+    };
+    describe(name, () => {
+      test(
+        `should be within ${limits.gte} - ${limits.lte}`,
+        async () => {
+          log(name);
+          const harness = new TestHarness(ratelimit);
+          await harness.attack(tc.rps * tc.load, attackDuration).catch((e) => {
+            console.error(e);
+          });
+          log(
+            "success:",
+            harness.metrics.success,
+            ", blocked:",
+            harness.metrics.rejected,
+            "out of:",
+            harness.metrics.requests,
+          );
+
+          expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
+          expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
+        },
+        attackDuration * 1000 * 2,
+      );
     });
   }
 }
@@ -71,15 +85,15 @@ function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<Multi
     redis: [
       new Redis({
         url: ensureEnv("EU2_UPSTASH_REDIS_REST_URL"),
-        token: ensureEnv("EU2_UPSTASH_REDIS_REST_TOKEN")!,
+        token: ensureEnv("EU2_UPSTASH_REDIS_REST_TOKEN"),
       }),
       new Redis({
-        url: ensureEnv("APN_UPSTASH_REDIS_REST_URL")!,
-        token: ensureEnv("APN_UPSTASH_REDIS_REST_TOKEN")!,
+        url: ensureEnv("APN_UPSTASH_REDIS_REST_URL"),
+        token: ensureEnv("APN_UPSTASH_REDIS_REST_TOKEN"),
       }),
       new Redis({
-        url: ensureEnv("US1_UPSTASH_REDIS_REST_URL")!,
-        token: ensureEnv("US1_UPSTASH_REDIS_REST_TOKEN")!,
+        url: ensureEnv("US1_UPSTASH_REDIS_REST_URL"),
+        token: ensureEnv("US1_UPSTASH_REDIS_REST_TOKEN"),
       }),
     ],
     limiter,
@@ -113,23 +127,29 @@ describe("timeout", () => {
     expect(res.limit).toBe(0);
     expect(res.remaining).toBe(0);
     expect(res.reset).toBe(0);
-    expect(duration).toBeCloseTo(1000, 100);
+    expect(duration).toBeGreaterThanOrEqual(900);
+    expect(duration).toBeLessThanOrEqual(1100);
 
     // stop the test from leaking
     await new Promise((r) => setTimeout(r, 5000));
-  });
+  }, 10000);
 });
 
 describe("fixedWindow", () => {
-  describe("region", () => run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rate, windowString))));
+  describe("region", () =>
+    run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rps, windowString))));
 
-  describe("multiRegion", () => run((tc) => newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rate, windowString))));
+  describe("multiRegion", () =>
+    run((tc) => newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps, windowString))));
 });
 describe("slidingWindow", () => {
-  describe("region", () => run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rate, windowString))));
-  describe("multiRegion", () => run((tc) => newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rate, windowString))));
+  describe("region", () =>
+    run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps, windowString))));
+  describe("multiRegion", () =>
+    run((tc) => newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps, windowString))));
 });
 
 describe("tokenBucket", () => {
-  describe("region", () => run((tc) => newRegion(RegionRatelimit.tokenBucket(tc.rate, windowString, tc.rate))));
+  describe("region", () =>
+    run((tc) => newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps))));
 });

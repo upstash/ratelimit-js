@@ -1,5 +1,5 @@
+import { describe, expect, it } from "bun:test";
 import { ms } from "./duration";
-import { describe, expect, it } from "@jest/globals";
 
 describe("ms", () => {
   it("should return the correct number of milliseconds for a given duration", () => {
