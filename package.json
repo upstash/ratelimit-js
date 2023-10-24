@@ -5,7 +5,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
-    "test": "bun test pkg --coverage",
+    "test": "bun test src --coverage",
     "fmt": "bunx @biomejs/biome check --apply ./src"
   },
   "devDependencies": {
