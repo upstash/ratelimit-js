@@ -161,13 +161,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
       }
 
-      const requestID = randomId();
+      const requestId = randomId();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
       const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
         redis,
-        request: redis.eval(script, [key], [requestID, windowDuration]) as Promise<string[]>,
+        request: redis.eval(script, [key], [requestId, windowDuration]) as Promise<string[]>,
       }));
 
       const firstResponse = await Promise.any(dbs.map((s) => s.request));
@@ -257,7 +257,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       local tokens      = tonumber(ARGV[1]) -- tokens per window
       local now         = ARGV[2]           -- current timestamp in milliseconds
       local window      = ARGV[3]           -- interval in milliseconds
-      local requestID   = ARGV[4]           -- uuid for this request
+      local requestId   = ARGV[4]           -- uuid for this request
 
 
       local currentMembers = redis.call("SMEMBERS", currentKey)
@@ -267,35 +267,35 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
       local percentageInCurrent = ( now % window) / window
       if requestsInPreviousWindow * ( 1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
-        return {currentMembers, previousMembers}
+        return {currentMembers, previousMembers, false}
       end
 
-      redis.call("SADD", currentKey, requestID)
-      table.insert(currentMembers, requestID)
+      redis.call("SADD", currentKey, requestId)
+      table.insert(currentMembers, requestId)
       if requestsInCurrentWindow == 0 then 
         -- The first time this key is set, the value will be 1.
         -- So we only need the expire command once
         redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
       end
-      return {currentMembers, previousMembers}
+      return {currentMembers, previousMembers, true}
       `;
     const windowDuration = ms(window);
 
     return async function (ctx: MultiRegionContext, identifier: string) {
-      if (ctx.cache) {
-        const { blocked, reset } = ctx.cache.isBlocked(identifier);
-        if (blocked) {
-          return {
-            success: false,
-            limit: tokens,
-            remaining: 0,
-            reset: reset,
-            pending: Promise.resolve(),
-          };
-        }
-      }
+      // if (ctx.cache) {
+      //   const { blocked, reset } = ctx.cache.isBlocked(identifier);
+      //   if (blocked) {
+      //     return {
+      //       success: false,
+      //       limit: tokens,
+      //       remaining: 0,
+      //       reset: reset,
+      //       pending: Promise.resolve(),
+      //     };
+      //   }
+      // }
 
-      const requestID = randomId();
+      const requestId = randomId();
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -303,21 +303,21 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const previousWindow = currentWindow - 1;
       const previousKey = [identifier, previousWindow].join(":");
 
-      const dbs: { redis: Redis; request: Promise<[string[], string[]]> }[] = ctx.redis.map(
-        (redis) => ({
-          redis,
-          request: redis.eval(
-            script,
-            [currentKey, previousKey],
-            [tokens, now, windowDuration, requestID],
-          ) as Promise<[string[], string[]]>,
-        }),
-      );
+      const dbs = ctx.redis.map((redis) => ({
+        redis,
+        request: redis.eval(
+          script,
+          [currentKey, previousKey],
+          [tokens, now, windowDuration, requestId],
+          // lua seems to return `1` for true and `null` for false
+        ) as Promise<[string[], string[], 1 | null]>,
+      }));
 
       const percentageInCurrent = (now % windowDuration) / windowDuration;
-      const [current, previous] = await Promise.any(dbs.map((s) => s.request));
+      const [current, previous, success] = await Promise.any(dbs.map((s) => s.request));
 
-      const usedTokens = previous.length * (1 - percentageInCurrent) + current.length;
+      const previousPartialUsed = previous.length * (1 - percentageInCurrent);
+      const usedTokens = previousPartialUsed + current.length;
 
       const remaining = tokens - usedTokens;
 
@@ -325,9 +325,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        * If a database differs from the consensus, we sync it
        */
       async function sync() {
-        const [individualIDs] = await Promise.all(dbs.map((s) => s.request));
-        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _)).values());
-
+        const res = await Promise.all(dbs.map((s) => s.request));
+        const allCurrentIds = res.flatMap(([current]) => current);
         for (const db of dbs) {
           const [ids] = await db.request;
           /**
@@ -337,7 +336,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           if (ids.length >= tokens) {
             continue;
           }
-          const diff = allIDs.filter((id) => !ids.includes(id));
+          const diff = allCurrentIds.filter((id) => !ids.includes(id));
           /**
            * Don't waste a request if there is nothing to send
            */
@@ -345,17 +344,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             continue;
           }
 
-          await db.redis.sadd(currentKey, ...allIDs);
+          await db.redis.sadd(currentKey, ...diff);
         }
       }
 
-      const success = remaining > 0;
+      // const success = remaining >= 0;
       const reset = (currentWindow + 1) * windowDuration;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
       }
       return {
-        success,
+        success: Boolean(success),
         limit: tokens,
         remaining,
         reset,

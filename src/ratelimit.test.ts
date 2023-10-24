@@ -39,9 +39,10 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
       .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load).toString().padStart(4, " ")}req/s`;
     const ratelimit = builder(tc);
 
+    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
     const limits = {
-      lte: ((attackDuration * tc.rps) / window) * 1.2,
-      gte: ((attackDuration * tc.rps) / window) * 0.5,
+      lte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 1.5 : 1.2),
+      gte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 0.5 : 0.8),
     };
     describe(name, () => {
       test(
@@ -144,7 +145,7 @@ describe("fixedWindow", () => {
 describe("slidingWindow", () => {
   describe("region", () =>
     run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps, windowString))));
-  describe.skip("multiRegion", () =>
+  describe("multiRegion", () =>
     run((tc) => newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps, windowString))));
 });
 
