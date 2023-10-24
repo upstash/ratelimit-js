@@ -35,11 +35,12 @@ jobs:
         run: echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
 
 
+      - name: Publish release candidate
+        if: "github.event.release.prerelease"
+        run: npm publish --access public --tag=canary --no-git-checks
+         
       - name: Publish
         if: "!github.event.release.prerelease"
         run: npm publish --access public --no-git-checks
 
-      - name: Publish release candidate
-        if: "github.event.release.prerelease"
-        run: npm publish --access public --tag=next --no-git-checks
-         
+   
