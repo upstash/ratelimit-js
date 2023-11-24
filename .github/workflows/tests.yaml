@@ -4,43 +4,20 @@ on:
   schedule:
     - cron: "0 0 * * *" # daily
 
+env:
+  UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+  UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+  US1_UPSTASH_REDIS_REST_URL: ${{ secrets.US1_UPSTASH_REDIS_REST_URL }}
+  US1_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.US1_UPSTASH_REDIS_REST_TOKEN }}
+
+  APN_UPSTASH_REDIS_REST_URL: ${{ secrets.APN_UPSTASH_REDIS_REST_URL }}
+  APN_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.APN_UPSTASH_REDIS_REST_TOKEN }}
+
+  EU2_UPSTASH_REDIS_REST_URL: ${{ secrets.EU2_UPSTASH_REDIS_REST_URL }}
+  EU2_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.EU2_UPSTASH_REDIS_REST_TOKEN }}
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    name: Build
-    steps:
-      - name: Setup repo
-        uses: actions/checkout@v2
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install bun
-        run: npm install -g bun
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Verify formatting
-        run: bun run fmt 
-
-      - name: Start redis server
-        uses: ./.github/actions/redis
-        with:
-          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
-          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
-
-      - name: Build
-        run: bun run build
-        env:
-          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-
-
   test:
     runs-on: ubuntu-latest
     name: Tests
@@ -58,22 +35,5 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Start redis server
-        uses: ./.github/actions/redis
-        with:
-          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          UPSTASH_REPO_ACCESS_TOKEN: ${{ secrets.UPSTASH_REPO_ACCESS_TOKEN }}
-          REDIS_SERVER_CONFIG: ${{ secrets.REDIS_SERVER_CONFIG }}
-
       - name: Run tests
-        run: bun run test 
-        env:
-          UPSTASH_REDIS_REST_URL: http://127.0.0.1:6379
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          EU2_UPSTASH_REDIS_REST_URL: ${{ secrets.EU2_UPSTASH_REDIS_REST_URL }}
-          EU2_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.EU2_UPSTASH_REDIS_REST_TOKEN }}
-          APN_UPSTASH_REDIS_REST_URL: ${{ secrets.APN_UPSTASH_REDIS_REST_URL }}
-          APN_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.APN_UPSTASH_REDIS_REST_TOKEN }}
-          US1_UPSTASH_REDIS_REST_URL: ${{ secrets.US1_UPSTASH_REDIS_REST_URL }}
-          US1_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.US1_UPSTASH_REDIS_REST_TOKEN }}
+        run: bun run test
