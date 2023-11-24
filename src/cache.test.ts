@@ -4,10 +4,7 @@ import { Ratelimit } from "./index";
 
 test("ephemeral cache", async () => {
   const maxTokens = 10;
-  const redis = new Redis({
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-  });
+  const redis = Redis.fromEnv();
 
   const metrics: Record<string | symbol, number> = {};
 

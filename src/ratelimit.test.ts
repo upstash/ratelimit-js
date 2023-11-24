@@ -102,10 +102,7 @@ function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<Multi
 function newRegion(limiter: Algorithm<RegionContext>): Ratelimit<RegionContext> {
   return new RegionRatelimit({
     prefix: crypto.randomUUID(),
-    redis: new Redis({
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-      url: process.env.UPSTASH_REDIS_REST_URL!,
-    }),
+    redis: Redis.fromEnv(),
     limiter,
   });
 }
@@ -116,10 +113,7 @@ describe("timeout", () => {
       prefix: crypto.randomUUID(),
       // @ts-ignore - I just want to test the timeout
       redis: {
-        ...new Redis({
-          token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-          url: process.env.UPSTASH_REDIS_REST_URL!,
-        }),
+        ...Redis.fromEnv(),
         eval: () => new Promise((r) => setTimeout(r, 2000)),
       },
       limiter: RegionRatelimit.fixedWindow(1, "1 s"),

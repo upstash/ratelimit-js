@@ -4,10 +4,7 @@ import { Redis } from "@upstash/redis";
 import { Analytics } from "./analytics";
 
 test("analytics", async () => {
-  const redis = new Redis({
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-  });
+  const redis = Redis.fromEnv();
   const a = new Analytics({ redis, prefix: crypto.randomUUID() });
   const time = Date.now();
   for (let i = 0; i < 20; i++) {
