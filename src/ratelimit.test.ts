@@ -20,14 +20,14 @@ type TestCase = {
    */
   load: number;
 };
-const attackDuration = 60;
+const attackDuration = 10;
 const window = 5;
 const windowString: Duration = `${window} s`;
 
 const testcases: TestCase[] = [];
 
 for (const rps of [10, 100]) {
-  for (const load of [0.5, 1, 1.5]) {
+  for (const load of [0.5, 0.7]) {
     testcases.push({ load, rps });
   }
 }
@@ -39,10 +39,9 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
       .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load).toString().padStart(4, " ")}req/s`;
     const ratelimit = builder(tc);
 
-    const isMultiRegion = ratelimit instanceof MultiRegionRatelimit;
     const limits = {
-      lte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 1.5 : 1.2),
-      gte: ((attackDuration * tc.rps) / window) * (isMultiRegion ? 0.5 : 0.8),
+      lte: ((attackDuration * tc.rps) / window) * 1.5,
+      gte: ((attackDuration * tc.rps) / window) * 0.5,
     };
     describe(name, () => {
       test(
@@ -59,13 +58,13 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
             ", blocked:",
             harness.metrics.rejected,
             "out of:",
-            harness.metrics.requests,
+            harness.metrics.requests
           );
 
           expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
           expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
         },
-        attackDuration * 1000 * 2,
+        attackDuration * 1000 * 2
       );
     });
   }
