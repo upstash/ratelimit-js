@@ -369,7 +369,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [maxTokens, intervalDuration, refillRate, now],
       )) as [number, number];
 
-      const success = remaining > 0;
+      const success = remaining >= 0;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
       }
