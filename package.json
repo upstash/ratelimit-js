@@ -12,7 +12,7 @@
     "fmt": "bunx @biomejs/biome check --apply ./src"
   },
   "devDependencies": {
-    "@upstash/redis": "^1.23.4",
+    "@upstash/redis": "^1.28.3",
     "bun-types": "latest",
     "rome": "^11.0.0",
     "turbo": "^1.10.15",
@@ -20,6 +20,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@upstash/core-analytics": "^0.0.6"
+    "@upstash/core-analytics": "^0.0.7"
   }
 }
