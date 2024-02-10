@@ -59,6 +59,13 @@ export type RegionRatelimitConfig = {
    * @default true
    */
   analytics?: boolean;
+
+  /**
+   * Extra limit condition
+   *
+   * @default 0
+   */
+  extraLimit?: number;
 };
 
 /**
@@ -121,6 +128,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
+    /**
+     * How many requests are allowed per window.
+     */
+    maxCustomRates?: { [key: string]: number },
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -138,7 +149,22 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return r
     `;
 
-    return async function (ctx: RegionContext, identifier: string) {
+    const customRateScript = `
+    local key     = KEYS[1]
+    local incr_by  = ARGV[1]
+    local window  = ARGV[2]
+    
+    local r = redis.call("INCRBY", key, incr_by)
+    if r == incr_by then
+    -- The first time this key is set, the value will be 1.
+    -- So we only need the expire command once
+    redis.call("PEXPIRE", key, window)
+    end
+    
+    return r
+    `;
+
+    return async function (ctx: RegionContext, identifier: string, customRates?: { [key: string]: number }) {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
 
@@ -160,7 +186,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [windowDuration],
       )) as number;
 
-      const success = usedTokensAfterUpdate <= tokens;
+      let success = usedTokensAfterUpdate <= tokens;
+
+      if (customRates && maxCustomRates) {
+        for (const rateKey in customRates) {
+          const usedRateAfterUpdate = (await ctx.redis.eval(
+            customRateScript,
+            [rateKey],
+            [customRates[rateKey], windowDuration],
+          )) as number;
+          console.log(rateKey, usedRateAfterUpdate)
+          success = success && usedRateAfterUpdate <= maxCustomRates[rateKey]
+        }
+      }
+
       const reset = (bucket + 1) * windowDuration;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
@@ -449,8 +488,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
-              ctx.cache!.set(key, t as number);
-            })
+            ctx.cache!.set(key, t as number);
+          })
           : Promise.resolve();
 
         return {
