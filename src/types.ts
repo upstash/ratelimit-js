@@ -23,11 +23,11 @@ export type RatelimitResponse = {
   /**
    * Maximum number of requests allowed within a window.
    */
-  limit: number;
+  limit: number | { [key: string]: number };
   /**
    * How many requests the user has left within the current window.
    */
-  remaining: number;
+  remaining: number | { [key: string]: number };
   /**
    * Unix timestamp in milliseconds when the limits are reset.
    */
