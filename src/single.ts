@@ -128,9 +128,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     window: Duration,
     /**
-     * How many requests are allowed per window.
+     * How many custom tokens are allowed per window.
      */
-    customTokens?: { [key: string]: number },
+    customTokens?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -163,12 +163,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return r
     `;
 
-    return async function (ctx: RegionContext, identifier: string, customRates?: { [key: string]: number }) {
+    return async function (ctx: RegionContext, identifier: string, customToken?: number) {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
-
-      const remaining: { [key: string]: number } = {}
-
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -189,19 +186,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       let success = usedTokensAfterUpdate <= tokens;
 
-      remaining[identifier] = Math.max(0, tokens - usedTokensAfterUpdate)
+      let remaining = Math.max(0, tokens - usedTokensAfterUpdate)
+      let remainingCustomTokens = 0;
 
-      if (customRates && customTokens) {
-        for (const customIdentifier in customRates) {
-          const customKey = [identifier, customIdentifier, bucket].join(":");
-          const usedCustomTokensAfterUpdate = (await ctx.redis.eval(
-            customRateScript,
-            [customKey],
-            [customRates[customIdentifier], windowDuration],
-          )) as number;
-          success = success && usedCustomTokensAfterUpdate <= customTokens[customIdentifier]
-          remaining[customIdentifier] = Math.max(0, customTokens[customIdentifier] - usedCustomTokensAfterUpdate)
-        }
+      if (customTokens && customToken) {
+        const usedCustomTokensAfterUpdate = (await ctx.redis.eval(
+          customRateScript,
+          [key + ":customRate"],
+          [customToken, windowDuration],
+        )) as number;
+
+        success = success && usedCustomTokensAfterUpdate <= customTokens
+
+        remainingCustomTokens = Math.max(0, customTokens - usedCustomTokensAfterUpdate)
       }
 
       const reset = (bucket + 1) * windowDuration;
@@ -211,8 +208,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       return {
         success,
-        limit: { [identifier]: tokens, ...customRates },
+        limit: tokens,
+        customLimit: customTokens,
         remaining: remaining,
+        remainingCustomTokens,
         reset,
         pending: Promise.resolve(),
       };

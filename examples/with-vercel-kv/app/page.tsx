@@ -7,22 +7,19 @@ import Link from "next/link";
 
 const ratelimit = new Ratelimit({
   redis: kv,
-  limiter: Ratelimit.fixedWindow(10, "30s", {
-    foo: 100,
-    bar: 200,
-  }),
+  limiter: Ratelimit.fixedWindow(10, "30s", 400),
 });
 
 export default async function Home() {
   const ip = headers().get("x-forwarded-for");
-  const { success, limit, remaining, reset } = await ratelimit.limit(
-    ip ?? "anonymous011",
-    undefined,
-    {
-      foo: 10,
-      bar: 40,
-    }
-  );
+  const {
+    success,
+    limit,
+    customLimit,
+    remaining,
+    remainingCustomTokens,
+    reset,
+  } = await ratelimit.limit(ip ?? "anonymous011", undefined, 60);
 
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
@@ -55,44 +52,40 @@ export default async function Home() {
         )}
       </div>
 
-      <div className="grid mb-32 text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
+      <div className="grid mb-32 text-center lg:mb-0 lg:grid-cols-6 lg:text-left">
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={"mb-3 text-2xl font-semibold"}>Success</h2>
+          <h2 className={"mb-3 text-xl font-semibold"}>Success</h2>
           <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
             {success.toString()}
           </p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30">
-          <h2 className={"mb-3 text-2xl font-semibold"}>Limit </h2>
-          {Object.keys(limit).map((key, i) => (
-            <div className="flex items-center gap-2">
-              <p className={"m-0 max-w-[30ch] text-sm"}>
-                {i === 0 ? "Default" : key}:
-              </p>
-              <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
-                {limit[key]}
-              </p>
-            </div>
-          ))}
+          <h2 className={"mb-3 text-xl font-semibold"}>Limit </h2>
+          <p className={"m-0 max-w-[30ch] text-sm"}>{limit}</p>
+        </div>
+
+        <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30">
+          <h2 className={"mb-3 text-xl font-semibold"}> Custom Limit </h2>
+          <p className={"m-0 max-w-[30ch] text-sm"}>{customLimit}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={"mb-3 text-2xl font-semibold"}>Remaining</h2>
-          {Object.keys(remaining).map((key, i) => (
-            <div className="flex items-center gap-2">
-              <p className={"m-0 max-w-[30ch] text-sm"}>
-                {i === 0 ? "Default" : key}:
-              </p>
-              <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
-                {remaining[key]}
-              </p>
-            </div>
-          ))}
+          <h2 className={"mb-3 text-xl font-semibold"}>Remaining </h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{remaining}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={"mb-3 text-2xl font-semibold"}>Reset</h2>
+          <h2 className={"mb-3 text-xl font-semibold"}>
+            Remaining Custom Tokens
+          </h2>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
+            {remainingCustomTokens}
+          </p>
+        </div>
+
+        <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
+          <h2 className={"mb-3 text-xl font-semibold"}>Reset</h2>
           <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
             {new Date(reset).toUTCString()}
           </p>

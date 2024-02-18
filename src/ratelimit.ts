@@ -129,7 +129,7 @@ export abstract class Ratelimit<TContext extends Context> {
    *  return "Yes"
    * ```
    */
-  public limit = async (identifier: string, req?: { geo?: Geo }, customRates?: { [key: string]: number }): Promise<RatelimitResponse> => {
+  public limit = async (identifier: string, req?: { geo?: Geo }, customRates?: number): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {

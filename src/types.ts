@@ -23,11 +23,21 @@ export type RatelimitResponse = {
   /**
    * Maximum number of requests allowed within a window.
    */
-  limit: number | { [key: string]: number };
+  limit: number;
+  /**
+   * Maximum number of custom tokens allowed within a window.
+   * @default 0
+   */
+  customLimit?: number;
   /**
    * How many requests the user has left within the current window.
    */
-  remaining: number | { [key: string]: number };
+  remaining: number;
+  /**
+   * How many custom tokens the user has left within the current window.
+   * @default 0
+   */
+  remainingCustomTokens?: number;
   /**
    * Unix timestamp in milliseconds when the limits are reset.
    */
@@ -61,7 +71,7 @@ export type RatelimitResponse = {
 export type Algorithm<TContext> = (
   ctx: TContext,
   identifier: string,
-  customRates?: { [key: string]: number },
+  customToken?: number,
   opts?: {
     cache?: EphemeralCache;
   },
