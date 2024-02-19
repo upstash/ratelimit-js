@@ -28,7 +28,7 @@ export type RatelimitResponse = {
    * Maximum number of custom tokens allowed within a window.
    * @default 0
    */
-  customLimit?: number;
+  rateLimit?: number;
   /**
    * How many requests the user has left within the current window.
    */
@@ -37,7 +37,7 @@ export type RatelimitResponse = {
    * How many custom tokens the user has left within the current window.
    * @default 0
    */
-  remainingCustomTokens?: number;
+  remainingRates?: number;
   /**
    * Unix timestamp in milliseconds when the limits are reset.
    */

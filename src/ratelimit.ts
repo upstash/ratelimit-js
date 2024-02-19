@@ -129,11 +129,11 @@ export abstract class Ratelimit<TContext extends Context> {
    *  return "Yes"
    * ```
    */
-  public limit = async (identifier: string, req?: { geo?: Geo }, customRates?: number): Promise<RatelimitResponse> => {
+  public limit = async (identifier: string, req?: { geo?: Geo, rate?: number }): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key, customRates)];
+      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key, req?.rate)];
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
