@@ -111,7 +111,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - A fixed timeframe
-   * @param customRates - How many extra custom rates a user can use in each time window(optional).
+   * @param rates - How many extra custom rates a user can use in each time window(optional).
    */
   static fixedWindow(
     /**
