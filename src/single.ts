@@ -123,9 +123,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     window: Duration,
     /**
-     * How many custom rates(if any) are allowed per window.
+     * Payload limit(if any) are allowed per window.
      */
-    rates?: number,
+    payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -158,7 +158,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return r
     `;
 
-    return async function (ctx: RegionContext, identifier: string, rate?: number) {
+    return async function (ctx: RegionContext, identifier: string, requestPayloadSize?: number) {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
       if (ctx.cache) {
@@ -181,19 +181,21 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       let success = usedTokensAfterUpdate <= tokens;
 
-      let remaining = Math.max(0, tokens - usedTokensAfterUpdate)
-      let remainingRates = 0;
+      let remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate)
+      
+      // If limiting payload size per window:
+      let remainingPayloadLimit = 0;
 
-      if (rates && rate) {
-        const usedRatesAfterUpdate = (await ctx.redis.eval(
+      if (payloadLimit && requestPayloadSize) {
+        const usedPayloadLimitAfterUpdate = (await ctx.redis.eval(
           rateScript,
-          [key + ":" + "custom_limit"],
-          [rate, windowDuration],
+          [key + ":" + "payloadLimit"],
+          [Math.max(0, requestPayloadSize), windowDuration], // requestPayloadSize always be more than or equal to 0 if applicable
         )) as number;
 
-        success = success && usedRatesAfterUpdate <= rates
+        success = success && usedPayloadLimitAfterUpdate <= payloadLimit
 
-        remainingRates = Math.max(0, rate - usedRatesAfterUpdate)
+        remainingPayloadLimit = Math.max(0, payloadLimit - usedPayloadLimitAfterUpdate)
       }
 
       const reset = (bucket + 1) * windowDuration;
@@ -204,9 +206,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        rateLimit: rates,
-        remaining: remaining,
-        remainingRates,
+        remaining: remainingTokens,
+        remainingPayloadLimit,
         reset,
         pending: Promise.resolve(),
       };
