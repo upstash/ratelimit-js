@@ -239,6 +239,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
+    /**
+     * Payload limit(if any) are allowed per window.
+     */
+    payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const script = `
       local currentKey  = KEYS[1]           -- identifier including prefixes
@@ -271,8 +275,42 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       end
       return tokens - ( newValue + requestsInPreviousWindow )
       `;
+
+    const payloadLimitScript = `
+      local currentKey            = KEYS[1]           -- identifier including prefixes
+      local previousKey           = KEYS[2]           -- key of the previous bucket
+      local payloadLimit          = tonumber(ARGV[1]) -- payloadLimit per window
+      local requestPayloadSize    = tonumber(ARGV[2]) -- current request payload size
+      local now                   = ARGV[3]           -- current timestamp in milliseconds
+      local window                = ARGV[4]           -- interval in milliseconds
+
+      local totalPayloadSizeInCurrentWindow = redis.call("GET", currentKey)
+      if totalPayloadSizeInCurrentWindow == false then
+        totalPayloadSizeInCurrentWindow = 0
+      end
+
+      local totalPayloadSizeInPreviousWindow = redis.call("GET", previousKey)
+      if totalPayloadSizeInPreviousWindow == false then
+        totalPayloadSizeInPreviousWindow = 0
+      end
+      local percentageInCurrent = ( now % window ) / window
+      -- weighted total payload size to consider from the previous window
+      totalPayloadSizeInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * totalPayloadSizeInPreviousWindow)
+      if totalPayloadSizeInPreviousWindow + totalPayloadSizeInCurrentWindow >= payloadLimit then
+        return -1
+      end
+
+      local newValue = redis.call("INCRBY", currentKey, requestPayloadSize)
+      if newValue == requestPayloadSize then 
+        -- The first time this key is set, the value will be equal to requestPayloadSize.
+        -- So we only need the expire command once
+        redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
+      end
+      return payloadLimit - ( newValue + totalPayloadSizeInPreviousWindow )
+      `;
+    
     const windowSize = ms(window);
-    return async function (ctx: RegionContext, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string, requestPayloadSize?: number) {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -293,13 +331,36 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const remaining = (await ctx.redis.eval(
+      const remainingTokens = (await ctx.redis.eval(
         script,
         [currentKey, previousKey],
         [tokens, now, windowSize],
       )) as number;
 
-      const success = remaining >= 0;
+      let success = remainingTokens >= 0;
+
+      // If limiting payload size per window:
+      let remainingPayloadLimit = 0;
+
+      if (payloadLimit && requestPayloadSize) {
+        const remainingPayloadLimit = (await ctx.redis.eval(
+          payloadLimitScript,
+          [
+            currentKey + ":" + "payloadLimit",
+            previousKey + ":" + "payloadLimit"
+          ],
+          [
+            payloadLimit,
+            Math.max(0, requestPayloadSize),  // requestPayloadSize must be more than or equal to 0 if applicable
+            now,
+            windowSize
+          ],
+        )) as number;
+
+        success = success && remainingPayloadLimit >= 0;
+      }
+ 
+
       const reset = (currentWindow + 1) * windowSize;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
@@ -307,7 +368,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        remaining: Math.max(0, remaining),
+        remaining: Math.max(0, remainingTokens),
+        remainingPayloadLimit,
         reset,
         pending: Promise.resolve(),
       };
