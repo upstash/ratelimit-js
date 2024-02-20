@@ -143,14 +143,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return r
     `;
 
-    const rateScript = `
-    local key     = KEYS[1]
-    local incr_by  = ARGV[1]
-    local window  = ARGV[2]
+    const payloadLimitScript = `
+    local key                 = KEYS[1]
+    local requestPayloadSize  = ARGV[1]
+    local window              = ARGV[2]
     
-    local r = redis.call("INCRBY", key, incr_by)
-    if r == incr_by then
-    -- The first time this key is set, the value will be 1.
+    local r = redis.call("INCRBY", key, requestPayloadSize)
+    if r == requestPayloadSize then
+    -- The first time this key is set, the value will be equal to requestPayloadSize.
     -- So we only need the expire command once
     redis.call("PEXPIRE", key, window)
     end
@@ -188,7 +188,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       if (payloadLimit && requestPayloadSize) {
         const usedPayloadLimitAfterUpdate = (await ctx.redis.eval(
-          rateScript,
+          payloadLimitScript,
           [key + ":" + "payloadLimit"],
           [Math.max(0, requestPayloadSize), windowDuration], // requestPayloadSize always be more than or equal to 0 if applicable
         )) as number;
