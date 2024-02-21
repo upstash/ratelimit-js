@@ -3,8 +3,8 @@ import { ms } from "./duration";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
 import { Ratelimit } from "./ratelimit";
-import {payloadFixedWindowScript, requestFixedWindowScript} from "./lua-scripts/single/fixed-window"
-
+import {payloadFixedWindowScript, requestFixedWindowScript} from "./lua-scripts/single/fixed-window";
+import {payloadSlidingWindowScript, requestSlidingWindowScript} from "./lua-scripts/single/sliding-window";
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`

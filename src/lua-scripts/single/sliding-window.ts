@@ -1,4 +1,4 @@
- const requestSlidingWindowScript = `
+export const requestSlidingWindowScript = `
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
   local tokens      = tonumber(ARGV[1]) -- tokens per window
@@ -30,7 +30,7 @@
   return tokens - ( newValue + requestsInPreviousWindow )
   `;
 
-const payloadSlidingWindowScript = `
+export const payloadSlidingWindowScript = `
   local currentKey            = KEYS[1]           -- identifier including prefixes
   local previousKey           = KEYS[2]           -- key of the previous bucket
   local payloadLimit          = tonumber(ARGV[1]) -- payloadLimit per window
