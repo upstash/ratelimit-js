@@ -29,11 +29,6 @@ export type RatelimitResponse = {
    */
   remaining: number;
   /**
-   * Payload size the user has left for the next request within the current window.
-   * @default 0
-   */
-  remainingPayloadLimit?: number;
-  /**
    * Unix timestamp in milliseconds when the limits are reset.
    */
   reset: number;
@@ -66,7 +61,7 @@ export type RatelimitResponse = {
 export type Algorithm<TContext> = (
   ctx: TContext,
   identifier: string,
-  requestPayloadSize?: number,
+  payloadSize?: number,
   opts?: {
     cache?: EphemeralCache;
   },

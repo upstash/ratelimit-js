@@ -3,8 +3,8 @@ import { ms } from "./duration";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
 import { Ratelimit } from "./ratelimit";
-import {payloadFixedWindowScript, requestFixedWindowScript} from "./lua-scripts/single/fixed-window";
-import {payloadSlidingWindowScript, requestSlidingWindowScript} from "./lua-scripts/single/sliding-window";
+import { fixedWindowScript, slidingWindowScript, tokenBucketScript } from "./lua-scripts/single";
+
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
@@ -112,7 +112,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - A fixed timeframe
-   * @param rates - How many extra custom rates a user can use in each time window(optional).
    */
   static fixedWindow(
     /**
@@ -126,11 +125,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * Payload limit(if any) are allowed per window.
      */
-    payloadLimit?: number,
+    // payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
+    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
 
-    return async function (ctx: RegionContext, identifier: string, requestPayloadSize?: number) {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
       if (ctx.cache) {
@@ -145,30 +144,18 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
       }
+
+      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+
       const usedTokensAfterUpdate = (await ctx.redis.eval(
-        requestFixedWindowScript,
+        fixedWindowScript,
         [key],
-        [windowDuration],
+        [windowDuration, incrementBy],
       )) as number;
 
       let success = usedTokensAfterUpdate <= tokens;
 
       let remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate)
-      
-      // If limiting payload size per window:
-      let remainingPayloadLimit = 0;
-
-      if (payloadLimit && requestPayloadSize) {
-        const usedPayloadLimitAfterUpdate = (await ctx.redis.eval(
-          payloadFixedWindowScript,
-          [key + ":" + "payloadLimit"],
-          [Math.max(0, requestPayloadSize), windowDuration], // requestPayloadSize always be more than or equal to 0 if applicable
-        )) as number;
-
-        success = success && usedPayloadLimitAfterUpdate <= payloadLimit
-
-        remainingPayloadLimit = Math.max(0, payloadLimit - usedPayloadLimitAfterUpdate)
-      }
 
       const reset = (bucket + 1) * windowDuration;
       if (ctx.cache && !success) {
@@ -179,7 +166,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         success,
         limit: tokens,
         remaining: remainingTokens,
-        remainingPayloadLimit,
         reset,
         pending: Promise.resolve(),
       };
@@ -211,14 +197,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-    /**
-     * Payload limit(if any) are allowed per window.
-     */
-    payloadLimit?: number,
   ): Algorithm<RegionContext> {
-       
+
     const windowSize = ms(window);
-    return async function (ctx: RegionContext, identifier: string, requestPayloadSize?: number) {
+    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -239,34 +221,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
+      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+
       const remainingTokens = (await ctx.redis.eval(
-        requestSlidingWindowScript,
+        slidingWindowScript,
         [currentKey, previousKey],
-        [tokens, now, windowSize],
+        [tokens, now, windowSize, incrementBy],
       )) as number;
 
       let success = remainingTokens >= 0;
-
-      // If limiting payload size per window:
-      let remainingPayloadLimit = 0;
-
-      if (payloadLimit && requestPayloadSize) {
-        const remainingPayloadLimit = (await ctx.redis.eval(
-          payloadSlidingWindowScript,
-          [
-            currentKey + ":" + "payloadLimit",
-            previousKey + ":" + "payloadLimit"
-          ],
-          [
-            payloadLimit,
-            Math.max(0, requestPayloadSize),  // requestPayloadSize must be more than or equal to 0 if applicable
-            now,
-            windowSize
-          ],
-        )) as number;
-
-        success = success && remainingPayloadLimit >= 0;
-      }
 
       const reset = (currentWindow + 1) * windowSize;
       if (ctx.cache && !success) {
@@ -276,7 +239,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         success,
         limit: tokens,
         remaining: Math.max(0, remainingTokens),
-        remainingPayloadLimit,
         reset,
         pending: Promise.resolve(),
       };
@@ -314,47 +276,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     maxTokens: number,
   ): Algorithm<RegionContext> {
-    const script = `
-        local key         = KEYS[1]           -- identifier including prefixes
-        local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
-        local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
-        local refillRate  = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
-        local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
-        
-        local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
-        
-        local refilledAt
-        local tokens
-
-        if bucket[1] == false then
-          refilledAt = now
-          tokens = maxTokens
-        else
-          refilledAt = tonumber(bucket[1])
-          tokens = tonumber(bucket[2])
-        end
-        
-        if now >= refilledAt + interval then
-          local numRefills = math.floor((now - refilledAt) / interval)
-          tokens = math.min(maxTokens, tokens + numRefills * refillRate)
-
-          refilledAt = refilledAt + numRefills * interval
-        end
-
-        if tokens == 0 then
-          return {-1, refilledAt + interval}
-        end
-
-        local remaining = tokens - 1
-        local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
-        
-        redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
-        redis.call("PEXPIRE", key, expireAt)
-        return {remaining, refilledAt + interval}
-       `;
-
     const intervalDuration = ms(interval);
-    return async function (ctx: RegionContext, identifier: string) {
+    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -370,10 +293,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       const now = Date.now();
 
+      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+
       const [remaining, reset] = (await ctx.redis.eval(
-        script,
+        tokenBucketScript,
         [identifier],
-        [maxTokens, intervalDuration, refillRate, now],
+        [maxTokens, intervalDuration, refillRate, now, incrementBy],
       )) as [number, number];
 
       const success = remaining >= 0;
