@@ -19,7 +19,10 @@ type TestCase = {
    * rate = 10, load = 0.5 -> attack rate will be 5
    */
   load: number;
-  //rate at which the tokens will be added on cosumed, default should be 1
+  /**
+   * rate at which the tokens will be added or consumed, default should be 1
+   * @default 1
+   */
   rate?: number;
 };
 const attackDuration = 10;
