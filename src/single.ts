@@ -128,7 +128,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     // payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
-    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
+    return async function (ctx: RegionContext, identifier: string, rate?: number) {
 
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
@@ -145,7 +145,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const usedTokensAfterUpdate = (await ctx.redis.eval(
         fixedWindowScript,
@@ -200,7 +200,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   ): Algorithm<RegionContext> {
 
     const windowSize = ms(window);
-    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
+    return async function (ctx: RegionContext, identifier: string, rate?: number) {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -221,7 +221,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const remainingTokens = (await ctx.redis.eval(
         slidingWindowScript,
@@ -277,7 +277,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     maxTokens: number,
   ): Algorithm<RegionContext> {
     const intervalDuration = ms(interval);
-    return async function (ctx: RegionContext, identifier: string, payloadSize?: number) {
+    return async function (ctx: RegionContext, identifier: string, rate?: number) {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -293,7 +293,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       const now = Date.now();
 
-      const incrementBy = payloadSize ? Math.max(1, payloadSize) : 1;
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const [remaining, reset] = (await ctx.redis.eval(
         tokenBucketScript,

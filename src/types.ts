@@ -61,7 +61,7 @@ export type RatelimitResponse = {
 export type Algorithm<TContext> = (
   ctx: TContext,
   identifier: string,
-  payloadSize?: number,
+  rate?: number,
   opts?: {
     cache?: EphemeralCache;
   },
