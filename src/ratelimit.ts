@@ -98,9 +98,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-        redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-        prefix: this.prefix,
-      })
+          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          prefix: this.prefix,
+        })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -128,9 +128,9 @@ export abstract class Ratelimit<TContext extends Context> {
    *  }
    *  return "Yes"
    * ```
-   * 
+   *
    * @param req.rate - The rate at which tokens will be added or consumed from the token bucket. A higher rate allows for more requests to be processed. Defaults to 1 token per interval if not specified.
-   * 
+   *
    * Usage with `req.rate`
    * @example
    * ```ts
