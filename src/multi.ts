@@ -169,18 +169,21 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
       const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
         redis,
-        request: redis.eval(script, [key], [requestId, windowDuration, incrementBy]) as Promise<string[]>,
+        request: redis.eval(script, [key], [requestId, windowDuration, incrementBy]) as Promise<
+          string[]
+        >,
       }));
 
-      // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes 
+      // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
       const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
-      const usedTokens = firstResponse.reduce((acc, curr, index) => {
+      const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
+        let parsedToken = 0;
         if (index % 2) {
-          acc += parseInt(curr)
+          parsedToken = parseInt(usedToken);
         }
 
-        return acc
+        return accTokens + parsedToken;
       }, 0);
 
       const remaining = tokens - usedTokens;
@@ -191,27 +194,34 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       async function sync() {
         const individualIDs = await Promise.all(dbs.map((s) => s.request));
 
-        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _).reduce((acc: string[], curr, index) => {
-          if (index % 2 === 0) {
-            acc.push(curr)
-          }
-          return acc
-        }, [])).values());
+        const allIDs = Array.from(
+          new Set(
+            individualIDs
+              .flatMap((_) => _)
+              .reduce((acc: string[], curr, index) => {
+                if (index % 2 === 0) {
+                  acc.push(curr);
+                }
+                return acc;
+              }, []),
+          ).values(),
+        );
 
         for (const db of dbs) {
-          const usedDbTokens = (await db.request).reduce((acc, curr, index) => {
+          const usedDbTokens = (await db.request).reduce((accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
             if (index % 2) {
-              acc += parseInt(curr)
+              parsedToken = parseInt(usedToken);
             }
 
-            return acc
+            return accTokens + parsedToken;
           }, 0);
 
-          const dbIds = (await db.request).reduce((acc: string[], curr, index) => {
+          const dbIds = (await db.request).reduce((ids: string[], currentId, index) => {
             if (index % 2 === 0) {
-              acc.push(curr)
+              ids.push(currentId);
             }
-            return acc
+            return ids;
           }, []);
           /**
            * If the bucket in this db is already full, it doesn't matter which ids it contains.
