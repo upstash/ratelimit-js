@@ -163,3 +163,10 @@ describe("tokenBucket", () => {
       newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps * (tc.rate ?? 1))),
     ));
 });
+
+describe("cachedFixedWindow", () => {
+  describe("region", () =>
+    run((tc) =>
+      newRegion(RegionRatelimit.cachedFixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
+});
