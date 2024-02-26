@@ -44,8 +44,8 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
     const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
       .toString()
       .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load)
-      .toString()
-      .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
+        .toString()
+        .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
     const ratelimit = builder(tc);
 
     const limits = {
@@ -148,7 +148,9 @@ describe("fixedWindow", () => {
     run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString))));
 
   describe("multiRegion", () =>
-    run((tc) => newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps, windowString))));
+    run((tc) =>
+      newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
 });
 describe("slidingWindow", () => {
   describe("region", () =>
