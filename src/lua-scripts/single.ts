@@ -45,7 +45,6 @@ export const slidingWindowScript = `
   return tokens - ( newValue + requestsInPreviousWindow )
   `;
 
-
 export const tokenBucketScript = `
         local key         = KEYS[1]           -- identifier including prefixes
         local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens

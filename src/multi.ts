@@ -147,7 +147,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     return members
 `;
 
-    return async function (ctx: MultiRegionContext, identifier: string) {
+    return async (ctx: MultiRegionContext, identifier: string) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -281,7 +281,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       `;
     const windowDuration = ms(window);
 
-    return async function (ctx: MultiRegionContext, identifier: string) {
+    return async (ctx: MultiRegionContext, identifier: string) => {
       // if (ctx.cache) {
       //   const { blocked, reset } = ctx.cache.isBlocked(identifier);
       //   if (blocked) {

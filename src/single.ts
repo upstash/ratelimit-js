@@ -1,9 +1,9 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
+import { fixedWindowScript, slidingWindowScript, tokenBucketScript } from "./lua-scripts/single";
+import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
-import { Ratelimit } from "./ratelimit";
-import { fixedWindowScript, slidingWindowScript, tokenBucketScript } from "./lua-scripts/single";
 
 export type RegionRatelimitConfig = {
   /**
@@ -128,8 +128,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     // payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
-    return async function (ctx: RegionContext, identifier: string, rate?: number) {
-
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
       if (ctx.cache) {
@@ -153,9 +152,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [windowDuration, incrementBy],
       )) as number;
 
-      let success = usedTokensAfterUpdate <= tokens;
+      const success = usedTokensAfterUpdate <= tokens;
 
-      let remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate)
+      const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
 
       const reset = (bucket + 1) * windowDuration;
       if (ctx.cache && !success) {
@@ -198,9 +197,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     window: Duration,
   ): Algorithm<RegionContext> {
-
     const windowSize = ms(window);
-    return async function (ctx: RegionContext, identifier: string, rate?: number) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -229,7 +227,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         [tokens, now, windowSize, incrementBy],
       )) as number;
 
-      let success = remainingTokens >= 0;
+      const success = remainingTokens >= 0;
 
       const reset = (currentWindow + 1) * windowSize;
       if (ctx.cache && !success) {
@@ -277,7 +275,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     maxTokens: number,
   ): Algorithm<RegionContext> {
     const intervalDuration = ms(interval);
-    return async function (ctx: RegionContext, identifier: string, rate?: number) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -366,7 +364,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return r
       `;
 
-    return async function (ctx: RegionContext, identifier: string) {
+    return async (ctx: RegionContext, identifier: string) => {
       if (!ctx.cache) {
         throw new Error("This algorithm requires a cache");
       }
@@ -381,8 +379,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
-            ctx.cache!.set(key, t as number);
-          })
+              ctx.cache!.set(key, t as number);
+            })
           : Promise.resolve();
 
         return {

@@ -43,7 +43,9 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
   for (const tc of testcases) {
     const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
       .toString()
-      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load).toString().padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
+      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load)
+      .toString()
+      .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
     const ratelimit = builder(tc);
 
     const limits = {
@@ -65,13 +67,13 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
             ", blocked:",
             harness.metrics.rejected,
             "out of:",
-            harness.metrics.requests
+            harness.metrics.requests,
           );
 
           expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
           expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
         },
-        attackDuration * 1000 * 2
+        attackDuration * 1000 * 2,
       );
     });
   }
@@ -157,5 +159,7 @@ describe("slidingWindow", () => {
 
 describe("tokenBucket", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps * (tc.rate ?? 1)))));
+    run((tc) =>
+      newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps * (tc.rate ?? 1))),
+    ));
 });

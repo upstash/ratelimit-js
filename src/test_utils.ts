@@ -44,7 +44,7 @@ export class TestHarness<TContext extends Context> {
           this.ratelimit.limit(this.id, { rate }).then((res) => {
             this.latencies[id].end = Date.now();
             return res;
-          })
+          }),
         );
         await new Promise((r) => setTimeout(r, 500 / rps));
       }
@@ -59,7 +59,7 @@ export class TestHarness<TContext extends Context> {
         } else {
           this.metrics.rejected++;
         }
-      })
+      }),
     );
   }
 }
