@@ -122,10 +122,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-    /**
-     * Payload limit(if any) are allowed per window.
-     */
-    // payloadLimit?: number,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
     return async (ctx: RegionContext, identifier: string, rate?: number) => {
@@ -379,8 +375,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
-              ctx.cache!.set(key, t as number);
-            })
+            ctx.cache!.set(key, t as number);
+          })
           : Promise.resolve();
 
         return {
