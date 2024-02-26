@@ -132,22 +132,23 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   ): Algorithm<MultiRegionContext> {
     const windowDuration = ms(window);
     const script = `
-    local key     = KEYS[1]
-    local id      = ARGV[1]
-    local window  = ARGV[2]
+    local key           = KEYS[1]
+    local id            = ARGV[1]
+    local window        = ARGV[2]
+    local incrementBy   = tonumber(ARGV[3])
     
-    redis.call("SADD", key, id)
-    local members = redis.call("SMEMBERS", key)
-    if #members == 1 then
-    -- The first time this key is set, the value will be 1.
+    redis.call("HINCRBY", key, id, incrementBy)
+    local fields = redis.call("HGETALL", key)
+    if #fields == 1 and tonumber(fields[1])==incrementBy then
+    -- The first time this key is set, and the value will be equal to incrementBy.
     -- So we only need the expire command once
       redis.call("PEXPIRE", key, window)
     end
     
-    return members
+    return fields
 `;
 
-    return async (ctx: MultiRegionContext, identifier: string) => {
+    return async (ctx: MultiRegionContext, identifier: string, rate) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -164,35 +165,62 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const requestId = randomId();
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
         redis,
-        request: redis.eval(script, [key], [requestId, windowDuration]) as Promise<string[]>,
+        request: redis.eval(script, [key], [requestId, windowDuration, incrementBy]) as Promise<string[]>,
       }));
 
+      // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes 
       const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
-      const usedTokens = firstResponse.length;
+      const usedTokens = firstResponse.reduce((acc, curr, index) => {
+        if (index % 2) {
+          acc += parseInt(curr)
+        }
 
-      const remaining = tokens - usedTokens - 1;
+        return acc
+      }, 0);
+
+      const remaining = tokens - usedTokens;
 
       /**
        * If the length between two databases does not match, we sync the two databases
        */
       async function sync() {
         const individualIDs = await Promise.all(dbs.map((s) => s.request));
-        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _)).values());
+
+        const allIDs = Array.from(new Set(individualIDs.flatMap((_) => _).reduce((acc: string[], curr, index) => {
+          if (index % 2 === 0) {
+            acc.push(curr)
+          }
+          return acc
+        }, [])).values());
 
         for (const db of dbs) {
-          const ids = await db.request;
+          const usedDbTokens = (await db.request).reduce((acc, curr, index) => {
+            if (index % 2) {
+              acc += parseInt(curr)
+            }
+
+            return acc
+          }, 0);
+
+          const dbIds = (await db.request).reduce((acc: string[], curr, index) => {
+            if (index % 2 === 0) {
+              acc.push(curr)
+            }
+            return acc
+          }, []);
           /**
            * If the bucket in this db is already full, it doesn't matter which ids it contains.
            * So we do not have to sync.
            */
-          if (ids.length >= tokens) {
+          if (usedDbTokens >= tokens) {
             continue;
           }
-          const diff = allIDs.filter((id) => !ids.includes(id));
+          const diff = allIDs.filter((id) => !dbIds.includes(id));
           /**
            * Don't waste a request if there is nothing to send
            */
