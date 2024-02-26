@@ -128,6 +128,23 @@ export abstract class Ratelimit<TContext extends Context> {
    *  }
    *  return "Yes"
    * ```
+   * 
+   * @param req.rate - The rate at which tokens will be added or consumed from the token bucket. A higher rate allows for more requests to be processed. Defaults to 1 token per interval if not specified.
+   * 
+   * Usage with `req.rate`
+   * @example
+   * ```ts
+   *  const ratelimit = new Ratelimit({
+   *    redis: Redis.fromEnv(),
+   *    limiter: Ratelimit.slidingWindow(100, "10 s")
+   *  })
+   *
+   *  const { success } = await ratelimit.limit(id, {rate: 10})
+   *  if (!success){
+   *    return "Nope"
+   *  }
+   *  return "Yes"
+   * ```
    */
   public limit = async (
     identifier: string,
