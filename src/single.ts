@@ -1,6 +1,11 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
-import { fixedWindowScript, slidingWindowScript, tokenBucketScript } from "./lua-scripts/single";
+import {
+  cachedFixedWindowScript,
+  fixedWindowScript,
+  slidingWindowScript,
+  tokenBucketScript,
+} from "./lua-scripts/single";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
@@ -346,27 +351,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
-    const script = `
-      local key     = KEYS[1]
-      local window  = ARGV[1]
-      
-      local r = redis.call("INCR", key)
-      if r == 1 then 
-      -- The first time this key is set, the value will be 1.
-      -- So we only need the expire command once
-      redis.call("PEXPIRE", key, window)
-      end
-      
-      return r
-      `;
-
-    return async (ctx: RegionContext, identifier: string) => {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       if (!ctx.cache) {
         throw new Error("This algorithm requires a cache");
       }
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
       const reset = (bucket + 1) * windowDuration;
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const hit = typeof ctx.cache.get(key) === "number";
       if (hit) {
@@ -374,9 +366,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const success = cachedTokensAfterUpdate < tokens;
 
         const pending = success
-          ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
-              ctx.cache!.set(key, t as number);
-            })
+          ? ctx.redis
+              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
           : Promise.resolve();
 
         return {
@@ -389,9 +383,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       }
 
       const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
+        cachedFixedWindowScript,
         [key],
-        [windowDuration],
+        [windowDuration, incrementBy],
       )) as number;
       ctx.cache.set(key, usedTokensAfterUpdate);
       const remaining = tokens - usedTokensAfterUpdate;
