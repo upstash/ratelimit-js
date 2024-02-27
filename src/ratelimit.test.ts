@@ -56,7 +56,7 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
       test(
         `should be within ${limits.gte} - ${limits.lte}`,
         async () => {
-          // log(name);
+          log(name);
           const harness = new TestHarness(ratelimit);
           await harness.attack(tc.rps * tc.load, attackDuration, tc.rate).catch((e) => {
             console.error(e);
