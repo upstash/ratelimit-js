@@ -156,7 +156,9 @@ describe("slidingWindow", () => {
   describe("region", () =>
     run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString))));
   describe("multiRegion", () =>
-    run((tc) => newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps, windowString))));
+    run((tc) =>
+      newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
 });
 
 describe("tokenBucket", () => {
