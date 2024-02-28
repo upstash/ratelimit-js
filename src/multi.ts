@@ -137,7 +137,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     local window        = ARGV[2]
     local incrementBy   = tonumber(ARGV[3])
     
-    redis.call("HINCRBY", key, id, incrementBy)
+    redis.call("HSET", key, id, incrementBy)
     local fields = redis.call("HGETALL", key)
     if #fields == 1 and tonumber(fields[1])==incrementBy then
     -- The first time this key is set, and the value will be equal to incrementBy.
@@ -148,7 +148,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     return fields
 `;
 
-    return async (ctx: MultiRegionContext, identifier: string, rate) => {
+    return async (ctx: MultiRegionContext, identifier: string, rate?: number) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -238,7 +238,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             continue;
           }
 
-          await db.redis.sadd(key, ...allIDs);
+          for (const requestId of diff) {
+            await db.redis.hset(key, { [requestId]: incrementBy });
+          }
         }
       }
 
@@ -290,36 +292,43 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   ): Algorithm<MultiRegionContext> {
     const windowSize = ms(window);
     const script = `
-      local currentKey  = KEYS[1]           -- identifier including prefixes
-      local previousKey = KEYS[2]           -- key of the previous bucket
-      local tokens      = tonumber(ARGV[1]) -- tokens per window
-      local now         = ARGV[2]           -- current timestamp in milliseconds
-      local window      = ARGV[3]           -- interval in milliseconds
-      local requestId   = ARGV[4]           -- uuid for this request
+      local currentKey    = KEYS[1]           -- identifier including prefixes
+      local previousKey   = KEYS[2]           -- key of the previous bucket
+      local tokens        = tonumber(ARGV[1]) -- tokens per window
+      local now           = ARGV[2]           -- current timestamp in milliseconds
+      local window        = ARGV[3]           -- interval in milliseconds
+      local requestId     = ARGV[4]           -- uuid for this request
+      local incrementBy   = tonumber(ARGV[5]) -- custom rate, default should  1
 
-
-      local currentMembers = redis.call("SMEMBERS", currentKey)
-      local requestsInCurrentWindow = #currentMembers
-      local previousMembers = redis.call("SMEMBERS", previousKey)
-      local requestsInPreviousWindow = #previousMembers
-
-      local percentageInCurrent = ( now % window) / window
-      if requestsInPreviousWindow * ( 1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
-        return {currentMembers, previousMembers, false}
+      local currentFields = redis.call("HGETALL", currentKey)
+      local requestsInCurrentWindow = 0
+      for i = 2, #currentFields, 2 do
+      requestsInCurrentWindow = requestsInCurrentWindow + tonumber(currentFields[i])
+      end
+      
+      local previousFields = redis.call("HGETALL", previousKey)
+      local requestsInPreviousWindow = 0
+      for i = 2, #previousFields, 2 do
+      requestsInPreviousWindow = requestsInPreviousWindow + tonumber(previousFields[i])
       end
 
-      redis.call("SADD", currentKey, requestId)
-      table.insert(currentMembers, requestId)
+      local percentageInCurrent = ( now % window) / window
+      if requestsInPreviousWindow * (1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
+        return {currentFields, previousFields, false}
+      end
+
+      redis.call("HSET", currentKey, requestId, incrementBy)
+      
       if requestsInCurrentWindow == 0 then 
-        -- The first time this key is set, the value will be 1.
+        -- The first time this key is set, the value will be equal to incrementBy.
         -- So we only need the expire command once
         redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
       end
-      return {currentMembers, previousMembers, true}
+      return {currentFields, previousFields, true}
       `;
     const windowDuration = ms(window);
 
-    return async (ctx: MultiRegionContext, identifier: string) => {
+    return async (ctx: MultiRegionContext, identifier: string, rate?: number) => {
       // if (ctx.cache) {
       //   const { blocked, reset } = ctx.cache.isBlocked(identifier);
       //   if (blocked) {
@@ -340,13 +349,14 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const currentKey = [identifier, currentWindow].join(":");
       const previousWindow = currentWindow - 1;
       const previousKey = [identifier, previousWindow].join(":");
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const dbs = ctx.redis.map((redis) => ({
         redis,
         request: redis.eval(
           script,
           [currentKey, previousKey],
-          [tokens, now, windowDuration, requestId],
+          [tokens, now, windowDuration, requestId, incrementBy],
           // lua seems to return `1` for true and `null` for false
         ) as Promise<[string[], string[], 1 | null]>,
       }));
@@ -354,8 +364,27 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const percentageInCurrent = (now % windowDuration) / windowDuration;
       const [current, previous, success] = await Promise.any(dbs.map((s) => s.request));
 
-      const previousPartialUsed = previous.length * (1 - percentageInCurrent);
-      const usedTokens = previousPartialUsed + current.length;
+      const previousUsedTokens = previous.reduce((accTokens: number, usedToken, index) => {
+        let parsedToken = 0;
+        if (index % 2) {
+          parsedToken = parseInt(usedToken);
+        }
+
+        return accTokens + parsedToken;
+      }, 0);
+
+      const currentUsedTokens = current.reduce((accTokens: number, usedToken, index) => {
+        let parsedToken = 0;
+        if (index % 2) {
+          parsedToken = parseInt(usedToken);
+        }
+
+        return accTokens + parsedToken;
+      }, 0);
+
+      const previousPartialUsed = previousUsedTokens * (1 - percentageInCurrent);
+
+      const usedTokens = previousPartialUsed + currentUsedTokens;
 
       const remaining = tokens - usedTokens;
 
@@ -364,17 +393,39 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
        */
       async function sync() {
         const res = await Promise.all(dbs.map((s) => s.request));
-        const allCurrentIds = res.flatMap(([current]) => current);
+        const allCurrentIds = res
+          .flatMap(([current]) => current)
+          .reduce((accCurrentIds: string[], curr, index) => {
+            if (index % 2 === 0) {
+              accCurrentIds.push(curr);
+            }
+            return accCurrentIds;
+          }, []);
+
         for (const db of dbs) {
-          const [ids] = await db.request;
+          const dbIds = (await db.request).reduce((ids: string[], currentId, index) => {
+            if (index % 2 === 0) {
+              ids.push(currentId);
+            }
+            return ids;
+          }, []);
+
+          const usedDbTokens = (await db.request).reduce((accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
+            if (index % 2) {
+              parsedToken = parseInt(usedToken);
+            }
+
+            return accTokens + parsedToken;
+          }, 0);
           /**
            * If the bucket in this db is already full, it doesn't matter which ids it contains.
            * So we do not have to sync.
            */
-          if (ids.length >= tokens) {
+          if (usedDbTokens >= tokens) {
             continue;
           }
-          const diff = allCurrentIds.filter((id) => !ids.includes(id));
+          const diff = allCurrentIds.filter((id) => !dbIds.includes(id));
           /**
            * Don't waste a request if there is nothing to send
            */
@@ -382,7 +433,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             continue;
           }
 
-          await db.redis.sadd(currentKey, ...diff);
+          for (const requestId of diff) {
+            await db.redis.hset(currentKey, { [requestId]: incrementBy });
+          }
         }
       }
 
@@ -394,7 +447,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       return {
         success: Boolean(success),
         limit: tokens,
-        remaining,
+        remaining: Math.max(0, remaining),
         reset,
         pending: sync(),
       };
