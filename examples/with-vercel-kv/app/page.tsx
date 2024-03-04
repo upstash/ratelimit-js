@@ -17,7 +17,7 @@ export default async function Home() {
     limit,
     remaining,
     reset,
-  } = await ratelimit.limit(ip ?? "anonymous011", undefined);
+  } = await ratelimit.limit(ip ?? "anonymous011");
 
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
