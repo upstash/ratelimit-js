@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import { Ratelimit } from "./ratelimit";
-import { Context } from "./types";
+import type { Ratelimit } from "./ratelimit";
+import type { Context } from "./types";
 
 type Metrics = {
   requests: number;

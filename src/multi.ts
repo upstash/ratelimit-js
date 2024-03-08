@@ -1,9 +1,9 @@
 import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
+import { fixedWindowScript, slidingWindowScript } from "./lua-scripts/multi";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
-import { fixedWindowScript, slidingWindowScript } from "./lua-scripts/multi";
 
 import type { Redis } from "./types";
 
@@ -134,7 +134,6 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   ): Algorithm<MultiRegionContext> {
     const windowDuration = ms(window);
 
-
     return async (ctx: MultiRegionContext, identifier: string, rate?: number) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
@@ -156,9 +155,11 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
       const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
         redis,
-        request: redis.eval(fixedWindowScript, [key], [requestId, windowDuration, incrementBy]) as Promise<
-          string[]
-        >,
+        request: redis.eval(
+          fixedWindowScript,
+          [key],
+          [requestId, windowDuration, incrementBy],
+        ) as Promise<string[]>,
       }));
 
       // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
@@ -167,7 +168,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
         let parsedToken = 0;
         if (index % 2) {
-          parsedToken = parseInt(usedToken);
+          parsedToken = Number.parseInt(usedToken);
         }
 
         return accTokens + parsedToken;
@@ -198,7 +199,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           const usedDbTokens = (await db.request).reduce((accTokens: number, usedToken, index) => {
             let parsedToken = 0;
             if (index % 2) {
-              parsedToken = parseInt(usedToken);
+              parsedToken = Number.parseInt(usedToken);
             }
 
             return accTokens + parsedToken;
@@ -320,7 +321,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const previousUsedTokens = previous.reduce((accTokens: number, usedToken, index) => {
         let parsedToken = 0;
         if (index % 2) {
-          parsedToken = parseInt(usedToken);
+          parsedToken = Number.parseInt(usedToken);
         }
 
         return accTokens + parsedToken;
@@ -329,7 +330,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       const currentUsedTokens = current.reduce((accTokens: number, usedToken, index) => {
         let parsedToken = 0;
         if (index % 2) {
-          parsedToken = parseInt(usedToken);
+          parsedToken = Number.parseInt(usedToken);
         }
 
         return accTokens + parsedToken;
@@ -356,7 +357,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           }, []);
 
         for (const db of dbs) {
-          const [current, previous, success] = await db.request;
+          const [_current, previous, _success] = await db.request;
           const dbIds = previous.reduce((ids: string[], currentId, index) => {
             if (index % 2 === 0) {
               ids.push(currentId);
@@ -367,7 +368,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           const usedDbTokens = previous.reduce((accTokens: number, usedToken, index) => {
             let parsedToken = 0;
             if (index % 2) {
-              parsedToken = parseInt(usedToken);
+              parsedToken = Number.parseInt(usedToken);
             }
 
             return accTokens + parsedToken;

@@ -1,4 +1,4 @@
-import { EphemeralCache } from "./types";
+import type { EphemeralCache } from "./types";
 
 export class Cache implements EphemeralCache {
   /**
