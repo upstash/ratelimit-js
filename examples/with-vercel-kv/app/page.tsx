@@ -1,4 +1,4 @@
-import { Ratelimit } from "@upstash/ratelimit";
+import { Ratelimit } from "../../../src";
 import kv from "@vercel/kv";
 import { Inter } from "next/font/google";
 import { headers } from "next/headers";
@@ -7,12 +7,17 @@ import Link from "next/link";
 
 const ratelimit = new Ratelimit({
   redis: kv,
-  limiter: Ratelimit.fixedWindow(10, "60s"),
+  limiter: Ratelimit.fixedWindow(10, "30s"),
 });
 
 export default async function Home() {
   const ip = headers().get("x-forwarded-for");
-  const { success, limit, remaining, reset } = await ratelimit.limit(ip ?? "anonymous");
+  const {
+    success,
+    limit,
+    remaining,
+    reset,
+  } = await ratelimit.limit(ip ?? "anonymous011");
 
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
@@ -48,22 +53,26 @@ export default async function Home() {
       <div className="grid mb-32 text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
           <h2 className={"mb-3 text-2xl font-semibold"}>Success</h2>
-          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{success.toString()}</p>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
+            {success.toString()}
+          </p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30">
           <h2 className={"mb-3 text-2xl font-semibold"}>Limit </h2>
-          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{limit}</p>
+          <p className={"m-0 max-w-[30ch] text-sm"}>{limit}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
-          <h2 className={"mb-3 text-2xl font-semibold"}>Remaining</h2>
+          <h2 className={"mb-3 text-2xl font-semibold"}>Remaining </h2>
           <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{remaining}</p>
         </div>
 
         <div className="px-5 py-4 transition-colors border border-transparent rounded-lg group hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30">
           <h2 className={"mb-3 text-2xl font-semibold"}>Reset</h2>
-          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>{new Date(reset).toUTCString()}</p>
+          <p className={"m-0 max-w-[30ch] text-sm opacity-50"}>
+            {new Date(reset).toUTCString()}
+          </p>
         </div>
       </div>
     </main>

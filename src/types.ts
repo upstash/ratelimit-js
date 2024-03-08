@@ -61,6 +61,7 @@ export type RatelimitResponse = {
 export type Algorithm<TContext> = (
   ctx: TContext,
   identifier: string,
+  rate?: number,
   opts?: {
     cache?: EphemeralCache;
   },
@@ -71,6 +72,8 @@ export type Algorithm<TContext> = (
  */
 export interface Redis {
   sadd: <TData>(key: string, ...members: TData[]) => Promise<number>;
+
+  hset: <TValue>(key: string, obj: { [key: string]: TValue }) => Promise<number>;
 
   eval: <TArgs extends unknown[], TData = unknown>(
     ...args: [script: string, keys: string[], args: TArgs]

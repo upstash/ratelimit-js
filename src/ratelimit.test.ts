@@ -19,6 +19,11 @@ type TestCase = {
    * rate = 10, load = 0.5 -> attack rate will be 5
    */
   load: number;
+  /**
+   * rate at which the tokens will be added or consumed, default should be 1
+   * @default 1
+   */
+  rate?: number;
 };
 const attackDuration = 10;
 const window = 5;
@@ -28,7 +33,9 @@ const testcases: TestCase[] = [];
 
 for (const rps of [10, 100]) {
   for (const load of [0.5, 0.7]) {
-    testcases.push({ load, rps });
+    for (const rate of [undefined, 10]) {
+      testcases.push({ load, rps, rate });
+    }
   }
 }
 
@@ -36,11 +43,13 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
   for (const tc of testcases) {
     const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
       .toString()
-      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load).toString().padStart(4, " ")}req/s`;
+      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load)
+      .toString()
+      .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
     const ratelimit = builder(tc);
 
     const limits = {
-      lte: ((attackDuration * tc.rps) / window) * 1.5,
+      lte: ((attackDuration * tc.rps * (tc.rate ?? 1)) / window) * 1.5,
       gte: ((attackDuration * tc.rps) / window) * 0.5,
     };
     describe(name, () => {
@@ -49,7 +58,7 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
         async () => {
           log(name);
           const harness = new TestHarness(ratelimit);
-          await harness.attack(tc.rps * tc.load, attackDuration).catch((e) => {
+          await harness.attack(tc.rps * tc.load, attackDuration, tc.rate).catch((e) => {
             console.error(e);
           });
           log(
@@ -58,13 +67,13 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
             ", blocked:",
             harness.metrics.rejected,
             "out of:",
-            harness.metrics.requests
+            harness.metrics.requests,
           );
 
           expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
           expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
         },
-        attackDuration * 1000 * 2
+        attackDuration * 1000 * 2,
       );
     });
   }
@@ -136,19 +145,32 @@ describe("timeout", () => {
 
 describe("fixedWindow", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rps, windowString))));
+    run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString))));
 
   describe("multiRegion", () =>
-    run((tc) => newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps, windowString))));
+    run((tc) =>
+      newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
 });
 describe("slidingWindow", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps, windowString))));
+    run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString))));
   describe("multiRegion", () =>
-    run((tc) => newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps, windowString))));
+    run((tc) =>
+      newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
 });
 
 describe("tokenBucket", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps))));
+    run((tc) =>
+      newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps * (tc.rate ?? 1))),
+    ));
+});
+
+describe("cachedFixedWindow", () => {
+  describe("region", () =>
+    run((tc) =>
+      newRegion(RegionRatelimit.cachedFixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+    ));
 });
