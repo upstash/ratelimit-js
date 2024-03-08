@@ -8,10 +8,10 @@ import type { Algorithm } from "./types";
 
 export {
   Ratelimit,
-  RatelimitConfig,
+  type RatelimitConfig,
   MultiRegionRatelimit,
-  MultiRegionRatelimitConfig,
-  Algorithm,
+  type MultiRegionRatelimitConfig,
+  type Algorithm,
   Analytics,
-  AnalyticsConfig,
+  type AnalyticsConfig,
 };

@@ -1,4 +1,4 @@
-import { Analytics, Geo } from "./analytics";
+import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
