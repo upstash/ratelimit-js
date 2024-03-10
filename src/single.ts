@@ -137,7 +137,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   } {
     const windowDuration = ms(window);
     return {
-      limit: async (ctx: RegionContext, identifier: string, rate?: number) => {
+      async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         if (ctx.cache) {
@@ -384,10 +384,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis
-              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
-              .then((t) => {
-                ctx.cache!.set(key, t as number);
-              })
+            .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+            .then((t) => {
+              ctx.cache!.set(key, t as number);
+            })
           : Promise.resolve();
 
         return {
