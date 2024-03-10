@@ -27,8 +27,8 @@ export type RegionRatelimitConfig = {
    * - Ratelimiter.tokenBucket
    */
   limiter: {
-    limit: Algorithm<RegionContext>,
-    getRemaining: (ctx: RegionContext, identifier: string,) => Promise<number>
+    limit: Algorithm<RegionContext>;
+    getRemaining: (ctx: RegionContext, identifier: string) => Promise<number>;
   };
   /**
    * All keys in redis are prefixed with this.
@@ -132,8 +132,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     window: Duration,
   ): {
-    limit: Algorithm<RegionContext>
-    getRemaining: (ctx: RegionContext, identifier: string,) => Promise<number>
+    limit: Algorithm<RegionContext>;
+    getRemaining: (ctx: RegionContext, identifier: string) => Promise<number>;
   } {
     const windowDuration = ms(window);
     return {
@@ -178,19 +178,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           pending: Promise.resolve(),
         };
       },
-      async getRemaining(ctx: RegionContext, identifier: string,) {
+      async getRemaining(ctx: RegionContext, identifier: string) {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = (await ctx.redis.eval(
-          fixedWindowTokensScript,
-          [key],
-          [null],
-        )) as number
+        const usedTokens = (await ctx.redis.eval(fixedWindowTokensScript, [key], [null])) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
-    }
+    };
   }
 
   /**
@@ -388,10 +384,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis
-            .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
-            .then((t) => {
-              ctx.cache!.set(key, t as number);
-            })
+              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
           : Promise.resolve();
 
         return {

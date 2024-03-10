@@ -20,8 +20,8 @@ export type RatelimitConfig<TContext> = {
    */
 
   limiter: {
-    limit: Algorithm<TContext>,
-    getRemaining: (ctx: TContext, identifier: string,) => Promise<number>
+    limit: Algorithm<TContext>;
+    getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
   };
 
   ctx: TContext;
@@ -85,8 +85,8 @@ export type RatelimitConfig<TContext> = {
  */
 export abstract class Ratelimit<TContext extends Context> {
   protected readonly limiter: {
-    limit: Algorithm<TContext>,
-    getRemaining: (ctx: TContext, identifier: string,) => Promise<number>
+    limit: Algorithm<TContext>;
+    getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
   };
 
   protected readonly ctx: TContext;
@@ -104,9 +104,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-        redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-        prefix: this.prefix,
-      })
+          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          prefix: this.prefix,
+        })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -302,6 +302,6 @@ export abstract class Ratelimit<TContext extends Context> {
   public getRemaining = async (identifier: string) => {
     const pattern = [this.prefix, identifier].join(":");
 
-    return await this.limiter.getRemaining(this.ctx, pattern)
-  }
+    return await this.limiter.getRemaining(this.ctx, pattern);
+  };
 }
