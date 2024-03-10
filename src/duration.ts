@@ -9,7 +9,7 @@ export function ms(d: Duration): number {
   if (!match) {
     throw new Error(`Unable to parse window size: ${d}`);
   }
-  const time = parseInt(match[1]);
+  const time = Number.parseInt(match[1]);
   const unit = match[2] as Unit;
 
   switch (unit) {

@@ -1,4 +1,4 @@
-import { Analytics, Geo } from "./analytics";
+import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
@@ -88,7 +88,9 @@ export abstract class Ratelimit<TContext extends Context> {
   protected readonly prefix: string;
 
   protected readonly timeout: number;
+
   protected readonly analytics?: Analytics;
+
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
@@ -126,12 +128,32 @@ export abstract class Ratelimit<TContext extends Context> {
    *  }
    *  return "Yes"
    * ```
+   *
+   * @param req.rate - The rate at which tokens will be added or consumed from the token bucket. A higher rate allows for more requests to be processed. Defaults to 1 token per interval if not specified.
+   *
+   * Usage with `req.rate`
+   * @example
+   * ```ts
+   *  const ratelimit = new Ratelimit({
+   *    redis: Redis.fromEnv(),
+   *    limiter: Ratelimit.slidingWindow(100, "10 s")
+   *  })
+   *
+   *  const { success } = await ratelimit.limit(id, {rate: 10})
+   *  if (!success){
+   *    return "Nope"
+   *  }
+   *  return "Yes"
+   * ```
    */
-  public limit = async (identifier: string, req?: { geo?: Geo }): Promise<RatelimitResponse> => {
+  public limit = async (
+    identifier: string,
+    req?: { geo?: Geo; rate?: number },
+  ): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key)];
+      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key, req?.rate)];
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {

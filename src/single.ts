@@ -1,9 +1,15 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
+import {
+  cachedFixedWindowScript,
+  fixedWindowScript,
+  slidingWindowScript,
+  tokenBucketScript,
+} from "./lua-scripts/single";
+import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
 
-import { Ratelimit } from "./ratelimit";
 export type RegionRatelimitConfig = {
   /**
    * Instance of `@upstash/redis`
@@ -123,25 +129,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     window: Duration,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
-
-    const script = `
-    local key     = KEYS[1]
-    local window  = ARGV[1]
-    
-    local r = redis.call("INCR", key)
-    if r == 1 then 
-    -- The first time this key is set, the value will be 1.
-    -- So we only need the expire command once
-    redis.call("PEXPIRE", key, window)
-    end
-    
-    return r
-    `;
-
-    return async function (ctx: RegionContext, identifier: string) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
-
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -154,13 +144,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
       }
+
+      const incrementBy = rate ? Math.max(1, rate) : 1;
+
       const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
+        fixedWindowScript,
         [key],
-        [windowDuration],
+        [windowDuration, incrementBy],
       )) as number;
 
       const success = usedTokensAfterUpdate <= tokens;
+
+      const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
+
       const reset = (bucket + 1) * windowDuration;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
@@ -169,7 +165,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        remaining: Math.max(0, tokens - usedTokensAfterUpdate),
+        remaining: remainingTokens,
         reset,
         pending: Promise.resolve(),
       };
@@ -202,39 +198,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     window: Duration,
   ): Algorithm<RegionContext> {
-    const script = `
-      local currentKey  = KEYS[1]           -- identifier including prefixes
-      local previousKey = KEYS[2]           -- key of the previous bucket
-      local tokens      = tonumber(ARGV[1]) -- tokens per window
-      local now         = ARGV[2]           -- current timestamp in milliseconds
-      local window      = ARGV[3]           -- interval in milliseconds
-
-      local requestsInCurrentWindow = redis.call("GET", currentKey)
-      if requestsInCurrentWindow == false then
-        requestsInCurrentWindow = 0
-      end
-
-      local requestsInPreviousWindow = redis.call("GET", previousKey)
-      if requestsInPreviousWindow == false then
-        requestsInPreviousWindow = 0
-      end
-      local percentageInCurrent = ( now % window ) / window
-      -- weighted requests to consider from the previous window
-      requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
-      if requestsInPreviousWindow + requestsInCurrentWindow >= tokens then
-        return -1
-      end
-
-      local newValue = redis.call("INCR", currentKey)
-      if newValue == 1 then 
-        -- The first time this key is set, the value will be 1.
-        -- So we only need the expire command once
-        redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
-      end
-      return tokens - ( newValue + requestsInPreviousWindow )
-      `;
     const windowSize = ms(window);
-    return async function (ctx: RegionContext, identifier: string) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       const now = Date.now();
 
       const currentWindow = Math.floor(now / windowSize);
@@ -255,13 +220,16 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       }
 
-      const remaining = (await ctx.redis.eval(
-        script,
+      const incrementBy = rate ? Math.max(1, rate) : 1;
+
+      const remainingTokens = (await ctx.redis.eval(
+        slidingWindowScript,
         [currentKey, previousKey],
-        [tokens, now, windowSize],
+        [tokens, now, windowSize, incrementBy],
       )) as number;
 
-      const success = remaining >= 0;
+      const success = remainingTokens >= 0;
+
       const reset = (currentWindow + 1) * windowSize;
       if (ctx.cache && !success) {
         ctx.cache.blockUntil(identifier, reset);
@@ -269,7 +237,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       return {
         success,
         limit: tokens,
-        remaining: Math.max(0, remaining),
+        remaining: Math.max(0, remainingTokens),
         reset,
         pending: Promise.resolve(),
       };
@@ -307,47 +275,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      */
     maxTokens: number,
   ): Algorithm<RegionContext> {
-    const script = `
-        local key         = KEYS[1]           -- identifier including prefixes
-        local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
-        local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
-        local refillRate  = tonumber(ARGV[3]) -- how many tokens are refilled after each interval
-        local now         = tonumber(ARGV[4]) -- current timestamp in milliseconds
-        
-        local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
-        
-        local refilledAt
-        local tokens
-
-        if bucket[1] == false then
-          refilledAt = now
-          tokens = maxTokens
-        else
-          refilledAt = tonumber(bucket[1])
-          tokens = tonumber(bucket[2])
-        end
-        
-        if now >= refilledAt + interval then
-          local numRefills = math.floor((now - refilledAt) / interval)
-          tokens = math.min(maxTokens, tokens + numRefills * refillRate)
-
-          refilledAt = refilledAt + numRefills * interval
-        end
-
-        if tokens == 0 then
-          return {-1, refilledAt + interval}
-        end
-
-        local remaining = tokens - 1
-        local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
-        
-        redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
-        redis.call("PEXPIRE", key, expireAt)
-        return {remaining, refilledAt + interval}
-       `;
-
     const intervalDuration = ms(interval);
-    return async function (ctx: RegionContext, identifier: string) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       if (ctx.cache) {
         const { blocked, reset } = ctx.cache.isBlocked(identifier);
         if (blocked) {
@@ -363,10 +292,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
       const now = Date.now();
 
+      const incrementBy = rate ? Math.max(1, rate) : 1;
+
       const [remaining, reset] = (await ctx.redis.eval(
-        script,
+        tokenBucketScript,
         [identifier],
-        [maxTokens, intervalDuration, refillRate, now],
+        [maxTokens, intervalDuration, refillRate, now, incrementBy],
       )) as [number, number];
 
       const success = remaining >= 0;
@@ -420,27 +351,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
-    const script = `
-      local key     = KEYS[1]
-      local window  = ARGV[1]
-      
-      local r = redis.call("INCR", key)
-      if r == 1 then 
-      -- The first time this key is set, the value will be 1.
-      -- So we only need the expire command once
-      redis.call("PEXPIRE", key, window)
-      end
-      
-      return r
-      `;
-
-    return async function (ctx: RegionContext, identifier: string) {
+    return async (ctx: RegionContext, identifier: string, rate?: number) => {
       if (!ctx.cache) {
         throw new Error("This algorithm requires a cache");
       }
       const bucket = Math.floor(Date.now() / windowDuration);
       const key = [identifier, bucket].join(":");
       const reset = (bucket + 1) * windowDuration;
+      const incrementBy = rate ? Math.max(1, rate) : 1;
 
       const hit = typeof ctx.cache.get(key) === "number";
       if (hit) {
@@ -448,9 +366,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const success = cachedTokensAfterUpdate < tokens;
 
         const pending = success
-          ? ctx.redis.eval(script, [key], [windowDuration]).then((t) => {
-              ctx.cache!.set(key, t as number);
-            })
+          ? ctx.redis
+              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
           : Promise.resolve();
 
         return {
@@ -463,9 +383,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       }
 
       const usedTokensAfterUpdate = (await ctx.redis.eval(
-        script,
+        cachedFixedWindowScript,
         [key],
-        [windowDuration],
+        [windowDuration, incrementBy],
       )) as number;
       ctx.cache.set(key, usedTokensAfterUpdate);
       const remaining = tokens - usedTokensAfterUpdate;
