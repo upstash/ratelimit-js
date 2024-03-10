@@ -13,6 +13,17 @@ export const fixedWindowScript = `
   return r
 `;
 
+export const fixedWindowTokensScript = `
+      local key = KEYS[1]
+      local tokens = 0
+
+      local value = redis.call('GET', key)
+      if value then
+          tokens = value
+      end
+      return tokens
+    `;
+
 export const slidingWindowScript = `
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket

@@ -3,6 +3,7 @@ import { ms } from "./duration";
 import {
   cachedFixedWindowScript,
   fixedWindowScript,
+  fixedWindowTokensScript,
   slidingWindowScript,
   tokenBucketScript,
 } from "./lua-scripts/single";
@@ -25,7 +26,10 @@ export type RegionRatelimitConfig = {
    * - Ratelimiter.slidingWindow
    * - Ratelimiter.tokenBucket
    */
-  limiter: Algorithm<RegionContext>;
+  limiter: {
+    limit: Algorithm<RegionContext>,
+    getRemaining: (ctx: RegionContext, identifier: string,) => Promise<number>
+  };
   /**
    * All keys in redis are prefixed with this.
    *
@@ -127,49 +131,66 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * The duration in which `tokens` requests are allowed.
      */
     window: Duration,
-  ): Algorithm<RegionContext> {
+  ): {
+    limit: Algorithm<RegionContext>
+    getRemaining: (ctx: RegionContext, identifier: string,) => Promise<number>
+  } {
     const windowDuration = ms(window);
-    return async (ctx: RegionContext, identifier: string, rate?: number) => {
-      const bucket = Math.floor(Date.now() / windowDuration);
-      const key = [identifier, bucket].join(":");
-      if (ctx.cache) {
-        const { blocked, reset } = ctx.cache.isBlocked(identifier);
-        if (blocked) {
-          return {
-            success: false,
-            limit: tokens,
-            remaining: 0,
-            reset: reset,
-            pending: Promise.resolve(),
-          };
+    return {
+      limit: async (ctx: RegionContext, identifier: string, rate?: number) => {
+        const bucket = Math.floor(Date.now() / windowDuration);
+        const key = [identifier, bucket].join(":");
+        if (ctx.cache) {
+          const { blocked, reset } = ctx.cache.isBlocked(identifier);
+          if (blocked) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: 0,
+              reset: reset,
+              pending: Promise.resolve(),
+            };
+          }
         }
-      }
 
-      const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ? Math.max(1, rate) : 1;
 
-      const usedTokensAfterUpdate = (await ctx.redis.eval(
-        fixedWindowScript,
-        [key],
-        [windowDuration, incrementBy],
-      )) as number;
+        const usedTokensAfterUpdate = (await ctx.redis.eval(
+          fixedWindowScript,
+          [key],
+          [windowDuration, incrementBy],
+        )) as number;
 
-      const success = usedTokensAfterUpdate <= tokens;
+        const success = usedTokensAfterUpdate <= tokens;
 
-      const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
+        const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
 
-      const reset = (bucket + 1) * windowDuration;
-      if (ctx.cache && !success) {
-        ctx.cache.blockUntil(identifier, reset);
-      }
+        const reset = (bucket + 1) * windowDuration;
+        if (ctx.cache && !success) {
+          ctx.cache.blockUntil(identifier, reset);
+        }
 
-      return {
-        success,
-        limit: tokens,
-        remaining: remainingTokens,
-        reset,
-        pending: Promise.resolve(),
-      };
-    };
+        return {
+          success,
+          limit: tokens,
+          remaining: remainingTokens,
+          reset,
+          pending: Promise.resolve(),
+        };
+      },
+      async getRemaining(ctx: RegionContext, identifier: string,) {
+        const bucket = Math.floor(Date.now() / windowDuration);
+        const key = [identifier, bucket].join(":");
+
+        const usedTokens = (await ctx.redis.eval(
+          fixedWindowTokensScript,
+          [key],
+          [null],
+        )) as number
+
+        return Math.max(0, tokens - usedTokens);
+      },
+    }
   }
 
   /**
@@ -367,10 +388,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const pending = success
           ? ctx.redis
-              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
-              .then((t) => {
-                ctx.cache!.set(key, t as number);
-              })
+            .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+            .then((t) => {
+              ctx.cache!.set(key, t as number);
+            })
           : Promise.resolve();
 
         return {
