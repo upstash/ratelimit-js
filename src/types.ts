@@ -58,7 +58,7 @@ export type RatelimitResponse = {
   pending: Promise<unknown>;
 };
 
-export type Algorithm<TContext> = {
+export type Algorithm<TContext> = () => {
   limit: (
     ctx: TContext,
     identifier: string,

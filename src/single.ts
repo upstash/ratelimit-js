@@ -130,7 +130,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     window: Duration,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
-    return {
+    return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
@@ -180,7 +180,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return Math.max(0, tokens - usedTokens);
       },
-    };
+    });
   }
 
   /**
@@ -210,7 +210,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     window: Duration,
   ): Algorithm<RegionContext> {
     const windowSize = ms(window);
-    return {
+    return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const now = Date.now();
 
@@ -258,7 +258,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         //to be implemented
         return 0;
       },
-    };
+    });
   }
 
   /**
@@ -293,7 +293,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     maxTokens: number,
   ): Algorithm<RegionContext> {
     const intervalDuration = ms(interval);
-    return {
+    return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         if (ctx.cache) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
@@ -335,7 +335,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         // to be implemented
         return 0;
       },
-    };
+    });
   }
   /**
    * cachedFixedWindow first uses the local cache to decide if a request may pass and then updates
@@ -373,7 +373,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
-    return {
+    return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
@@ -390,10 +390,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? ctx.redis
-                .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
-                .then((t) => {
-                  ctx.cache!.set(key, t as number);
-                })
+              .eval(cachedFixedWindowScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
             : Promise.resolve();
 
           return {
@@ -425,6 +425,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         // to be implemented
         return 0;
       },
-    };
+    });
   }
 }
