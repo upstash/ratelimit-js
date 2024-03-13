@@ -19,10 +19,7 @@ export type RatelimitConfig<TContext> = {
    * - Ratelimiter.tokenBucket
    */
 
-  limiter: {
-    limit: Algorithm<TContext>;
-    getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
-  };
+  limiter: Algorithm<TContext>;
 
   ctx: TContext;
   /**
@@ -84,10 +81,7 @@ export type RatelimitConfig<TContext> = {
  * ```
  */
 export abstract class Ratelimit<TContext extends Context> {
-  protected readonly limiter: {
-    limit: Algorithm<TContext>;
-    getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
-  };
+  protected readonly limiter: Algorithm<TContext>;
 
   protected readonly ctx: TContext;
 
