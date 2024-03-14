@@ -19,7 +19,9 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: large-runners
+      labels: ubuntu-4x
     name: Tests
     steps:
       - name: Setup repo
