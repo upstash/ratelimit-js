@@ -1,4 +1,4 @@
-export const fixedWindowScript = `
+export const fixedWindowLimitScript = `
   local key           = KEYS[1]
   local window        = ARGV[1]
   local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
@@ -24,7 +24,7 @@ export const fixedWindowTokensScript = `
       return tokens
     `;
 
-export const slidingWindowScript = `
+export const slidingWindowLimitScript = `
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
   local tokens      = tonumber(ARGV[1]) -- tokens per window
@@ -57,7 +57,24 @@ export const slidingWindowScript = `
   return tokens - ( newValue + requestsInPreviousWindow )
 `;
 
-export const tokenBucketScript = `
+export const slidingWindowTokenScript = `
+  local currentKey  = KEYS[1]           -- identifier including prefixes
+  local previousKey = KEYS[2]           -- key of the previous bucket
+
+  local requestsInCurrentWindow = redis.call("GET", currentKey)
+  if requestsInCurrentWindow == false then
+    requestsInCurrentWindow = 0
+  end
+
+  local requestsInPreviousWindow = redis.call("GET", previousKey)
+  if requestsInPreviousWindow == false then
+    requestsInPreviousWindow = 0
+  end
+
+  return requestsInPreviousWindow + requestsInCurrentWindow
+`;
+
+export const tokenBucketLimitScript = `
   local key         = KEYS[1]           -- identifier including prefixes
   local maxTokens   = tonumber(ARGV[1]) -- maximum number of tokens
   local interval    = tonumber(ARGV[2]) -- size of the window in milliseconds
@@ -97,8 +114,21 @@ export const tokenBucketScript = `
   return {remaining, refilledAt + interval}
 `;
 
-export const cachedFixedWindowScript = `
-  local key     = KEYS[1
+export const tokenBucketTokenScript = `
+  local key         = KEYS[1]
+  local maxTokens   = tonumber(ARGV[1])
+        
+  local bucket = redis.call("HMGET", key, "tokens")
+
+  if bucket[1] == false then
+    return maxTokens
+  end
+        
+  return tonumber(bucket[1])
+`;
+
+export const cachedFixedWindowLimitScript = `
+  local key     = KEYS[1]
   local window  = ARGV[1]
   local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
 
@@ -110,4 +140,15 @@ export const cachedFixedWindowScript = `
   end
       
   return r
+`;
+
+export const cachedFixedWindowTokenScript = `
+  local key = KEYS[1]
+  local tokens = 0
+
+  local value = redis.call('GET', key)
+  if value then
+      tokens = value
+  end
+  return tokens
 `;
