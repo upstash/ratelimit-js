@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { log } from "console";
+import { log } from "node:console";
 import crypto from "node:crypto";
 import { Redis } from "@upstash/redis";
 import type { Algorithm } from ".";
