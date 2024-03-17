@@ -1,7 +1,7 @@
 import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
-import { fixedWindowLimitScript, fixedWindowRemainingTokensScript, slidingWindowScript } from "./lua-scripts/multi";
+import { fixedWindowLimitScript, fixedWindowRemainingTokensScript, slidingWindowLimitScript, slidingWindowRemainingTokensScript } from "./lua-scripts/multi";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
 
@@ -278,7 +278,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           return accTokens + parsedToken;
         }, 0);
 
-        return tokens - usedTokens;
+        return Math.max(0, tokens - usedTokens);
       },
     });
   }
@@ -340,7 +340,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const dbs = ctx.redis.map((redis) => ({
           redis,
           request: redis.eval(
-            slidingWindowScript,
+            slidingWindowLimitScript,
             [currentKey, previousKey],
             [tokens, now, windowDuration, requestId, incrementBy],
             // lua seems to return `1` for true and `null` for false
@@ -439,9 +439,26 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           pending: sync(),
         };
       },
-      async getRemaining(_ctx, _identifier) {
-        // to be implemented
-        return 0;
+      async getRemaining(ctx: MultiRegionContext, identifier: string) {
+        const now = Date.now();
+
+        const currentWindow = Math.floor(now / windowSize);
+        const currentKey = [identifier, currentWindow].join(":");
+        const previousWindow = currentWindow - 1;
+        const previousKey = [identifier, previousWindow].join(":");
+
+        const dbs = ctx.redis.map((redis) => ({
+          redis,
+          request: redis.eval(
+            slidingWindowRemainingTokensScript,
+            [currentKey, previousKey],
+            [null],
+            // lua seems to return `1` for true and `null` for false
+          ) as Promise<number>,
+        }));
+
+        const usedTokens = await Promise.any(dbs.map((s) => s.request));
+        return Math.max(0, tokens - usedTokens)
       },
     });
   }

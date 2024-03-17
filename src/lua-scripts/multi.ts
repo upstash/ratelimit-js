@@ -24,7 +24,7 @@ export const fixedWindowRemainingTokensScript = `
     `;
 
 
-export const slidingWindowScript = `
+export const slidingWindowLimitScript = `
 	local currentKey    = KEYS[1]           -- identifier including prefixes
 	local previousKey   = KEYS[2]           -- key of the previous bucket
 	local tokens        = tonumber(ARGV[1]) -- tokens per window
@@ -58,4 +58,23 @@ export const slidingWindowScript = `
 	  redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
 	end
 	return {currentFields, previousFields, true}
+`;
+
+export const slidingWindowRemainingTokensScript = `
+	local currentKey    = KEYS[1]           -- identifier including prefixes
+	local previousKey   = KEYS[2]           -- key of the previous bucket
+
+	local currentFields = redis.call("HGETALL", currentKey)
+	local requestsInCurrentWindow = 0
+	for i = 2, #currentFields, 2 do
+	requestsInCurrentWindow = requestsInCurrentWindow + tonumber(currentFields[i])
+	end
+
+	local previousFields = redis.call("HGETALL", previousKey)
+	local requestsInPreviousWindow = 0
+	for i = 2, #previousFields, 2 do
+	requestsInPreviousWindow = requestsInPreviousWindow + tonumber(previousFields[i])
+	end
+
+	return requestsInCurrentWindow + requestsInPreviousWindow
 `;
