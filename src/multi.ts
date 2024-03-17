@@ -1,7 +1,12 @@
 import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
-import { fixedWindowLimitScript, fixedWindowRemainingTokensScript, slidingWindowLimitScript, slidingWindowRemainingTokensScript } from "./lua-scripts/multi";
+import {
+  fixedWindowLimitScript,
+  fixedWindowRemainingTokensScript,
+  slidingWindowLimitScript,
+  slidingWindowRemainingTokensScript,
+} from "./lua-scripts/multi";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
 
@@ -260,11 +265,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
         const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
           redis,
-          request: redis.eval(
-            fixedWindowRemainingTokensScript,
-            [key],
-            [null],
-          ) as Promise<string[]>,
+          request: redis.eval(fixedWindowRemainingTokensScript, [key], [null]) as Promise<string[]>,
         }));
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
@@ -458,7 +459,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }));
 
         const usedTokens = await Promise.any(dbs.map((s) => s.request));
-        return Math.max(0, tokens - usedTokens)
+        return Math.max(0, tokens - usedTokens);
       },
     });
   }

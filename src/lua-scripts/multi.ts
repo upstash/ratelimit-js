@@ -23,7 +23,6 @@ export const fixedWindowRemainingTokensScript = `
       return fields
     `;
 
-
 export const slidingWindowLimitScript = `
 	local currentKey    = KEYS[1]           -- identifier including prefixes
 	local previousKey   = KEYS[2]           -- key of the previous bucket
