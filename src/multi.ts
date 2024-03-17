@@ -1,7 +1,7 @@
 import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
-import { fixedWindowScript, slidingWindowScript } from "./lua-scripts/multi";
+import { fixedWindowLimitScript, fixedWindowRemainingTokensScript, slidingWindowScript } from "./lua-scripts/multi";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
 
@@ -157,7 +157,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
           redis,
           request: redis.eval(
-            fixedWindowScript,
+            fixedWindowLimitScript,
             [key],
             [requestId, windowDuration, incrementBy],
           ) as Promise<string[]>,
@@ -254,9 +254,31 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           pending: sync(),
         };
       },
-      async getRemaining(_ctx, _identifier) {
-        //to be implemented
-        return 0;
+      async getRemaining(ctx: MultiRegionContext, identifier: string) {
+        const bucket = Math.floor(Date.now() / windowDuration);
+        const key = [identifier, bucket].join(":");
+
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
+          redis,
+          request: redis.eval(
+            fixedWindowRemainingTokensScript,
+            [key],
+            [null],
+          ) as Promise<string[]>,
+        }));
+
+        // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
+        const firstResponse = await Promise.any(dbs.map((s) => s.request));
+        const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
+          let parsedToken = 0;
+          if (index % 2) {
+            parsedToken = Number.parseInt(usedToken);
+          }
+
+          return accTokens + parsedToken;
+        }, 0);
+
+        return tokens - usedTokens;
       },
     });
   }

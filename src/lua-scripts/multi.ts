@@ -1,4 +1,4 @@
-export const fixedWindowScript = `
+export const fixedWindowLimitScript = `
 	local key           = KEYS[1]
 	local id            = ARGV[1]
 	local window        = ARGV[2]
@@ -14,6 +14,15 @@ export const fixedWindowScript = `
 
 	return fields
 `;
+export const fixedWindowRemainingTokensScript = `
+      local key = KEYS[1]
+      local tokens = 0
+
+      local fields = redis.call("HGETALL", key)
+
+      return fields
+    `;
+
 
 export const slidingWindowScript = `
 	local currentKey    = KEYS[1]           -- identifier including prefixes
