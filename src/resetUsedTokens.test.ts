@@ -5,21 +5,6 @@ import type { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
 import { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
 
-const redis = Redis.fromEnv();
-
-const metrics: Record<string | symbol, number> = {};
-
-const spy = new Proxy(redis, {
-  get: (target, prop) => {
-    if (typeof metrics[prop] === "undefined") {
-      metrics[prop] = 0;
-    }
-    metrics[prop]++;
-    // @ts-ignore - we don't care about the types here
-    return target[prop];
-  },
-});
-
 const limit = 10;
 const refillRate = 10;
 const windowString = "30s";
