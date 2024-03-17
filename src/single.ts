@@ -179,7 +179,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = (await ctx.redis.eval(fixedWindowRemainingTokensScript, [key], [null])) as number;
+        const usedTokens = (await ctx.redis.eval(
+          fixedWindowRemainingTokensScript,
+          [key],
+          [null],
+        )) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
@@ -264,7 +268,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = (await ctx.redis.eval(slidingWindowRemainingTokensScript, [currentKey, previousKey], [null])) as number;
+        const usedTokens = (await ctx.redis.eval(
+          slidingWindowRemainingTokensScript,
+          [currentKey, previousKey],
+          [null],
+        )) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
@@ -342,11 +350,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
-        const usedTokens = await ctx.redis.eval(
+        const usedTokens = (await ctx.redis.eval(
           tokenBucketRemainingTokensScript,
           [identifier],
           [null],
-        ) as number;
+        )) as number;
 
         return Math.max(0, usedTokens);
       },
@@ -405,10 +413,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? ctx.redis
-              .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
-              .then((t) => {
-                ctx.cache!.set(key, t as number);
-              })
+                .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
+                .then((t) => {
+                  ctx.cache!.set(key, t as number);
+                })
             : Promise.resolve();
 
           return {
@@ -440,7 +448,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = await ctx.redis.eval(cachedFixedWindowRemainingTokenScript, [key], [null]) as number;
+        const usedTokens = (await ctx.redis.eval(
+          cachedFixedWindowRemainingTokenScript,
+          [key],
+          [null],
+        )) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
