@@ -2,13 +2,13 @@ import type { Duration } from "./duration";
 import { ms } from "./duration";
 import {
   cachedFixedWindowLimitScript,
-  cachedFixedWindowTokenScript,
+  cachedFixedWindowRemainingTokenScript,
   fixedWindowLimitScript,
   fixedWindowTokensScript,
   slidingWindowLimitScript,
-  slidingWindowTokenScript,
+  slidingWindowRemainingTokenScript,
   tokenBucketLimitScript,
-  tokenBucketTokenScript,
+  tokenBucketRemainingTokenScript,
 } from "./lua-scripts/single";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
@@ -264,7 +264,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = (await ctx.redis.eval(slidingWindowTokenScript, [currentKey, previousKey], [null])) as number;
+        const usedTokens = (await ctx.redis.eval(slidingWindowRemainingTokenScript, [currentKey, previousKey], [null])) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
@@ -343,7 +343,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
         const usedTokens = await ctx.redis.eval(
-          tokenBucketTokenScript,
+          tokenBucketRemainingTokenScript,
           [identifier],
           [null],
         ) as number;
@@ -440,7 +440,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = await ctx.redis.eval(cachedFixedWindowTokenScript, [key], [null]) as number;
+        const usedTokens = await ctx.redis.eval(cachedFixedWindowRemainingTokenScript, [key], [null]) as number;
 
         return Math.max(0, tokens - usedTokens);
       },
