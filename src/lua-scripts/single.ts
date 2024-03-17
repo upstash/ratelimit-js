@@ -13,7 +13,7 @@ export const fixedWindowLimitScript = `
   return r
 `;
 
-export const fixedWindowTokensScript = `
+export const fixedWindowRemainingTokensScript = `
       local key = KEYS[1]
       local tokens = 0
 
@@ -57,7 +57,7 @@ export const slidingWindowLimitScript = `
   return tokens - ( newValue + requestsInPreviousWindow )
 `;
 
-export const slidingWindowRemainingTokenScript = `
+export const slidingWindowRemainingTokensScript = `
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
 
@@ -114,7 +114,7 @@ export const tokenBucketLimitScript = `
   return {remaining, refilledAt + interval}
 `;
 
-export const tokenBucketRemainingTokenScript = `
+export const tokenBucketRemainingTokensScript = `
   local key         = KEYS[1]
   local maxTokens   = tonumber(ARGV[1])
         
