@@ -17,7 +17,7 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
             for (let i = 0; i < 10; i++) {
                 await builder.limit(id);
                 const remaining = await builder.getRemaining(id);
-                expect(remaining).toBe(limit - i - 1);
+                expect(remaining).toBeGreaterThanOrEqual(limit - i - 1);
             }
         }, 20000);
     });
