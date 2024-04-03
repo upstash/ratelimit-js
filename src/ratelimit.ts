@@ -1,5 +1,6 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
+import { resetScript } from "./lua-scripts/reset";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
@@ -98,9 +99,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-          prefix: this.prefix,
-        })
+        redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+        prefix: this.prefix,
+      })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -259,37 +260,15 @@ export abstract class Ratelimit<TContext extends Context> {
   };
 
   public resetUsedTokens = async (identifier: string) => {
-    const script = `
-      local pattern = KEYS[1]
 
-      -- Initialize cursor to start from 0
-      local cursor = "0"
-
-      repeat
-          -- Scan for keys matching the pattern
-          local scan_result = redis.call('SCAN', cursor, 'MATCH', pattern)
-
-          -- Extract cursor for the next iteration
-          cursor = scan_result[1]
-
-          -- Extract keys from the scan result
-          local keys = scan_result[2]
-
-          for i=1, #keys do
-          redis.call('DEL', keys[i])
-          end
-
-      -- Continue scanning until cursor is 0 (end of keyspace)
-      until cursor == "0"
-    `;
     const pattern = [this.prefix, identifier, "*"].join(":");
 
     if (Array.isArray(this.ctx.redis)) {
       for (const db of this.ctx.redis) {
-        await db.eval(script, [pattern], [null]);
+        await db.eval(resetScript, [pattern], [null]);
       }
     } else {
-      await this.ctx.redis.eval(script, [pattern], [null]);
+      await this.ctx.redis.eval(resetScript, [pattern], [null]);
     }
   };
 
