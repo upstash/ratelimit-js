@@ -71,6 +71,10 @@ export const slidingWindowRemainingTokensScript = `
     requestsInPreviousWindow = 0
   end
 
+  local percentageInCurrent = ( now % window ) / window
+  -- weighted requests to consider from the previous window
+  requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
+
   return requestsInPreviousWindow + requestsInCurrentWindow
 `;
 
@@ -114,7 +118,20 @@ export const tokenBucketLimitScript = `
   return {remaining, refilledAt + interval}
 `;
 
-export const cachedFixedWindowScript = `
+export const tokenBucketRemainingTokensScript = `
+  local key         = KEYS[1]
+  local maxTokens   = tonumber(ARGV[1])
+        
+  local bucket = redis.call("HMGET", key, "tokens")
+
+  if bucket[1] == false then
+    return maxTokens
+  end
+        
+  return tonumber(bucket[1])
+`;
+
+export const cachedFixedWindowLimitScript = `
   local key     = KEYS[1]
   local window  = ARGV[1]
   local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
