@@ -1,4 +1,4 @@
-import { Ratelimit } from "../../../src";
+import { Ratelimit } from "@upstash/ratelimit";
 import kv from "@vercel/kv";
 import { Inter } from "next/font/google";
 import { headers } from "next/headers";
