@@ -60,6 +60,8 @@ export const slidingWindowLimitScript = `
 export const slidingWindowRemainingTokensScript = `
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
+  local now         = ARGV[1]           -- current timestamp in milliseconds
+  local window      = ARGV[2]           -- interval in milliseconds
 
   local requestsInCurrentWindow = redis.call("GET", currentKey)
   if requestsInCurrentWindow == false then
