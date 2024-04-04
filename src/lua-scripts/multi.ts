@@ -62,6 +62,8 @@ export const slidingWindowLimitScript = `
 export const slidingWindowRemainingTokensScript = `
 	local currentKey    = KEYS[1]           -- identifier including prefixes
 	local previousKey   = KEYS[2]           -- key of the previous bucket
+	local now         	= ARGV[1]           -- current timestamp in milliseconds
+  	local window      	= ARGV[2]           -- interval in milliseconds
 
 	local currentFields = redis.call("HGETALL", currentKey)
 	local requestsInCurrentWindow = 0
@@ -75,5 +77,8 @@ export const slidingWindowRemainingTokensScript = `
 	requestsInPreviousWindow = requestsInPreviousWindow + tonumber(previousFields[i])
 	end
 
+	local percentageInCurrent = ( now % window) / window
+  	requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
+	
 	return requestsInCurrentWindow + requestsInPreviousWindow
 `;

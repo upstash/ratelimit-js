@@ -453,7 +453,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           request: redis.eval(
             slidingWindowRemainingTokensScript,
             [currentKey, previousKey],
-            [null],
+            [now, windowSize],
             // lua seems to return `1` for true and `null` for false
           ) as Promise<number>,
         }));
