@@ -115,8 +115,9 @@ export type RatelimitResponse = {
 
 ### Using with CloudFlare Workers and Vercel Edge
 
-When rate limiting is used in CloudFlare Workers and Vercel Edge, we need to be careful about
-making sure that the rate limiting process completes correctly before the runtime ends.
+When we use CloudFlare Workers and Vercel Edge, we need to be careful about
+making sure that the rate limiting operations complete correctly before the runtime ends
+after returning the response.
 
 This is important in two cases where we do some operations in the backgroung asynchronously after `limit` is called:
 1. Using MultiRegion: synchronize Redis instances in different regions
