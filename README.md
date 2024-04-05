@@ -106,28 +106,32 @@ export type RatelimitResponse = {
   /**
    * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
    * In most case you can simply ignore this.
-   *
-   * On Vercel Edge or Cloudflare workers, you need to explicitely handle the pending Promise like this:
-   *
-   * **Vercel Edge:**
-   * https://nextjs.org/docs/api-reference/next/server#nextfetchevent
-   *
-   * ```ts
-   * const { pending } = await ratelimit.limit("id")
-   * event.waitUntil(pending)
-   * ```
-   *
-   * **Cloudflare Worker:**
-   * https://developers.cloudflare.com/workers/runtime-apis/fetch-event/#syntax-module-worker
-   *
-   * ```ts
-   * const { pending } = await ratelimit.limit("id")
-   * context.waitUntil(pending)
-   * ```
+   * 
+   * See the `Using with CloudFlare Workers and Vercel Edge` section below
    */
   pending: Promise<unknown>;
 };
 ````
+
+### Using with CloudFlare Workers and Vercel Edge
+
+When rate limiting is used in CloudFlare Workers and Vercel Edge, we need to be careful about
+making sure that the rate limiting process completes correctly before the runtime ends.
+
+This is important in two cases where we do some operations in the backgroung asynchronously after `limit` is called:
+1. Using MultiRegion: synchronize Redis instances in different regions
+2. Enabling analytics: send analytics to Redis
+
+In these cases, we need to wait for these operations to finish before sending the response to the user. Otherwise, the runtime will end and we won't be able to complete our chores.
+
+In order to wait for these operations to finish, use the `pending` promise:
+
+```ts
+const { pending } = await ratelimit.limit("id")
+context.waitUntil(pending)
+```
+
+See `waitUntil` documentation in [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil) and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil) for more details.
 
 ### Docs
 See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for details.
