@@ -68,6 +68,7 @@ export type Algorithm<TContext> = () => {
     },
   ) => Promise<RatelimitResponse>;
   getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
+  resetTokens: (ctx: TContext, identifier: string) => void;
 };
 
 /**

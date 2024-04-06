@@ -1,5 +1,6 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
+import { resetScript } from "./lua-scripts/reset";
 import {
   cachedFixedWindowLimitScript,
   cachedFixedWindowRemainingTokenScript,
@@ -187,6 +188,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return Math.max(0, tokens - usedTokens);
       },
+      async resetTokens(ctx: RegionContext, identifier: string) {
+        const pattern = [identifier, "*"].join(":");
+
+        await ctx.redis.eval(resetScript, [pattern], [null]);
+      },
     });
   }
 
@@ -276,6 +282,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return Math.max(0, tokens - usedTokens);
       },
+      async resetTokens(ctx: RegionContext, identifier: string) {
+        const pattern = [identifier, "*"].join(":");
+
+        await ctx.redis.eval(resetScript, [pattern], [null]);
+      },
     });
   }
 
@@ -358,6 +369,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return Math.max(0, usedTokens);
       },
+      async resetTokens(ctx: RegionContext, identifier: string) {
+        const pattern = identifier;
+
+        await ctx.redis.eval(resetScript, [pattern], [null]);
+      },
     });
   }
   /**
@@ -413,10 +429,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? ctx.redis
-                .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
-                .then((t) => {
-                  ctx.cache!.set(key, t as number);
-                })
+              .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
             : Promise.resolve();
 
           return {
@@ -455,6 +471,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         )) as number;
 
         return Math.max(0, tokens - usedTokens);
+      },
+      async resetTokens(ctx: RegionContext, identifier: string) {
+        const pattern = [identifier, "*"].join(":");
+
+        await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });
   }

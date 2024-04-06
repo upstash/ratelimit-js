@@ -99,9 +99,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-          prefix: this.prefix,
-        })
+        redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+        prefix: this.prefix,
+      })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -260,18 +260,11 @@ export abstract class Ratelimit<TContext extends Context> {
   };
 
   public resetUsedTokens = async (identifier: string) => {
-    const pattern = [this.prefix, identifier, "*"].join(":");
-
-    if (Array.isArray(this.ctx.redis)) {
-      for (const db of this.ctx.redis) {
-        await db.eval(resetScript, [pattern], [null]);
-      }
-    } else {
-      await this.ctx.redis.eval(resetScript, [pattern], [null]);
-    }
+    const pattern = [this.prefix, identifier].join(":");
+    await this.limiter().resetTokens(this.ctx, pattern);
   };
 
-  public getRemaining = async (identifier: string) => {
+  public getRemaining = async (identifier: string): Promise<number> => {
     const pattern = [this.prefix, identifier].join(":");
 
     return await this.limiter().getRemaining(this.ctx, pattern);

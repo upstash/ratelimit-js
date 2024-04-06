@@ -7,6 +7,7 @@ import {
   slidingWindowLimitScript,
   slidingWindowRemainingTokensScript,
 } from "./lua-scripts/multi";
+import { resetScript } from "./lua-scripts/reset";
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
 
@@ -281,6 +282,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
         return Math.max(0, tokens - usedTokens);
       },
+      async resetTokens(ctx: MultiRegionContext, identifier: string) {
+        const pattern = [identifier, "*"].join(":");
+        for (const db of ctx.redis) {
+          await db.eval(resetScript, [pattern], [null]);
+        }
+      },
     });
   }
 
@@ -460,6 +467,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
         const usedTokens = await Promise.any(dbs.map((s) => s.request));
         return Math.max(0, tokens - usedTokens);
+      },
+      async resetTokens(ctx: MultiRegionContext, identifier: string) {
+        const pattern = [identifier, "*"].join(":");
+        for (const db of ctx.redis) {
+          await db.eval(resetScript, [pattern], [null]);
+        }
       },
     });
   }
