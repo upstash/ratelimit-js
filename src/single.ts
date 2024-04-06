@@ -429,10 +429,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? ctx.redis
-              .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
-              .then((t) => {
-                ctx.cache!.set(key, t as number);
-              })
+                .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
+                .then((t) => {
+                  ctx.cache!.set(key, t as number);
+                })
             : Promise.resolve();
 
           return {

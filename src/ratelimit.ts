@@ -1,6 +1,5 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
-import { resetScript } from "./lua-scripts/reset";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
@@ -99,9 +98,9 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-        redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
-        prefix: this.prefix,
-      })
+          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          prefix: this.prefix,
+        })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
