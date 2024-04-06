@@ -40,4 +40,8 @@ export class Cache implements EphemeralCache {
     this.cache.set(key, value);
     return value;
   }
+
+  public empty(): void {
+    this.cache.clear()
+  }
 }

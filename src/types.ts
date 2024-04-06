@@ -9,6 +9,8 @@ export interface EphemeralCache {
   get: (key: string) => number | null;
 
   incr: (key: string) => number;
+
+  empty: () => void;
 }
 
 export type RegionContext = { redis: Redis; cache?: EphemeralCache };
