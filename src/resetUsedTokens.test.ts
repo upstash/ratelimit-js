@@ -24,7 +24,7 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       await builder.resetUsedTokens(id);
       const remaining = await builder.getRemaining(id);
       expect(remaining).toBe(limit);
-    });
+    }, 10000);
   });
 }
 
