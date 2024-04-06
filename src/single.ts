@@ -367,7 +367,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           [null],
         )) as number;
 
-        return Math.max(0, usedTokens);
+        return Math.max(0, maxTokens - usedTokens);
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
@@ -429,10 +429,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? ctx.redis
-                .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
-                .then((t) => {
-                  ctx.cache!.set(key, t as number);
-                })
+              .eval(cachedFixedWindowLimitScript, [key], [windowDuration, incrementBy])
+              .then((t) => {
+                ctx.cache!.set(key, t as number);
+              })
             : Promise.resolve();
 
           return {
