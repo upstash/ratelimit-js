@@ -10,16 +10,22 @@ const refillRate = 10;
 const windowString = "30s";
 
 function run<TContext extends Context>(builder: Ratelimit<TContext>) {
-  const id = crypto.randomUUID();
 
   describe("getRemainingTokens", () => {
     test("get remaining tokens", async () => {
-      for (let i = 0; i < 10; i++) {
+      const id = crypto.randomUUID();
+      // Stop at any random request call within the limit
+      const stopAt = Math.floor(Math.random() * (limit - 1) + 1);
+      for (let i = 1; i <= limit; i++) {
         await builder.limit(id);
-        const remaining = await builder.getRemaining(id);
-        expect(remaining).toBeGreaterThanOrEqual(limit - i - 1);
+        if (i == stopAt) {
+          break
+        }
       }
-    }, 20000);
+
+      const remaining = await builder.getRemaining(id);
+      expect(remaining).toBe(limit - stopAt);
+    }, 10000);
   });
 }
 
