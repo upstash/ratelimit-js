@@ -461,20 +461,33 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
+        if (!ctx.cache) {
+          throw new Error("This algorithm requires a cache");
+        }
+
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
+
+        const hit = typeof ctx.cache.get(key) === "number";
+        if (hit) {
+          const cachedUsedTokens = ctx.cache.get(key) ?? 0;
+          return Math.max(0, tokens - cachedUsedTokens);
+        }
 
         const usedTokens = (await ctx.redis.eval(
           cachedFixedWindowRemainingTokenScript,
           [key],
           [null],
         )) as number;
-
         return Math.max(0, tokens - usedTokens);
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
-
+        // Empty the cache
+        if (!ctx.cache) {
+          throw new Error("This algorithm requires a cache");
+        }
+        ctx.cache.empty()
         await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });
