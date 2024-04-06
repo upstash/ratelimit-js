@@ -22,11 +22,9 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
 
       // reset tokens
       await builder.resetUsedTokens(id);
-      setTimeout(async () => {
-        const { remaining } = await builder.limit(id);
-        expect(remaining).toBe(limit - 1);
-      }, 20000);
-    }, 20000);
+      const remaining = await builder.getRemaining(id);
+      expect(remaining).toBe(limit);
+    });
   });
 }
 
@@ -73,6 +71,7 @@ describe("fixedWindow", () => {
   describe("multiRegion", () =>
     run(newMultiRegion(MultiRegionRatelimit.fixedWindow(limit, windowString))));
 });
+
 describe("slidingWindow", () => {
   describe("region", () => run(newRegion(RegionRatelimit.slidingWindow(limit, windowString))));
   describe("multiRegion", () =>
