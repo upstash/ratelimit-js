@@ -361,13 +361,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
-        const usedTokens = (await ctx.redis.eval(
+        const remainingTokens = (await ctx.redis.eval(
           tokenBucketRemainingTokensScript,
           [identifier],
-          [null],
+          [maxTokens],
         )) as number;
-
-        return Math.max(0, maxTokens - usedTokens);
+        return remainingTokens;
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
