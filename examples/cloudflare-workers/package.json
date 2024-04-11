@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@upstash/ratelimit": "^1.0.3",
-    "@upstash/redis": "^1.20.6",
-    "hono": "^4.2.2"
+    "@upstash/redis": "^1.20.6"
   }
 }
