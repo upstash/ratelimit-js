@@ -11,14 +11,14 @@ const ratelimit = new Ratelimit({
 
 export default async function middleware(
   request: NextRequest,
-  event: NextFetchEvent,
+  context: NextFetchEvent,
 ): Promise<Response | undefined> {
   const ip = request.ip ?? "127.0.0.1";
 
   const { success, pending, limit, reset, remaining } = await ratelimit.limit(
     `ratelimit_middleware_${ip}`,
   );
-  event.waitUntil(pending);
+  context.waitUntil(pending);
 
   const res = success
     ? NextResponse.next()
