@@ -1,7 +1,7 @@
 # Upstash Rate Limit
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
-![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
+[![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/ratelimit)
 
 > [!NOTE]
 > **This project is in GA Stage.**
