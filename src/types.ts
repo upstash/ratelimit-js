@@ -10,6 +10,7 @@ export interface EphemeralCache {
 
   incr: (key: string) => number;
 
+  pop: (key: string) => void;
   empty: () => void;
 }
 
