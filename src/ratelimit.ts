@@ -153,7 +153,7 @@ export abstract class Ratelimit<TContext extends Context> {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.ctx, key, req?.rate)];
+      const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
@@ -256,5 +256,16 @@ export abstract class Ratelimit<TContext extends Context> {
       }
     }
     return res!;
+  };
+
+  public resetUsedTokens = async (identifier: string) => {
+    const pattern = [this.prefix, identifier].join(":");
+    await this.limiter().resetTokens(this.ctx, pattern);
+  };
+
+  public getRemaining = async (identifier: string): Promise<number> => {
+    const pattern = [this.prefix, identifier].join(":");
+
+    return await this.limiter().getRemaining(this.ctx, pattern);
   };
 }

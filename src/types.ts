@@ -9,6 +9,8 @@ export interface EphemeralCache {
   get: (key: string) => number | null;
 
   incr: (key: string) => number;
+
+  empty: () => void;
 }
 
 export type RegionContext = { redis: Redis; cache?: EphemeralCache };
@@ -54,14 +56,18 @@ export type RatelimitResponse = {
   pending: Promise<unknown>;
 };
 
-export type Algorithm<TContext> = (
-  ctx: TContext,
-  identifier: string,
-  rate?: number,
-  opts?: {
-    cache?: EphemeralCache;
-  },
-) => Promise<RatelimitResponse>;
+export type Algorithm<TContext> = () => {
+  limit: (
+    ctx: TContext,
+    identifier: string,
+    rate?: number,
+    opts?: {
+      cache?: EphemeralCache;
+    },
+  ) => Promise<RatelimitResponse>;
+  getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
+  resetTokens: (ctx: TContext, identifier: string) => void;
+};
 
 /**
  * This is all we need from the redis sdk.
