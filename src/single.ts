@@ -190,7 +190,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
-
+        if (ctx.cache) {
+          ctx.cache.pop(identifier)
+        }
         await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });
@@ -284,7 +286,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
-
+        if (ctx.cache) {
+          ctx.cache.pop(identifier)
+        }
         await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });
@@ -370,7 +374,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
-
+        if (ctx.cache) {
+          ctx.cache.pop(identifier)
+        }
         await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });
@@ -486,7 +492,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
-        ctx.cache.empty()
+        ctx.cache.pop(identifier)
         await ctx.redis.eval(resetScript, [pattern], [null]);
       },
     });

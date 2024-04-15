@@ -284,6 +284,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
+        if (ctx.cache) {
+          ctx.cache.pop(identifier)
+        }
         for (const db of ctx.redis) {
           await db.eval(resetScript, [pattern], [null]);
         }
@@ -470,6 +473,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
+        if (ctx.cache) {
+          ctx.cache.pop(identifier)
+        }
         for (const db of ctx.redis) {
           await db.eval(resetScript, [pattern], [null]);
         }

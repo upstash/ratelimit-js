@@ -41,6 +41,10 @@ export class Cache implements EphemeralCache {
     return value;
   }
 
+  public pop(key: string): void {
+    this.cache.delete(key)
+  }
+
   public empty(): void {
     this.cache.clear()
   }
