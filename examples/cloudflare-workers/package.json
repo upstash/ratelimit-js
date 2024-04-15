@@ -4,7 +4,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230419.0",
     "typescript": "^5.0.4",
-    "wrangler": "2.20.0"
+    "wrangler": "^3.49.0"
   },
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
-    "@upstash/ratelimit": "link:../../dist",
+    "@upstash/ratelimit": "^1.0.3",
     "@upstash/redis": "^1.20.6"
   }
 }

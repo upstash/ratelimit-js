@@ -1,10 +1,9 @@
 # Upstash Rate Limit
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
-![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)
+[![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/ratelimit)
 
-> [!NOTE]
-> **This project is in GA Stage.**
+> [!NOTE] > **This project is in GA Stage.**
 > The Upstash Professional Support fully covers this project. It receives regular updates, and bug fixes. The Upstash team is committed to maintaining and improving its functionality.
 
 It is the only connectionless (HTTP based) rate limiting library and designed
@@ -32,7 +31,7 @@ npm install @upstash/ratelimit
 #### Deno
 
 ```ts
-import { Ratelimit } from "https://cdn.skypack.dev/@upstash/ratelimit@latest"
+import { Ratelimit } from "https://cdn.skypack.dev/@upstash/ratelimit@latest";
 ```
 
 ### Create database
@@ -105,9 +104,21 @@ export type RatelimitResponse = {
 
   /**
    * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
+   * Or when analytics is enabled, we send the analytics asynchronously after returning the limit.
    * In most case you can simply ignore this.
-   * 
-   * See the `Using with CloudFlare Workers and Vercel Edge` section below
+   *
+   * On Vercel Edge or Cloudflare workers, you need to explicitly handle the pending Promise like this:
+   *
+   * ```ts
+   * const { pending } = await ratelimit.limit("id")
+   * context.waitUntil(pending)
+   * ```
+   *
+   * See `waitUntil` documentation in
+   * [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil)
+   * and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil)
+   * for more details.
+   * ```
    */
   pending: Promise<unknown>;
 };
@@ -120,6 +131,7 @@ making sure that the rate limiting operations complete correctly before the runt
 after returning the response.
 
 This is important in two cases where we do some operations in the backgroung asynchronously after `limit` is called:
+
 1. Using MultiRegion: synchronize Redis instances in different regions
 2. Enabling analytics: send analytics to Redis
 
@@ -128,13 +140,14 @@ In these cases, we need to wait for these operations to finish before sending th
 In order to wait for these operations to finish, use the `pending` promise:
 
 ```ts
-const { pending } = await ratelimit.limit("id")
-context.waitUntil(pending)
+const { pending } = await ratelimit.limit("id");
+context.waitUntil(pending);
 ```
 
 See `waitUntil` documentation in [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil) and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil) for more details.
 
 ### Docs
+
 See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for details.
 
 ## Contributing

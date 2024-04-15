@@ -8,7 +8,7 @@ export interface Env {
 const cache = new Map();
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
     try {
       console.log("URL:", env.UPSTASH_REDIS_REST_URL);
 
@@ -20,9 +20,11 @@ export default {
         redis: Redis.fromEnv(env),
         limiter: Ratelimit.cachedFixedWindow(5, "5 s"),
         ephemeralCache: cache,
+        analytics: true
       });
 
       const res = await ratelimit.limit("identifier");
+      context.waitUntil(res.pending)
       if (res.success) {
         return new Response(JSON.stringify(res, null, 2), { status: 200 });
       } else {

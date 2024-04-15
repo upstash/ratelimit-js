@@ -10,5 +10,6 @@ const ratelimit = new Ratelimit({
 export async function GET(req: NextRequest) {
   const id = req.ip ?? "anonymous";
   const limit = await ratelimit.limit(id ?? "anonymous");
+  await limit.pending;  // wait for analytics submission to finish
   return NextResponse.json(limit, { status: limit.success ? 200 : 429 });
 }
