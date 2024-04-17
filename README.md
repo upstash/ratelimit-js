@@ -1,7 +1,7 @@
 # Upstash Rate Limit
 
 [![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
-[![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/ratelimit)
+[![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/@upstash/ratelimit)
 
 > [!NOTE] > **This project is in GA Stage.**
 > The Upstash Professional Support fully covers this project. It receives regular updates, and bug fixes. The Upstash team is committed to maintaining and improving its functionality.
@@ -36,12 +36,9 @@ import { Ratelimit } from "https://cdn.skypack.dev/@upstash/ratelimit@latest";
 
 ### Create database
 
-Create a new redis database on [upstash](https://console.upstash.com/)
+Create a new redis database on [upstash](https://console.upstash.com/). See [here](https://github.com/upstash/upstash-redis#quick-start) for documentation on how to create a redis instance.
 
 ### Basic Usage
-
-See [here](https://github.com/upstash/upstash-redis#quick-start) for
-documentation on how to create a redis instance.
 
 ```ts
 import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
@@ -124,6 +121,11 @@ export type RatelimitResponse = {
 };
 ````
 
+### Docs
+
+See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for more information details.
+
+
 ### Using with CloudFlare Workers and Vercel Edge
 
 When we use CloudFlare Workers and Vercel Edge, we need to be careful about
@@ -145,10 +147,6 @@ context.waitUntil(pending);
 ```
 
 See `waitUntil` documentation in [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil) and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil) for more details.
-
-### Docs
-
-See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for details.
 
 ## Contributing
 
