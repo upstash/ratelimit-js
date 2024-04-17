@@ -16,6 +16,7 @@ export type Event = Geo & {
 export type AnalyticsConfig = {
   redis: Redis;
   prefix?: string;
+  cache?: boolean
 };
 
 /**
@@ -32,6 +33,7 @@ export class Analytics {
       window: "1h",
       prefix: config.prefix ?? "@upstash/ratelimit",
       retention: "90d",
+      cache: config.cache
     });
   }
 
