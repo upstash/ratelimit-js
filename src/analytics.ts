@@ -1,4 +1,4 @@
-import { Analytics as CoreAnalytics } from "@upstash/core-analytics";
+import { Analytics as CoreAnalytics, Aggregate } from "@upstash/core-analytics";
 import type { Redis } from "./types";
 
 export type Geo = {
@@ -60,20 +60,36 @@ export class Analytics {
   }
 
   public async series<TFilter extends keyof Omit<Event, "time">>(
+    filter: TFilter,
     cutoff: number,
-  ): Promise<{time: number, success: {true: number, false: number}}[]> {
-    // TODO: calculate numTimestamps from cutoff
-    return this.analytics.aggregateBuckets(this.table, 24)
+  ): Promise<Aggregate[]> {
+    const timestampCount = Math.min(
+      (
+        this.analytics.getBucket(Date.now())
+        - this.analytics.getBucket(cutoff)
+      ) / (60 * 60 * 1000),
+      256
+    )
+    return this.analytics.aggregateBucketsWithPipeline(this.table, filter, timestampCount)
   }
 
   public async getUsage(cutoff = 0): Promise<Record<string, { success: number; blocked: number }>> {
-    // TODO: calculate numTimestamps from cutoff
-    const records = await this.analytics.getAllowedBlocked(this.table, 24)
+    
+    const timestampCount = Math.min(
+      (
+        this.analytics.getBucket(Date.now())
+        - this.analytics.getBucket(cutoff)
+      ) / (60 * 60 * 1000),
+      256
+    )
+    const records = await this.analytics.getAllowedBlocked(this.table, timestampCount)
     return records;
   }
 
-  public async getUsageOverTime(timestampCount: number) {
-    const result = await this.analytics.aggregateBucketsWithPipeline(this.table, timestampCount)
+  public async getUsageOverTime<TFilter extends keyof Omit<Event, "time">>(
+    timestampCount: number, groupby: TFilter
+  ): Promise<Aggregate[]> {
+    const result = await this.analytics.aggregateBucketsWithPipeline(this.table, groupby, timestampCount)
     return result
   }
 
