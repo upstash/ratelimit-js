@@ -59,36 +59,26 @@ export class Analytics {
     await this.analytics.ingest(this.table, event);
   }
 
-  async series<TFilter extends keyof Omit<Event, "time">>(
-    filter: TFilter,
+  public async series<TFilter extends keyof Omit<Event, "time">>(
     cutoff: number,
-  ): Promise<({ time: number } & Record<string, number>)[]> {
-    const records = await this.analytics.query(this.table, {
-      filter: [filter],
-      range: [cutoff, Date.now()],
-    });
+  ): Promise<{time: number, success: {true: number, false: number}}[]> {
+    // TODO: calculate numTimestamps from cutoff
+    return this.analytics.aggregateBuckets(this.table, 24)
+  }
+
+  public async getUsage(cutoff = 0): Promise<Record<string, { success: number; blocked: number }>> {
+    // TODO: calculate numTimestamps from cutoff
+    const records = await this.analytics.getAllowedBlocked(this.table, 24)
     return records;
   }
-  public async getUsage(cutoff = 0): Promise<Record<string, { success: number; blocked: number }>> {
-    const records = await this.analytics.aggregateBy(this.table, "identifier", {
-      range: [cutoff, Date.now()],
-    });
-    const usage = {} as Record<string, { success: number; blocked: number }>;
-    for (const bucket of records) {
-      for (const [k, v] of Object.entries(bucket)) {
-        if (k === "time") {
-          continue;
-        }
 
-        if (!usage[k]) {
-          usage[k] = { success: 0, blocked: 0 };
-        }
-        // @ts-ignore
-        usage[k].success += v.true ?? 0;
-        // @ts-ignore
-        usage[k].blocked += v.false ?? 0;
-      }
-    }
-    return usage;
+  public async getUsageOverTime(timestampCount: number) {
+    const result = await this.analytics.aggregateBucketsWithPipeline(this.table, timestampCount)
+    return result
+  }
+
+  public async getMostAllowedBlocked(timestampCount: number, getTop?: number) {
+    getTop = getTop ?? 5
+    return this.analytics.getMostAllowedBlocked(this.table, timestampCount, getTop)
   }
 }
