@@ -1,6 +1,6 @@
 {
   "name": "@upstash/ratelimit",
-  "version": "0.0.0",
+  "version": "1.2.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -20,7 +20,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@upstash/core-analytics": "^0.0.7"
+    "@upstash/core-analytics": "^0.0.8"
   },
   "license": "MIT"
 }
