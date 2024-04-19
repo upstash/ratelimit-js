@@ -361,6 +361,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const percentageInCurrent = (now % windowDuration) / windowDuration;
         const [current, previous, success] = await Promise.any(dbs.map((s) => s.request));
 
+        // in the case of success, the new request is not included in the current array.
+        // add it manually
+        if (success) {
+          current.push(requestId, incrementBy.toString())
+        }
+
         const previousUsedTokens = previous.reduce((accTokens: number, usedToken, index) => {
           let parsedToken = 0;
           if (index % 2) {
@@ -379,7 +385,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           return accTokens + parsedToken;
         }, 0);
 
-        const previousPartialUsed = previousUsedTokens * (1 - percentageInCurrent);
+        const previousPartialUsed = Math.ceil(previousUsedTokens * (1 - percentageInCurrent));
 
         const usedTokens = previousPartialUsed + currentUsedTokens;
 
@@ -390,25 +396,30 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
          */
         async function sync() {
           const res = await Promise.all(dbs.map((s) => s.request));
-          const allCurrentIds = res
-            .flatMap(([current]) => current)
-            .reduce((accCurrentIds: string[], curr, index) => {
-              if (index % 2 === 0) {
-                accCurrentIds.push(curr);
-              }
-              return accCurrentIds;
-            }, []);
+
+          const allCurrentIds = Array.from(
+            new Set(
+              res
+                .flatMap(([current]) => current)
+                .reduce((acc: string[], curr, index) => {
+                  if (index % 2 === 0) {
+                    acc.push(curr);
+                  }
+                  return acc;
+                }, []),
+            ).values(),
+          );
 
           for (const db of dbs) {
-            const [_current, previous, _success] = await db.request;
-            const dbIds = previous.reduce((ids: string[], currentId, index) => {
+            const [current, _previous, _success] = await db.request;
+            const dbIds = current.reduce((ids: string[], currentId, index) => {
               if (index % 2 === 0) {
                 ids.push(currentId);
               }
               return ids;
             }, []);
 
-            const usedDbTokens = previous.reduce((accTokens: number, usedToken, index) => {
+            const usedDbTokens = current.reduce((accTokens: number, usedToken, index) => {
               let parsedToken = 0;
               if (index % 2) {
                 parsedToken = Number.parseInt(usedToken);

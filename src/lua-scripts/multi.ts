@@ -6,7 +6,7 @@ export const fixedWindowLimitScript = `
 
 	redis.call("HSET", key, id, incrementBy)
 	local fields = redis.call("HGETALL", key)
-	if #fields == 1 and tonumber(fields[1])==incrementBy then
+	if #fields == 2 and tonumber(fields[2])==incrementBy then
 	-- The first time this key is set, and the value will be equal to incrementBy.
 	-- So we only need the expire command once
 	  redis.call("PEXPIRE", key, window)
