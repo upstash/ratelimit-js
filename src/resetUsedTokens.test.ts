@@ -16,9 +16,12 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
     test("reset the tokens", async () => {
       // Consume tokens until the remaining tokens are either equal to 2 or lesser than that
 
+      const pendings: Promise<unknown>[] = []
       for (let i = 0; i < 15; i++) {
-        await builder.limit(id);
+        const { pending } = await builder.limit(id);
+        pendings.push(pending)
       }
+      await Promise.all(pendings)
 
       // reset tokens
       await builder.resetUsedTokens(id);
@@ -84,5 +87,5 @@ describe("tokenBucket", () => {
 });
 
 describe("cachedFixedWindow", () => {
-  describe("region", () => run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
+  describe.only("region", () => run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
 });

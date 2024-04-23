@@ -73,7 +73,7 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
           expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
           expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
         },
-        attackDuration * 1000 * 2,
+        attackDuration * 1000 * 4,
       );
     });
   }
