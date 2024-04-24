@@ -1,7 +1,7 @@
 # Upstash Rate Limit
 
-[![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 [![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/@upstash/ratelimit)
+[![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
 
 > [!NOTE] > **This project is in GA Stage.**
 > The Upstash Professional Support fully covers this project. It receives regular updates, and bug fixes. The Upstash team is committed to maintaining and improving its functionality.
@@ -69,84 +69,13 @@ doExpensiveCalculation();
 return "Here you go!";
 ```
 
-For Cloudflare Workers and Fastly Compute@Edge, you can use the following imports:
-
-```ts
-import { Redis } from "@upstash/redis/cloudflare"; // for cloudflare workers and pages
-import { Redis } from "@upstash/redis/fastly"; // for fastly compute@edge
-```
+For more information on getting started, you can refer to [our documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/gettingstarted).
 
 [Here's a complete nextjs example](https://github.com/upstash/ratelimit/tree/main/examples/nextjs)
 
-The `limit` method returns some more metadata that might be useful to you:
+## Documentation
 
-````ts
-export type RatelimitResponse = {
-  /**
-   * Whether the request may pass(true) or exceeded the limit(false)
-   */
-  success: boolean;
-  /**
-   * Maximum number of requests allowed within a window.
-   */
-  limit: number;
-  /**
-   * How many requests the user has left within the current window.
-   */
-  remaining: number;
-  /**
-   * Unix timestamp in milliseconds when the limits are reset.
-   */
-  reset: number;
-
-  /**
-   * For the MultiRegion setup we do some synchronizing in the background, after returning the current limit.
-   * Or when analytics is enabled, we send the analytics asynchronously after returning the limit.
-   * In most case you can simply ignore this.
-   *
-   * On Vercel Edge or Cloudflare workers, you need to explicitly handle the pending Promise like this:
-   *
-   * ```ts
-   * const { pending } = await ratelimit.limit("id")
-   * context.waitUntil(pending)
-   * ```
-   *
-   * See `waitUntil` documentation in
-   * [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil)
-   * and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil)
-   * for more details.
-   * ```
-   */
-  pending: Promise<unknown>;
-};
-````
-
-### Docs
-
-See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for more information details.
-
-
-### Using with CloudFlare Workers and Vercel Edge
-
-When we use CloudFlare Workers and Vercel Edge, we need to be careful about
-making sure that the rate limiting operations complete correctly before the runtime ends
-after returning the response.
-
-This is important in two cases where we do some operations in the backgroung asynchronously after `limit` is called:
-
-1. Using MultiRegion: synchronize Redis instances in different regions
-2. Enabling analytics: send analytics to Redis
-
-In these cases, we need to wait for these operations to finish before sending the response to the user. Otherwise, the runtime will end and we won't be able to complete our chores.
-
-In order to wait for these operations to finish, use the `pending` promise:
-
-```ts
-const { pending } = await ratelimit.limit("id");
-context.waitUntil(pending);
-```
-
-See `waitUntil` documentation in [Cloudflare](https://developers.cloudflare.com/workers/runtime-apis/handlers/fetch/#contextwaituntil) and [Vercel](https://vercel.com/docs/functions/edge-middleware/middleware-api#waituntil) for more details.
+See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for more information details about this package.
 
 ## Contributing
 
@@ -157,6 +86,20 @@ the url and token.
 
 ### Running tests
 
+To run the tests, you will need to set some environment variables. Here is a list of
+variables to set:
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+- `US1_UPSTASH_REDIS_REST_URL`
+- `US1_UPSTASH_REDIS_REST_TOKEN`
+- `APN_UPSTASH_REDIS_REST_URL`
+- `APN_UPSTASH_REDIS_REST_TOKEN`
+- `EU2_UPSTASH_REDIS_REST_URL`
+- `EU2_UPSTASH_REDIS_REST_TOKEN`
+
+You can create a single Upstash Redis and use its URL and token for all four above.
+
+Once you set the environment variables, simply run:
 ```sh
-UPSTASH_REDIS_REST_URL=".." UPSTASH_REDIS_REST_TOKEN=".." pnpm test
+pnpm test
 ```
