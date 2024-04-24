@@ -182,7 +182,20 @@ export abstract class Ratelimit<TContext extends Context> {
               ...geo,
             })
             .catch((err) => {
-              console.warn("Failed to record analytics", err);
+              let errorMessage = "Failed to record analytics"
+              if (`${err}`.includes("WRONGTYPE")) {
+                errorMessage = `
+Failed to record analytics. See the information below:
+
+This can occur when you uprade to Ratelimit version 1.1.2
+or later from an earlier version.
+
+This occurs simply because the way we store analytics data
+has changed. To avoid getting this error, disable analytics
+for *an hour*, then simply enable it back.\n
+`
+              }
+              console.warn(errorMessage, err);
             });
           res.pending = Promise.all([res.pending, analyticsP]);
         } catch (err) {
