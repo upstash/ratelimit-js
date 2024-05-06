@@ -1,4 +1,4 @@
-# Nextjs Example with Pages Router & Middleware
+# Nextjs Example
 
 In this example, we set up rate limiting for an API endpoint in a Nextjs project.
 
