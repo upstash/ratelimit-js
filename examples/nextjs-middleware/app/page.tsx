@@ -12,15 +12,36 @@ export default function Home() {
   const handleClick = async () => {
     try {
       const response = await fetch(`/api`);
-      const data = await response.text();
-      setStatus(JSON.parse(data));
+
+      // handling the case when env variables are not set and
+      // middleware fails
+      if (response.status === 500) {
+        throw Error(`API responded with ${response.status}!`)
+      }
+
+      if (response.status === 429) {
+        setStatus({
+          ...status,
+          success: false
+        })
+      } else {
+
+        setStatus({
+          success: response.headers.get("X-RateLimit-Success") === "true",
+          limit: +(response.headers.get("X-RateLimit-Limit") ?? -1),
+          remaining: +(response.headers.get("X-RateLimit-Remaining") ?? -1),
+        })
+      }
+
+      const content = await response.text()
+      setMessage(content)
     } catch (error) {
       console.error("Error fetching data:", error);
       setStatus({
         success: false,
         limit: -1,
         remaining: -1
-      });
+      })
       setMessage(`Error fetching data. Make sure that env variables are set as explained in the README file.`,)
     }
   };
@@ -33,7 +54,7 @@ export default function Home() {
         <p className="text-lg pt-5">{message}</p>
       </div>
       <div className="absolute top-1/2 grid grid-cols-3 gap-8 justify-center transform -translate-y-1/2">
-        {Object.entries(status).map(([key, value]) => (
+        {status.success && Object.entries(status).map(([key, value]) => (
           <div key={key} className="text-center">
             <div className="font-semibold">{key}</div>
             <div>{JSON.stringify(value)}</div>

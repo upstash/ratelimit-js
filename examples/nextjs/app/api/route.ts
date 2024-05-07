@@ -1,4 +1,4 @@
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,6 @@ const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
   prefix: "@upstash/ratelimit",
-  // analytics not enabled. See README for more details about analytics and Vercel Edge.
 });
 
 export async function GET(request: Request) {

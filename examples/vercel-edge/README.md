@@ -39,10 +39,30 @@ export async function GET(request: Request) {
 
 It runs on Vercel Edge and upon request, it returns the result of the rate limit call. This response is then shown on the home page.
 
+# Analytics and Multi-Region
+
+Enablinng analytics or multi region rate limiting requires us to use the
+`pending` field and wait for it before the edge environment terminates.
+The issue with pending is we need to wait for it with `context.waitUntil(pending)` but this is not available in Vercel Edge at the time of the
+writing of this example. See
+[Upstash Documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/gettingstarted#serverless-environments)
+and [related issue in nextjs](https://github.com/vercel/next.js/issues/50522)
+for more details.
+
+If you wish to use analytics or multi-region ratelimiting, you can use the middleware. For more details, see [the Ratelimit nextjs-middleware example](https://github.com/upstash/ratelimit/blob/main/examples/nextjs-middleware).
+
 # Run Locally
 
 To run the example in your local environment, create a Upstash Redis and set the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` environment variables. Then run
 
 ```
 npm run dev
+```
+
+# Deploy to Vercel
+
+To deploy the project, install [Vercel CLI](https://vercel.com/docs/cli), set the environment variables `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` on Vercel and run:
+
+```bash
+vercel deploy
 ```
