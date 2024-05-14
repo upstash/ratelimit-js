@@ -57,7 +57,8 @@ export type RatelimitResponse = {
   pending: Promise<unknown>;
 };
 
-export type Algorithm<TContext> = () => {
+export type Algorithm<TContext> = (hash?: any) => {
+  hash?: any;
   limit: (
     ctx: TContext,
     identifier: string,
@@ -80,5 +81,9 @@ export interface Redis {
 
   eval: <TArgs extends unknown[], TData = unknown>(
     ...args: [script: string, keys: string[], args: TArgs]
+  ) => Promise<TData>;
+  
+  evalsha: <TArgs extends unknown[], TData = unknown>(
+    ...args: [sha1: string, keys: string[], args: TArgs]
   ) => Promise<TData>;
 }

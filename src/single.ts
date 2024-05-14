@@ -225,8 +225,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     window: Duration,
   ): Algorithm<RegionContext> {
     const windowSize = ms(window);
-    return () => ({
+    return (hash) => ({
+      hash: hash,
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
+        console.log("received", this.hash, hash);
+        
         const now = Date.now();
 
         const currentWindow = Math.floor(now / windowSize);
@@ -249,8 +252,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const remainingTokens = (await ctx.redis.eval(
-          slidingWindowLimitScript,
+        const remainingTokens = (await ctx.redis.evalsha(
+          this.hash,
           [currentKey, previousKey],
           [tokens, now, windowSize, incrementBy],
         )) as number;

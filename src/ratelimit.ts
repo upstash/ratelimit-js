@@ -2,6 +2,11 @@ import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
+import {
+  slidingWindowLimitScript
+} from "./lua-scripts/single";
+import { Redis } from "@upstash/redis";
+
 export class TimeoutError extends Error {
   constructor() {
     super("Timeout");
@@ -90,6 +95,7 @@ export abstract class Ratelimit<TContext extends Context> {
   protected readonly timeout: number;
 
   protected readonly analytics?: Analytics;
+  hash: string = "";
 
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
@@ -152,8 +158,13 @@ export abstract class Ratelimit<TContext extends Context> {
   ): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
+    if (!this.hash) {
+      await this.saveScripts();
+    }
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
+      console.log("passing", this.hash);
+      
+      const arr: Promise<RatelimitResponse>[] = [this.limiter(this.hash).limit(this.ctx, key, req?.rate)];
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
@@ -281,4 +292,8 @@ for *an hour*, then simply enable it back.\n
 
     return await this.limiter().getRemaining(this.ctx, pattern);
   };
+
+  protected saveScripts = async () => {
+    this.hash = await (this.ctx.redis as Redis).scriptLoad(slidingWindowLimitScript)
+  }
 }
