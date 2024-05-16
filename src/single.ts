@@ -237,9 +237,18 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
+        const analyticsTimestamp = 1000;
+        const analyticsKey = ["@upstash/ratelimit", "analytics", analyticsTimestamp].join(":");
+
         if (ctx.cache) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
+            const a = await ctx.redis.eval(
+              `redis.call("ZINCRBY", "${analyticsKey}", 1, "{identifier: ${identifier}, success: false)}")`,
+              [],
+              [null]
+            )
+            console.log(a)
             return {
               success: false,
               limit: tokens,
@@ -254,7 +263,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const remainingTokens = (await ctx.redis.evalsha(
           this.hash,
-          [currentKey, previousKey],
+          [currentKey, previousKey, analyticsKey, identifier],
           [tokens, now, windowSize, incrementBy],
         )) as number;
 

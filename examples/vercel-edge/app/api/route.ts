@@ -3,12 +3,13 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 import { Ratelimit } from "@upstash/ratelimit";
+
 import { Redis } from "@upstash/redis";
 
 // Create a new ratelimiter
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  limiter: Ratelimit.slidingWindow(1, "10 s"),
   prefix: "@upstash/ratelimit",
   // analytics not enabled. See README for more details about analytics and Vercel Edge.
 });

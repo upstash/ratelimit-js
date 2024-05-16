@@ -25,12 +25,14 @@ export const fixedWindowRemainingTokensScript = `
     `;
 
 export const slidingWindowLimitScript = `
-  local currentKey  = KEYS[1]           -- identifier including prefixes
-  local previousKey = KEYS[2]           -- key of the previous bucket
-  local tokens      = tonumber(ARGV[1]) -- tokens per window
-  local now         = ARGV[2]           -- current timestamp in milliseconds
-  local window      = ARGV[3]           -- interval in milliseconds
-  local incrementBy = ARGV[4]           -- increment rate per request at a given value, default is 1
+  local currentKey   = KEYS[1]           -- identifier including prefixes
+  local previousKey  = KEYS[2]           -- key of the previous bucket
+  local analyticsKey = KEYS[3]           -- analytics key
+  local identifier   = KEYS[4]           -- identifier
+  local tokens       = tonumber(ARGV[1]) -- tokens per window
+  local now          = ARGV[2]           -- current timestamp in milliseconds
+  local window       = ARGV[3]           -- interval in milliseconds
+  local incrementBy  = ARGV[4]           -- increment rate per request at a given value, default is 1
 
   local requestsInCurrentWindow = redis.call("GET", currentKey)
   if requestsInCurrentWindow == false then
@@ -54,6 +56,9 @@ export const slidingWindowLimitScript = `
     -- So we only need the expire command once
     redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
   end
+
+  local success = (tokens - ( newValue + requestsInPreviousWindow )) >= 0
+  redis.call("ZINCRBY", analyticsKey, 1, string.format("{identifier: %s, success: %b}", identifier, success))
   return tokens - ( newValue + requestsInPreviousWindow )
 `;
 
