@@ -15,7 +15,7 @@ export interface EphemeralCache {
 }
 
 export type RegionContext = { redis: Redis; cache?: EphemeralCache };
-export type MultiRegionContext = { redis: Redis[]; cache?: EphemeralCache };
+export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {

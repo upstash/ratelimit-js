@@ -98,7 +98,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.prefix = config.prefix ?? "@upstash/ratelimit";
     this.analytics = config.analytics
       ? new Analytics({
-          redis: Array.isArray(this.ctx.redis) ? this.ctx.redis[0] : this.ctx.redis,
+          redis: ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis,
           prefix: this.prefix,
         })
       : undefined;

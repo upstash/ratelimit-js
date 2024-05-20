@@ -9,7 +9,7 @@ import {
 } from "./lua-scripts/multi";
 import { resetScript } from "./lua-scripts/reset";
 import { Ratelimit } from "./ratelimit";
-import type { Algorithm, MultiRegionContext } from "./types";
+import type { Algorithm, RegionContext, MultiRegionContext } from "./types";
 
 import type { Redis } from "./types";
 
@@ -104,7 +104,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       timeout: config.timeout,
       analytics: config.analytics,
       ctx: {
-        redis: config.redis,
+        regionContexts: config.redis.map(redis => ({redis: redis})),
         cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
       },
     });
@@ -160,9 +160,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const key = [identifier, bucket].join(":");
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: regionContext.redis.eval(
             fixedWindowLimitScript,
             [key],
             [requestId, windowDuration, incrementBy],
@@ -264,9 +264,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(fixedWindowRemainingTokensScript, [key], [null]) as Promise<string[]>,
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: regionContext.redis.eval(fixedWindowRemainingTokensScript, [key], [null]) as Promise<string[]>,
         }));
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
@@ -287,8 +287,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
-        for (const db of ctx.redis) {
-          await db.eval(resetScript, [pattern], [null]);
+        for (const regionContext of ctx.regionContexts) {
+          await regionContext.redis.eval(resetScript, [pattern], [null]);
         }
       },
     });
@@ -348,9 +348,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const previousKey = [identifier, previousWindow].join(":");
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const dbs = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: regionContext.redis.eval(
             slidingWindowLimitScript,
             [currentKey, previousKey],
             [tokens, now, windowDuration, requestId, incrementBy],
@@ -469,9 +469,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const dbs = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: regionContext.redis.eval(
             slidingWindowRemainingTokensScript,
             [currentKey, previousKey],
             [now, windowSize],
@@ -487,8 +487,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
-        for (const db of ctx.redis) {
-          await db.eval(resetScript, [pattern], [null]);
+        for (const regionContext of ctx.regionContexts) {
+          await regionContext.redis.eval(resetScript, [pattern], [null]);
         }
       },
     });
