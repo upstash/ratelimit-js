@@ -14,7 +14,17 @@ export interface EphemeralCache {
   empty: () => void;
 }
 
-export type RegionContext = { redis: Redis; cache?: EphemeralCache };
+export type RegionContext = {
+  redis: Redis;
+  cache?: EphemeralCache,
+  scriptHashes: {
+    limitHash?: string,
+    getRemainingHash?: string,
+    resetHash?: string
+  },
+  cacheScripts: boolean,
+  scriptFlushFrequency: number
+};
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
 export type Context = RegionContext | MultiRegionContext;
@@ -67,7 +77,7 @@ export type Algorithm<TContext> = () => {
     },
   ) => Promise<RatelimitResponse>;
   getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
-  resetTokens: (ctx: TContext, identifier: string) => void;
+  resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
 
 /**
@@ -81,4 +91,14 @@ export interface Redis {
   eval: <TArgs extends unknown[], TData = unknown>(
     ...args: [script: string, keys: string[], args: TArgs]
   ) => Promise<TData>;
+
+  evalsha: <TArgs extends unknown[], TData = unknown>(
+    ...args: [sha1: string, keys: string[], args: TArgs]
+  ) => Promise<TData>;
+
+  scriptLoad: (
+    ...args: [script: string]
+  ) => Promise<string>;
+
+  scriptFlush: () => Promise<string>;
 }
