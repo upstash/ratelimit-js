@@ -1,6 +1,5 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
-import { flushScriptCache } from "./hash";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
@@ -154,7 +153,6 @@ export abstract class Ratelimit<TContext extends Context> {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {
-      flushScriptCache(this.ctx)
       const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
       if (this.timeout > 0) {
         arr.push(

@@ -76,24 +76,9 @@ export type RegionRatelimitConfig = {
    * If enabled, lua scripts will be sent to Redis with SCRIPT LOAD durint the first request.
    * In the subsequent requests, hash of the script will be used to invoke it
    * 
-   * @default false
+   * @default true
    */
   cacheScripts?: boolean;
-
-  /**
-   * When cacheScripts is true, lua scripts will be loaded to redis and we will simply call them
-   * with their hash. But we should periodically flush the scripts so that their size in the redis
-   * doesn't grow indefinitely.
-   * 
-   * scriptCacheFlushInterval denotes the *average* number of requests to wait before flushing
-   * the script cache. We use random in order to handle serverless environments.
-   * 
-   * If set to 1, scripts will be flushed everytime limit() is called. If set to 0, they will
-   * never be flushed. If set to 1/10, scripts will be flushed every 10 limit() call in average.
-   * 
-   * @default 0.001
-   */
-  scriptFlushFrequency?: number
 };
 
 /**
@@ -125,8 +110,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       ctx: {
         redis: config.redis,
         scriptHashes: {},
-        cacheScripts: config.cacheScripts ?? false,
-        scriptFlushFrequency: config.scriptFlushFrequency ?? 0.001
+        cacheScripts: config.cacheScripts ?? true,
       },
       ephemeralCache: config.ephemeralCache,
     });

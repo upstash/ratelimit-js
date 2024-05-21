@@ -10,7 +10,7 @@ type ScriptKind = "limitHash" | "getRemainingHash" | "resetHash"
  * @param script script to load
  * @param kind script kind
  */
-export const setHash = async (
+const setHash = async (
   ctx: Context,
   script: string,
   kind: ScriptKind
@@ -22,30 +22,6 @@ export const setHash = async (
       context.scriptHashes[kind] = await context.redis.scriptLoad(script)
     }));
   };
-}
-
-/**
- * As we send more and more requests, we will potentially increase the size
- * of the script cache of the redis server indefinitely. This is especially
- * important in the case of serverless environments, since a SCRIPT LOAD will
- * be executed in every cold start.
- * 
- * To deal with this issue, we periodically flush the script cache. The
- * frequency of the flushed depends on the scriptFlushFrequency parameter.
- * If set to 1/n, scripts will be flushed every n limit() invocation in average.
- * 
- * @param ctx region or multi region context
- */
-export const flushScriptCache = async (
-  ctx: Context,
-) => {
-  const context = ("redis" in ctx) ? ctx : ctx.regionContexts[0]
-  if (Math.random() < context.scriptFlushFrequency) {
-    const redisArray = ("redis" in ctx) ? [ctx.redis] : ctx.regionContexts.map((region => region.redis))
-    await Promise.all(redisArray.map(
-      redis => redis.scriptFlush()
-    ))
-  }
 }
 
 /**

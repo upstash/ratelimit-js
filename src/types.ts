@@ -23,7 +23,6 @@ export type RegionContext = {
     resetHash?: string
   },
   cacheScripts: boolean,
-  scriptFlushFrequency: number
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
@@ -99,6 +98,4 @@ export interface Redis {
   scriptLoad: (
     ...args: [script: string]
   ) => Promise<string>;
-
-  scriptFlush: () => Promise<string>;
 }
