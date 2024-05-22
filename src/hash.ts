@@ -25,16 +25,15 @@ const setHash = async (
 }
 
 /**
+ * Runds the specified script with EVALSHA if ctx.cacheScripts or EVAL
+ * otherwise.
  * 
- * Since we periodically flush the script cache of the redis db, it is possible
- * to delete the scripts in the shared redis db of two serverless environments.
+ * If the script is not found when EVALSHA is used, it submits the script
+ * with LOAD SCRIPT, then calls EVALSHA again.
  * 
- * Therefore, when we send the requests, we need to handle the case when we have
- * a script hash but it doesn't exist in the redis db, which will return an error
- * 
- * @param ctx 
- * @param script 
- * @param kind 
+ * @param ctx Regional or multi region context
+ * @param script script to run
+ * @param kind script kind
  * @param keys 
  * @param args 
  */
