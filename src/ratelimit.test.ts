@@ -123,7 +123,7 @@ describe("timeout", () => {
       // @ts-ignore - I just want to test the timeout
       redis: {
         ...Redis.fromEnv(),
-        eval: () => new Promise((r) => setTimeout(r, 2000)),
+        evalsha: () => new Promise((r) => setTimeout(r, 2000)),
       },
       limiter: RegionRatelimit.fixedWindow(1, "1 s"),
       timeout: 1000,
