@@ -1,6 +1,7 @@
 import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
+import { safeEval } from "./hash";
 import {
   fixedWindowLimitScript,
   fixedWindowRemainingTokensScript,
@@ -9,7 +10,7 @@ import {
 } from "./lua-scripts/multi";
 import { resetScript } from "./lua-scripts/reset";
 import { Ratelimit } from "./ratelimit";
-import type { Algorithm, MultiRegionContext } from "./types";
+import type { Algorithm, RegionContext, MultiRegionContext } from "./types";
 
 import type { Redis } from "./types";
 
@@ -76,6 +77,14 @@ export type MultiRegionRatelimitConfig = {
    * @default false
    */
   analytics?: boolean;
+
+  /**
+   * If enabled, lua scripts will be sent to Redis with SCRIPT LOAD durint the first request.
+   * In the subsequent requests, hash of the script will be used to invoke it
+   * 
+   * @default true
+   */
+  cacheScripts?: boolean;
 };
 
 /**
@@ -104,7 +113,11 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       timeout: config.timeout,
       analytics: config.analytics,
       ctx: {
-        redis: config.redis,
+        regionContexts: config.redis.map(redis => ({
+          redis: redis,
+          scriptHashes: {},
+          cacheScripts: config.cacheScripts ?? true,
+        })),
         cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
       },
     });
@@ -160,10 +173,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const key = [identifier, bucket].join(":");
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: safeEval(
+            regionContext,
             fixedWindowLimitScript,
+            "limitHash",
             [key],
             [requestId, windowDuration, incrementBy],
           ) as Promise<string[]>,
@@ -264,9 +279,15 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(fixedWindowRemainingTokensScript, [key], [null]) as Promise<string[]>,
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: safeEval(
+            regionContext,
+            fixedWindowRemainingTokensScript,
+            "getRemainingHash",
+            [key],
+            [null]
+          ) as Promise<string[]>,
         }));
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
@@ -287,9 +308,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
-        for (const db of ctx.redis) {
-          await db.eval(resetScript, [pattern], [null]);
-        }
+
+        await Promise.all(ctx.regionContexts.map((regionContext) => {
+          safeEval(
+            regionContext,
+            resetScript,
+            "resetHash",
+            [pattern],
+            [null]
+          );
+        }))
       },
     });
   }
@@ -348,10 +376,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const previousKey = [identifier, previousWindow].join(":");
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const dbs = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: safeEval(
+            regionContext,
             slidingWindowLimitScript,
+            "limitHash",
             [currentKey, previousKey],
             [tokens, now, windowDuration, requestId, incrementBy],
             // lua seems to return `1` for true and `null` for false
@@ -469,10 +499,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const dbs = ctx.redis.map((redis) => ({
-          redis,
-          request: redis.eval(
+        const dbs = ctx.regionContexts.map((regionContext) => ({
+          redis: regionContext.redis,
+          request: safeEval(
+            regionContext,
             slidingWindowRemainingTokensScript,
+            "getRemainingHash",
             [currentKey, previousKey],
             [now, windowSize],
             // lua seems to return `1` for true and `null` for false
@@ -487,9 +519,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
-        for (const db of ctx.redis) {
-          await db.eval(resetScript, [pattern], [null]);
-        }
+
+        
+        await Promise.all(ctx.regionContexts.map((regionContext) => {
+          safeEval(
+            regionContext,
+            resetScript,
+            "resetHash",
+            [pattern],
+            [null]
+          );
+        }))
       },
     });
   }

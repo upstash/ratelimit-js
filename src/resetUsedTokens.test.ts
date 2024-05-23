@@ -87,5 +87,5 @@ describe("tokenBucket", () => {
 });
 
 describe("cachedFixedWindow", () => {
-  describe.only("region", () => run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
+  describe("region", () => run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
 });

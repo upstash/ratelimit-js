@@ -35,7 +35,7 @@ test("ephemeral cache", async () => {
   }
 
   expect(passes).toBeLessThanOrEqual(10);
-  expect(metrics.eval).toBe(11);
+  expect(metrics.evalsha).toBe(11);
 
   await new Promise((r) => setTimeout(r, 5000));
 }, 10000);
