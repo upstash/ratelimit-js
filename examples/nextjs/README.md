@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 
 export const dynamic = 'force-dynamic';
 
+import { waitUntil } from '@vercel/functions';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -23,12 +24,15 @@ const ratelimit = new Ratelimit({
 export async function GET(request: Request) {
 
   const identifier = "api";
-  const { success, limit, remaining } = await ratelimit.limit(identifier);
+  const { success, limit, remaining, pending } = await ratelimit.limit(identifier);
   const response = {
     success: success,
     limit: limit, 
     remaining: remaining
   }
+
+  // pending is a promise for handling the analytics submission
+  waitUntil(pending)
     
   if (!success) {
     return new Response(JSON.stringify(response), { status: 429 });
@@ -38,6 +42,8 @@ export async function GET(request: Request) {
 ```
 
 The `redis` parameter denotes the Upstash Redis instance we use. The `limiter` parameter denotes the algorithm used to limit requests. The `prefix` parameter is used when creating a key for entries in the Redis, allowing us to use a single Redis instance for different rate limiters. The `analytics` parameter denotes whether analytics will we sent to the Redis in order to use the Upstash Analytics dashboard.
+
+To limit the requests, we call `ratelimit.limit` method with an identifier `"api"`. This identifier could be the ip address or the user id in your use case. See [our documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/methods#limit) for more information.
 
 # Run locally
 
