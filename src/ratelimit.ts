@@ -1,5 +1,6 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
+import { IPBlackListSetting, ipInBlackList } from "./ipBlackList";
 import type { Algorithm, Context, RatelimitResponse } from "./types";
 
 export class TimeoutError extends Error {
@@ -63,6 +64,8 @@ export type RatelimitConfig<TContext> = {
    * @default false
    */
   analytics?: boolean;
+
+  ipBlackList?: IPBlackListSetting
 };
 
 /**
@@ -91,6 +94,8 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly analytics?: Analytics;
 
+  protected readonly ipBlackListSetting: IPBlackListSetting; 
+
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
@@ -108,6 +113,8 @@ export abstract class Ratelimit<TContext extends Context> {
     } else if (typeof config.ephemeralCache === "undefined") {
       this.ctx.cache = new Cache(new Map());
     }
+
+    this.ipBlackListSetting = config.ipBlackList ?? "cached";
   }
 
   /**
@@ -151,26 +158,50 @@ export abstract class Ratelimit<TContext extends Context> {
     req?: { geo?: Geo; rate?: number },
   ): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
-    let timeoutId: any = null;
+    let timeoutId: any = null;    
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
+      const arr: Promise<[RatelimitResponse, boolean]>[] = [
+        Promise.all([
+          // response:
+          this.limiter().limit(this.ctx, key, req?.rate),
+          // ipInBlackListResponse:
+          this.ipBlackListSetting === "disabled"
+            ? new Promise<boolean>((resolve) => {resolve(false)})
+            : ipInBlackList(identifier, this.ipBlackListSetting)
+        ])
+      ];
+
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
             timeoutId = setTimeout(() => {
-              resolve({
-                success: true,
-                limit: 0,
-                remaining: 0,
-                reset: 0,
-                pending: Promise.resolve(),
-              });
+              resolve([
+                // response:
+                {
+                  success: true,
+                  limit: 0,
+                  remaining: 0,
+                  reset: 0,
+                  pending: Promise.resolve(),
+                  reason: "timeout"
+                },
+                // ipInBlackListResponse:
+                false
+              ]);
             }, this.timeout);
           }),
         );
       }
 
-      const res = await Promise.race(arr);
+      const [res, ipInBlackListResponse] = await Promise.race(arr)
+      if (ipInBlackListResponse) {
+        res.reason = "ip-blacklist";
+        res.success = false;
+        res.remaining = 0;
+      } else if (!res.success) {
+        res.reason = "ratelimit";
+      }
+
       if (this.analytics) {
         try {
           const geo = req ? this.analytics.extractGeo(req) : undefined;
@@ -178,7 +209,9 @@ export abstract class Ratelimit<TContext extends Context> {
             .record({
               identifier,
               time: Date.now(),
-              success: res.success,
+              success: ipInBlackListResponse
+                ? "ip-blacklist"
+                : res.success,
               ...geo,
             })
             .catch((err) => {

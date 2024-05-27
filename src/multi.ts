@@ -2,6 +2,7 @@ import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
+import { IPBlackListSetting } from "./ipBlackList";
 import {
   fixedWindowLimitScript,
   fixedWindowRemainingTokensScript,
@@ -78,6 +79,8 @@ export type MultiRegionRatelimitConfig = {
    */
   analytics?: boolean;
 
+  ipBlackList?: IPBlackListSetting; 
+
   /**
    * If enabled, lua scripts will be sent to Redis with SCRIPT LOAD durint the first request.
    * In the subsequent requests, hash of the script will be used to invoke it
@@ -120,6 +123,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         })),
         cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
       },
+      ipBlackList: config.ipBlackList,
     });
   }
 

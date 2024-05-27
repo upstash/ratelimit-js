@@ -64,6 +64,8 @@ export type RatelimitResponse = {
    * ```
    */
   pending: Promise<unknown>;
+
+  reason?: "ratelimit" | "ip-blacklist" | "timeout"
 };
 
 export type Algorithm<TContext> = () => {
