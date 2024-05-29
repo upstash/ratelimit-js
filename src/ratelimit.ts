@@ -176,10 +176,11 @@ export abstract class Ratelimit<TContext extends Context> {
     const definedMembers = members.filter(item => item !== undefined) as string[];
     try {
       let res: RatelimitResponse;
-      if (checkDenyListCache(definedMembers)) {
-        res = defaultDeniedResponse();
+      const deniedMember = checkDenyListCache(definedMembers)
+      if (deniedMember) {
+        res = defaultDeniedResponse(deniedMember);
       } else {
-        const arr: Promise<[RatelimitResponse, boolean]>[] = [Promise.all([
+        const arr: Promise<[RatelimitResponse, string | undefined]>[] = [Promise.all([
           this.limiter().limit(this.ctx, key, req?.rate),
           checkDenyList(
             this.primaryRedis,
@@ -200,7 +201,7 @@ export abstract class Ratelimit<TContext extends Context> {
                     pending: Promise.resolve(),
                     reason: "timeout"
                   },
-                  false
+                  undefined
                 ]);
               }, this.timeout);
             }),
@@ -215,7 +216,7 @@ export abstract class Ratelimit<TContext extends Context> {
           const geo = req ? this.analytics.extractGeo(req) : undefined;
           const analyticsP = this.analytics
             .record({
-              identifier,
+              identifier: res.reason === "denyList" ? res._deniedValue! : identifier,
               time: Date.now(),
               success: res.reason === "denyList" ? "denied" : res.success,
               ...geo,

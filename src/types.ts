@@ -70,6 +70,11 @@ export type RatelimitResponse = {
   pending: Promise<unknown>;
 
   reason?: ResponseType;
+
+  /**
+   * The value which was in the deny list if reason: "denied"
+   */
+  _deniedValue?: string
 };
 
 export type Algorithm<TContext> = () => {

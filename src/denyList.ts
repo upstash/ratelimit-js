@@ -10,19 +10,12 @@ const denyListCache = new Cache(new Map());
  * of them are in denyListCache.
  * 
  * @param members list of values to check against the cache
- * @returns true if identifier is blocked
+ * @returns a member from the cache. If there is none, returns undefined
  */
-export const checkDenyListCache = (members: string[]) => {
-  console.log(
-    members,
-    denyListCache,
-    members.map(
-      member => denyListCache.isBlocked(member).blocked
-    )
-  )
-  return members.map(
+export const checkDenyListCache = (members: string[]): string | undefined => {
+  return members.filter(
     member => denyListCache.isBlocked(member).blocked
-  ).some(elem => !!elem)
+  )[0]
 }
 
 /**
@@ -59,15 +52,15 @@ export const checkDenyList = async (
     members
   );
 
-  let requestDenied = false;
+  let deniedMember: string | undefined = undefined;
   deniedMembers.map((memberDenied, index) => {
     if (memberDenied) {
-      requestDenied = true;
       blockMember(members[index])
+      deniedMember = members[index]
     }
   })
 
-  return requestDenied;
+  return deniedMember;
 };
 
 /**
@@ -80,12 +73,13 @@ export const checkDenyList = async (
  */
 export const resolveResponses = (
   ratelimitResponse: RatelimitResponse,
-  denyListResponse: boolean
+  denyListResponse: string | undefined
 ) => {
   if (denyListResponse) {
     ratelimitResponse.success = false;
     ratelimitResponse.remaining = 0;
     ratelimitResponse.reason = "denyList";
+    ratelimitResponse._deniedValue = denyListResponse
   }
   return ratelimitResponse;
 };
@@ -95,13 +89,14 @@ export const resolveResponses = (
  * @returns Default response to return when some item
  *  is in deny list.
  */
-export const defaultDeniedResponse = (): RatelimitResponse => {
+export const defaultDeniedResponse = (deniedValue: string): RatelimitResponse => {
   return {
     success: false,
     limit: 0,
     remaining: 0,
     reset: 0,
     pending: Promise.resolve(),
-    reason: "denyList"
+    reason: "denyList",
+    _deniedValue: deniedValue
   }
 }
