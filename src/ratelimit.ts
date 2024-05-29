@@ -164,6 +164,7 @@ export abstract class Ratelimit<TContext extends Context> {
                 remaining: 0,
                 reset: 0,
                 pending: Promise.resolve(),
+                reason: "timeout"
               });
             }, this.timeout);
           }),

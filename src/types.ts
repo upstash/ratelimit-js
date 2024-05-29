@@ -26,6 +26,8 @@ export type RegionContext = {
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
+export type ResponseType = "timeout" | "cacheBlock"
+
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
   /**
@@ -64,6 +66,8 @@ export type RatelimitResponse = {
    * ```
    */
   pending: Promise<unknown>;
+
+  reason?: ResponseType;
 };
 
 export type Algorithm<TContext> = () => {

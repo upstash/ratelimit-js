@@ -158,6 +158,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
@@ -265,6 +266,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
@@ -370,6 +372,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
