@@ -48,4 +48,8 @@ export class Cache implements EphemeralCache {
   public empty(): void {
     this.cache.clear()
   }
+
+  public size(): number {
+    return this.cache.size;
+  }
 }

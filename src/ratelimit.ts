@@ -1,7 +1,7 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, resolveResponses } from "./denyList";
+import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./denyList";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -171,36 +171,45 @@ export abstract class Ratelimit<TContext extends Context> {
   ): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
+
+    const members = [identifier, req?.ip, req?.userAgent, req?.country];
+    const definedMembers = members.filter(item => item !== undefined) as string[];
     try {
-      const arr: Promise<[RatelimitResponse, boolean]>[] = [Promise.all([
-        this.limiter().limit(this.ctx, key, req?.rate),
-        checkDenyList(
-          this.primaryRedis,
-          this.prefix,
-          [identifier, req?.ip, req?.userAgent, req?.country]
-        )
-      ])];
-      if (this.timeout > 0) {
-        arr.push(
-          new Promise((resolve) => {
-            timeoutId = setTimeout(() => {
-              resolve([
-                {
-                success: true,
-                limit: 0,
-                remaining: 0,
-                reset: 0,
-                pending: Promise.resolve(),
-                reason: "timeout"
-                },
-                false
-              ]);
-            }, this.timeout);
-          }),
-        );
+      let res: RatelimitResponse;
+      if (checkDenyListCache(definedMembers)) {
+        res = defaultDeniedResponse();
+      } else {
+        const arr: Promise<[RatelimitResponse, boolean]>[] = [Promise.all([
+          this.limiter().limit(this.ctx, key, req?.rate),
+          checkDenyList(
+            this.primaryRedis,
+            this.prefix,
+            definedMembers
+          )
+        ])];
+        if (this.timeout > 0) {
+          arr.push(
+            new Promise((resolve) => {
+              timeoutId = setTimeout(() => {
+                resolve([
+                  {
+                    success: true,
+                    limit: 0,
+                    remaining: 0,
+                    reset: 0,
+                    pending: Promise.resolve(),
+                    reason: "timeout"
+                  },
+                  false
+                ]);
+              }, this.timeout);
+            }),
+          );
+        }
+        res = resolveResponses(...(await Promise.race(arr)));
       }
 
-      const res = resolveResponses(...(await Promise.race(arr)));
+      // log the result to analytics
       if (this.analytics) {
         try {
           const geo = req ? this.analytics.extractGeo(req) : undefined;

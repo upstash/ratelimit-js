@@ -12,6 +12,8 @@ export interface EphemeralCache {
 
   pop: (key: string) => void;
   empty: () => void;
+
+  size: () => number;
 }
 
 export type RegionContext = {
