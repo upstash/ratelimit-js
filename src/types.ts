@@ -26,7 +26,7 @@ export type RegionContext = {
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
-export type ResponseType = "timeout" | "cacheBlock"
+export type ResponseType = "timeout" | "cacheBlock" | "denyList"
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
@@ -102,4 +102,8 @@ export interface Redis {
   scriptLoad: (
     ...args: [script: string]
   ) => Promise<string>;
+
+  smismember: (
+    key: string, members: string[]
+  ) => Promise<(0 | 1)[]>;
 }

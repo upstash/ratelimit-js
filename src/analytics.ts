@@ -10,7 +10,7 @@ export type Geo = {
 export type Event = Geo & {
   identifier: string;
   time: number;
-  success: boolean;
+  success: boolean | string;
 };
 
 export type AnalyticsConfig = {

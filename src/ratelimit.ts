@@ -1,6 +1,7 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
-import type { Algorithm, Context, RatelimitResponse } from "./types";
+import type { Algorithm, Context, RatelimitResponse, Redis } from "./types";
+import { checkDenyList, resolveResponses } from "./denyList";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -63,6 +64,11 @@ export type RatelimitConfig<TContext> = {
    * @default false
    */
   analytics?: boolean;
+
+  /**
+   * @default false
+   */
+  enableProtection?: boolean
 };
 
 /**
@@ -89,16 +95,23 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
+  protected readonly primaryRedis: Redis;
+
   protected readonly analytics?: Analytics;
+
+  protected readonly enableProtection: boolean;
 
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.enableProtection = config.enableProtection ?? false;
+
+    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
     this.analytics = config.analytics
       ? new Analytics({
-          redis: ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis,
+          redis: this.primaryRedis,
           prefix: this.prefix,
         })
       : undefined;
@@ -148,30 +161,46 @@ export abstract class Ratelimit<TContext extends Context> {
    */
   public limit = async (
     identifier: string,
-    req?: { geo?: Geo; rate?: number },
+    req?: {
+      geo?: Geo,
+      rate?: number,
+      ip?: string,
+      userAgent?: string,
+      country?: string
+    },
   ): Promise<RatelimitResponse> => {
     const key = [this.prefix, identifier].join(":");
     let timeoutId: any = null;
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
+      const arr: Promise<[RatelimitResponse, boolean]>[] = [Promise.all([
+        this.limiter().limit(this.ctx, key, req?.rate),
+        checkDenyList(
+          this.primaryRedis,
+          this.prefix,
+          [identifier, req?.ip, req?.userAgent, req?.country]
+        )
+      ])];
       if (this.timeout > 0) {
         arr.push(
           new Promise((resolve) => {
             timeoutId = setTimeout(() => {
-              resolve({
+              resolve([
+                {
                 success: true,
                 limit: 0,
                 remaining: 0,
                 reset: 0,
                 pending: Promise.resolve(),
                 reason: "timeout"
-              });
+                },
+                false
+              ]);
             }, this.timeout);
           }),
         );
       }
 
-      const res = await Promise.race(arr);
+      const res = resolveResponses(...(await Promise.race(arr)));
       if (this.analytics) {
         try {
           const geo = req ? this.analytics.extractGeo(req) : undefined;
@@ -179,7 +208,7 @@ export abstract class Ratelimit<TContext extends Context> {
             .record({
               identifier,
               time: Date.now(),
-              success: res.success,
+              success: res.reason === "denyList" ? "denyList" : res.success,
               ...geo,
             })
             .catch((err) => {
