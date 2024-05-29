@@ -217,7 +217,7 @@ export abstract class Ratelimit<TContext extends Context> {
             .record({
               identifier,
               time: Date.now(),
-              success: res.reason === "denyList" ? "denyList" : res.success,
+              success: res.reason === "denyList" ? "denied" : res.success,
               ...geo,
             })
             .catch((err) => {
