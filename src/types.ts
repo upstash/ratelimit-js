@@ -28,7 +28,7 @@ export type RegionContext = {
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
-export type ResponseType = "timeout" | "cacheBlock" | "denyList"
+export type RatelimitResponseType = "timeout" | "cacheBlock" | "denyList"
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
@@ -80,7 +80,7 @@ export type RatelimitResponse = {
    * - Is set to undefined if rate limit check had to use Redis. This happens in cases when `success` field in
    *    the response is true. It can also happen the first time sucecss is false.
    */
-  reason?: ResponseType;
+  reason?: RatelimitResponseType;
 
   /**
    * The value which was in the deny list if reason: "denyList"
