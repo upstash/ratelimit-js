@@ -90,6 +90,8 @@ export type Algorithm<TContext> = () => {
   resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
 
+export type IsDenied = 0 | 1;
+
 /**
  * This is all we need from the redis sdk.
  */
@@ -112,5 +114,5 @@ export interface Redis {
 
   smismember: (
     key: string, members: string[]
-  ) => Promise<(0 | 1)[]>;
+  ) => Promise<IsDenied[]>;
 }
