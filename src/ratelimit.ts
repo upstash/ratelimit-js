@@ -1,7 +1,7 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./denyList";
+import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list";
 
 export class TimeoutError extends Error {
   constructor() {
