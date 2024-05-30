@@ -13,9 +13,9 @@ const denyListCache = new Cache(new Map());
  * @returns a member from the cache. If there is none, returns undefined
  */
 export const checkDenyListCache = (members: string[]): string | undefined => {
-  return members.filter(
+  return members.find(
     member => denyListCache.isBlocked(member).blocked
-  )[0]
+  );
 }
 
 /**
