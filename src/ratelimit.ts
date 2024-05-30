@@ -66,6 +66,10 @@ export type RatelimitConfig<TContext> = {
   analytics?: boolean;
 
   /**
+   * Enables deny list. If set to true, requests with identifier or ip/user-agent/countrie
+   * in the deny list will be rejected automatically. To edit the deny list, check out the
+   * ratelimit dashboard at https://console.upstash.com/ratelimit
+   * 
    * @default false
    */
   enableProtection?: boolean

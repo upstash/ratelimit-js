@@ -6,8 +6,8 @@ import { Cache } from "./cache";
 const denyListCache = new Cache(new Map());
 
 /**
- * Checks items in members list and returns true if any
- * of them are in denyListCache.
+ * Checks items in members list and returns the first denied member
+ * in denyListCache if there are any.
  * 
  * @param members list of values to check against the cache
  * @returns a member from the cache. If there is none, returns undefined
@@ -40,7 +40,7 @@ const blockMember = (member: string) => {
  * @param redis redis client
  * @param prefix ratelimit prefix
  * @param members List of values (identifier, ip, user agent, country)
- * @returns 
+ * @returns true if a member is in deny list at Redis
  */
 export const checkDenyList = async (
   redis: Redis,
