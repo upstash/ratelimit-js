@@ -79,7 +79,7 @@ export const resolveResponses = (
     ratelimitResponse.success = false;
     ratelimitResponse.remaining = 0;
     ratelimitResponse.reason = "denyList";
-    ratelimitResponse._deniedValue = denyListResponse
+    ratelimitResponse.deniedValue = denyListResponse
   }
   return ratelimitResponse;
 };
@@ -97,6 +97,6 @@ export const defaultDeniedResponse = (deniedValue: string): RatelimitResponse =>
     reset: 0,
     pending: Promise.resolve(),
     reason: "denyList",
-    _deniedValue: deniedValue
+    deniedValue: deniedValue
   }
 }

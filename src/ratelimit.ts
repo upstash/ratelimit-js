@@ -216,7 +216,7 @@ export abstract class Ratelimit<TContext extends Context> {
           const geo = req ? this.analytics.extractGeo(req) : undefined;
           const analyticsP = this.analytics
             .record({
-              identifier: res.reason === "denyList" ? res._deniedValue! : identifier,
+              identifier: res.reason === "denyList" ? res.deniedValue! : identifier,
               time: Date.now(),
               success: res.reason === "denyList" ? "denied" : res.success,
               ...geo,

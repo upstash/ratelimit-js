@@ -74,7 +74,7 @@ export type RatelimitResponse = {
   /**
    * The value which was in the deny list if reason: "denied"
    */
-  _deniedValue?: string
+  deniedValue?: string
 };
 
 export type Algorithm<TContext> = () => {
