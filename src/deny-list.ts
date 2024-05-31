@@ -1,4 +1,4 @@
-import { Redis } from "./types"
+import { DeniedValue, LimitPayload, Redis } from "./types"
 import { RatelimitResponse } from "./types"
 import { Cache } from "./cache";
 
@@ -12,7 +12,7 @@ const denyListCache = new Cache(new Map());
  * @param members list of values to check against the cache
  * @returns a member from the cache. If there is none, returns undefined
  */
-export const checkDenyListCache = (members: string[]): string | undefined => {
+export const checkDenyListCache = (members: string[]): DeniedValue => {
   return members.find(
     member => denyListCache.isBlocked(member).blocked
   );
@@ -46,13 +46,13 @@ export const checkDenyList = async (
   redis: Redis,
   prefix: string,
   members: string[]
-) => {
+): Promise<DeniedValue> => {
   const deniedMembers = await redis.smismember(
     [prefix, "denyList", "all"].join(":"),
     members
   );
 
-  let deniedMember: string | undefined = undefined;
+  let deniedMember: DeniedValue = undefined;
   deniedMembers.map((memberDenied, index) => {
     if (memberDenied) {
       blockMember(members[index])
@@ -72,9 +72,8 @@ export const checkDenyList = async (
  * @returns 
  */
 export const resolveResponses = (
-  ratelimitResponse: RatelimitResponse,
-  denyListResponse: string | undefined
-) => {
+  [ratelimitResponse, denyListResponse]: LimitPayload
+): RatelimitResponse => {
   if (denyListResponse) {
     ratelimitResponse.success = false;
     ratelimitResponse.remaining = 0;

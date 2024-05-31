@@ -1,3 +1,5 @@
+import { Geo } from "./analytics";
+
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceeded the ratelimit.
  */
@@ -102,6 +104,16 @@ export type Algorithm<TContext> = () => {
 };
 
 export type IsDenied = 0 | 1;
+
+export type DeniedValue = string | undefined;
+export type LimitPayload = [RatelimitResponse, DeniedValue];
+export type LimitOptions = {
+  geo?: Geo,
+  rate?: number,
+  ip?: string,
+  userAgent?: string,
+  country?: string
+}
 
 /**
  * This is all we need from the redis sdk.
