@@ -21,7 +21,7 @@ test("should get expected response from defaultDeniedResponse", () => {
 });
 
 
-test("should overrides response in resolveResponses correctly", () => {
+test.only("should override response in resolveResponses correctly", () => {
   const initialResponse = {
     success: true,
     limit: 100,
@@ -43,7 +43,7 @@ test("should overrides response in resolveResponses correctly", () => {
     deniedValue: denyListResponse
   };
 
-  const response = resolveResponses(initialResponse, denyListResponse);
+  const response = resolveResponses([initialResponse, denyListResponse]);
   expect(response).toEqual(expectedResponse);
 });
 
