@@ -7,10 +7,18 @@ export type Geo = {
   region?: string;
   ip?: string;
 };
+
+/**
+ * denotes the success field in the analytics submission.
+ * Set to true when ratelimit check passes. False when request is ratelimited.
+ * Set to "denied" when some request value is in deny list.
+ */
+export type EventSuccess = boolean | "denied"
+
 export type Event = Geo & {
   identifier: string;
   time: number;
-  success: boolean;
+  success: EventSuccess;
 };
 
 export type AnalyticsConfig = {

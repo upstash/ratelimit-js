@@ -15,12 +15,12 @@
     "@upstash/redis": "^1.28.3",
     "bun-types": "latest",
     "rome": "^11.0.0",
-    "turbo": "^1.10.15",
     "tsup": "^7.2.0",
+    "turbo": "^1.10.15",
     "typescript": "^5.0.0"
   },
+  "license": "MIT",
   "dependencies": {
-    "@upstash/core-analytics": "^0.0.8"
-  },
-  "license": "MIT"
+    "@upstash/core-analytics": "^0.0.9"
+  }
 }

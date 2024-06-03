@@ -135,6 +135,7 @@ describe("timeout", () => {
     expect(res.limit).toBe(0);
     expect(res.remaining).toBe(0);
     expect(res.reset).toBe(0);
+    expect(res.reason).toBe("timeout");
     expect(duration).toBeGreaterThanOrEqual(900);
     expect(duration).toBeLessThanOrEqual(1100);
 

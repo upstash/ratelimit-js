@@ -1,3 +1,5 @@
+import { Geo } from "./analytics";
+
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceeded the ratelimit.
  */
@@ -12,6 +14,8 @@ export interface EphemeralCache {
 
   pop: (key: string) => void;
   empty: () => void;
+
+  size: () => number;
 }
 
 export type RegionContext = {
@@ -25,6 +29,8 @@ export type RegionContext = {
   cacheScripts: boolean,
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
+
+export type RatelimitResponseType = "timeout" | "cacheBlock" | "denyList"
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
@@ -64,6 +70,24 @@ export type RatelimitResponse = {
    * ```
    */
   pending: Promise<unknown>;
+
+  /**
+   * Reason behind the result in `success` field.
+   * - Is set to "timeout" when request times out
+   * - Is set to "cacheBlock" when an identifier is blocked through cache without calling redis because it was
+   *    rate limited previously.
+   * - Is set to "denyList" when identifier or one of ip/user-agent/country parameters is in deny list. To enable
+   *    deny list, see `enableProtection` parameter. To edit the deny list, see the Upstash Ratelimit Dashboard
+   *    at https://console.upstash.com/ratelimit.
+   * - Is set to undefined if rate limit check had to use Redis. This happens in cases when `success` field in
+   *    the response is true. It can also happen the first time sucecss is false.
+   */
+  reason?: RatelimitResponseType;
+
+  /**
+   * The value which was in the deny list if reason: "denyList"
+   */
+  deniedValue?: string
 };
 
 export type Algorithm<TContext> = () => {
@@ -78,6 +102,18 @@ export type Algorithm<TContext> = () => {
   getRemaining: (ctx: TContext, identifier: string) => Promise<number>;
   resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
+
+export type IsDenied = 0 | 1;
+
+export type DeniedValue = string | undefined;
+export type LimitPayload = [RatelimitResponse, DeniedValue];
+export type LimitOptions = {
+  geo?: Geo,
+  rate?: number,
+  ip?: string,
+  userAgent?: string,
+  country?: string
+}
 
 /**
  * This is all we need from the redis sdk.
@@ -98,4 +134,8 @@ export interface Redis {
   scriptLoad: (
     ...args: [script: string]
   ) => Promise<string>;
+
+  smismember: (
+    key: string, members: string[]
+  ) => Promise<IsDenied[]>;
 }

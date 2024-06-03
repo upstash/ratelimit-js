@@ -1,6 +1,7 @@
 import { Analytics, type Geo } from "./analytics";
 import { Cache } from "./cache";
-import type { Algorithm, Context, RatelimitResponse } from "./types";
+import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
+import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -63,6 +64,15 @@ export type RatelimitConfig<TContext> = {
    * @default false
    */
   analytics?: boolean;
+
+  /**
+   * Enables deny list. If set to true, requests with identifier or ip/user-agent/countrie
+   * in the deny list will be rejected automatically. To edit the deny list, check out the
+   * ratelimit dashboard at https://console.upstash.com/ratelimit
+   * 
+   * @default false
+   */
+  enableProtection?: boolean
 };
 
 /**
@@ -89,16 +99,23 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
+  protected readonly primaryRedis: Redis;
+
   protected readonly analytics?: Analytics;
+
+  protected readonly enableProtection: boolean;
 
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.enableProtection = config.enableProtection ?? false;
+
+    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
     this.analytics = config.analytics
       ? new Analytics({
-          redis: ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis,
+          redis: this.primaryRedis,
           prefix: this.prefix,
         })
       : undefined;
@@ -148,61 +165,18 @@ export abstract class Ratelimit<TContext extends Context> {
    */
   public limit = async (
     identifier: string,
-    req?: { geo?: Geo; rate?: number },
+    req?: LimitOptions,
   ): Promise<RatelimitResponse> => {
-    const key = [this.prefix, identifier].join(":");
+    
     let timeoutId: any = null;
     try {
-      const arr: Promise<RatelimitResponse>[] = [this.limiter().limit(this.ctx, key, req?.rate)];
-      if (this.timeout > 0) {
-        arr.push(
-          new Promise((resolve) => {
-            timeoutId = setTimeout(() => {
-              resolve({
-                success: true,
-                limit: 0,
-                remaining: 0,
-                reset: 0,
-                pending: Promise.resolve(),
-              });
-            }, this.timeout);
-          }),
-        );
-      }
+      const response = this.getRatelimitResponse(identifier, req);
+      const { responseArray, newTimeoutId } = this.applyTimeout(response);
+      timeoutId = newTimeoutId;
 
-      const res = await Promise.race(arr);
-      if (this.analytics) {
-        try {
-          const geo = req ? this.analytics.extractGeo(req) : undefined;
-          const analyticsP = this.analytics
-            .record({
-              identifier,
-              time: Date.now(),
-              success: res.success,
-              ...geo,
-            })
-            .catch((err) => {
-              let errorMessage = "Failed to record analytics"
-              if (`${err}`.includes("WRONGTYPE")) {
-                errorMessage = `
-Failed to record analytics. See the information below:
-
-This can occur when you uprade to Ratelimit version 1.1.2
-or later from an earlier version.
-
-This occurs simply because the way we store analytics data
-has changed. To avoid getting this error, disable analytics
-for *an hour*, then simply enable it back.\n
-`
-              }
-              console.warn(errorMessage, err);
-            });
-          res.pending = Promise.all([res.pending, analyticsP]);
-        } catch (err) {
-          console.warn("Failed to record analytics", err);
-        }
-      }
-      return res;
+      const timedResponse = await Promise.race(responseArray);
+      const finalResponse = this.submitAnalytics(timedResponse, identifier, req);
+      return finalResponse;
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -281,4 +255,146 @@ for *an hour*, then simply enable it back.\n
 
     return await this.limiter().getRemaining(this.ctx, pattern);
   };
+
+  /**
+   * Checks if the identifier or the values in req are in the deny list cache.
+   * If so, returns the default denied response.
+   * 
+   * Otherwise, calls redis to check the rate limit and deny list. Returns after
+   * resolving the result. Resolving is overriding the rate limit result if
+   * the some value is in deny list.
+   * 
+   * @param identifier identifier to block
+   * @param req options with ip, user agent, country, rate and geo info
+   * @returns rate limit response
+   */
+  private getRatelimitResponse = async (
+    identifier: string,
+    req?: LimitOptions
+  ): Promise<RatelimitResponse> => {
+    const key = this.getKey(identifier);
+    const definedMembers = this.getDefinedMembers(identifier, req);
+
+    const deniedMember = checkDenyListCache(definedMembers)
+
+    let result: LimitPayload;
+    if (deniedMember) {
+      result = [defaultDeniedResponse(deniedMember), deniedMember];
+    } else {
+      result = await Promise.all([
+        this.limiter().limit(this.ctx, key, req?.rate),
+        checkDenyList(
+          this.primaryRedis,
+          this.prefix,
+          definedMembers
+        )
+      ]);
+    }
+
+    return resolveResponses(result)
+  };
+
+  /**
+   * Creates an array with the original response promise and a timeout promise
+   * if this.timeout > 0.
+   * 
+   * @param response Ratelimit response promise
+   * @returns array with the response and timeout promise. also includes the timeout id
+   */
+  private applyTimeout = (response: Promise<RatelimitResponse>) => {
+    let newTimeoutId: any = null;
+    const responseArray: Array<Promise<RatelimitResponse>> = [response];
+
+    if (this.timeout > 0) {
+      const timeoutResponse = new Promise<RatelimitResponse>((resolve) => {
+        newTimeoutId = setTimeout(() => {
+          resolve({
+              success: true,
+              limit: 0,
+              remaining: 0,
+              reset: 0,
+              pending: Promise.resolve(),
+              reason: "timeout"
+            });
+        }, this.timeout);
+      })
+      responseArray.push(timeoutResponse);
+    }
+
+    return {
+      responseArray,
+      newTimeoutId,
+    }
+  }
+
+  /**
+   * submits analytics if this.analytics is set
+   * 
+   * @param ratelimitResponse final rate limit response
+   * @param identifier identifier to submit
+   * @param req limit options
+   * @returns rate limit response after updating the .pending field
+   */
+  private submitAnalytics = (
+    ratelimitResponse: RatelimitResponse,
+    identifier: string,
+    req?: Pick<LimitOptions, "geo">,
+  ) => {
+    if (this.analytics) {
+      try {
+        const geo = req ? this.analytics.extractGeo(req) : undefined;
+        const analyticsP = this.analytics
+          .record({
+            identifier: ratelimitResponse.reason === "denyList" // if in denyList, use denied value as identifier
+              ? ratelimitResponse.deniedValue!
+              : identifier,
+            time: Date.now(),
+            success: ratelimitResponse.reason === "denyList" // if in denyList, label success as "denied"
+              ? "denied"
+              : ratelimitResponse.success,
+            ...geo,
+          })
+          .catch((err) => {
+            let errorMessage = "Failed to record analytics"
+            if (`${err}`.includes("WRONGTYPE")) {
+              errorMessage = `
+    Failed to record analytics. See the information below:
+
+    This can occur when you uprade to Ratelimit version 1.1.2
+    or later from an earlier version.
+
+    This occurs simply because the way we store analytics data
+    has changed. To avoid getting this error, disable analytics
+    for *an hour*, then simply enable it back.\n
+    `
+            }
+            console.warn(errorMessage, err);
+          });
+          ratelimitResponse.pending = Promise.all([ratelimitResponse.pending, analyticsP]);
+      } catch (err) {
+        console.warn("Failed to record analytics", err);
+      };
+    };
+    return ratelimitResponse;
+  }
+
+  private getKey = (identifier: string): string => {
+    return [this.prefix, identifier].join(":");
+  }
+
+  /**
+   * returns a list of defined values from
+   * [identifier, req.ip, req.userAgent, req.country]
+   * 
+   * @param identifier identifier
+   * @param req limit options
+   * @returns list of defined values
+   */
+  private getDefinedMembers = (
+    identifier: string,
+    req?: Pick<LimitOptions, "ip" | "userAgent" | "country">
+  ): string[] => {
+    const members = [identifier, req?.ip, req?.userAgent, req?.country];
+    return members.filter((item): item is string => Boolean(item))
+  }
 }

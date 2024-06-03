@@ -79,6 +79,11 @@ export type RegionRatelimitConfig = {
    * @default true
    */
   cacheScripts?: boolean;
+
+  /**
+   * @default false
+   */
+  enableProtection?: boolean
 };
 
 /**
@@ -113,6 +118,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         cacheScripts: config.cacheScripts ?? true,
       },
       ephemeralCache: config.ephemeralCache,
+      enableProtection: config.enableProtection,
     });
   }
 
@@ -158,6 +164,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
@@ -265,6 +272,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
@@ -370,6 +378,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }

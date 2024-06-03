@@ -164,6 +164,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
+              reason: "cacheBlock"
             };
           }
         }
@@ -354,18 +355,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
     return () => ({
       async limit(ctx: MultiRegionContext, identifier: string, rate?: number) {
-        // if (ctx.cache) {
-        //   const { blocked, reset } = ctx.cache.isBlocked(identifier);
-        //   if (blocked) {
-        //     return {
-        //       success: false,
-        //       limit: tokens,
-        //       remaining: 0,
-        //       reset: reset,
-        //       pending: Promise.resolve(),
-        //     };
-        //   }
-        // }
+        if (ctx.cache) {
+          const { blocked, reset } = ctx.cache.isBlocked(identifier);
+          if (blocked) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: 0,
+              reset: reset,
+              pending: Promise.resolve(),
+              reason: "cacheBlock"
+            };
+          }
+        }
 
         const requestId = randomId();
         const now = Date.now();

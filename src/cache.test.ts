@@ -27,15 +27,19 @@ test("ephemeral cache", async () => {
 
   let passes = 0;
 
+  const reasons: (string | undefined)[] = []
   for (let i = 0; i <= 20; i++) {
-    const { success } = await ratelimit.limit("id");
+    const { success, reason } = await ratelimit.limit("id");
     if (success) {
       passes++;
+    } else {
+      reasons.push(reason)
     }
   }
 
   expect(passes).toBeLessThanOrEqual(10);
   expect(metrics.evalsha).toBe(11);
+  expect(reasons).toContain("cacheBlock")
 
   await new Promise((r) => setTimeout(r, 5000));
 }, 10000);
