@@ -1,7 +1,13 @@
 
 ## Local Development
 
-For testing the app locally, set the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` environment variables after creating an Upstash Redis.
+For testing the app locally, start by creating an Upstash Redis. Next, create the `.dev.vars` file under `cloudflare-workers` directory and set the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` environment variables:
+
+```
+// .dev.vars
+UPSTASH_REDIS_REST_URL="****"
+UPSTASH_REDIS_REST_TOKEN="****"
+```
 
 Then, simply run:
 
