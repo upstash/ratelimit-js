@@ -84,6 +84,11 @@ export type RegionRatelimitConfig = {
    * @default false
    */
   enableProtection?: boolean
+
+  /**
+   * @default 6
+   */
+  denyListThreshold?: number
 };
 
 /**
@@ -119,6 +124,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
+      denyListThreshold: config.denyListThreshold
     });
   }
 

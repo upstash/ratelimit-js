@@ -1,8 +1,8 @@
-import { expect, test, describe, afterAll } from "bun:test";
+import { expect, test, describe, afterAll, beforeAll } from "bun:test";
 import { Redis } from "@upstash/redis";
-import { Ratelimit } from "./index";
+import { Ratelimit } from "../index";
 import { checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list";
-import { RatelimitResponseType } from "./types";
+import { DenyListResponse, RatelimitResponseType } from "../types";
 
 
 test("should get expected response from defaultDeniedResponse", () => {
@@ -20,8 +20,18 @@ test("should get expected response from defaultDeniedResponse", () => {
   });
 });
 
+describe("should resolve ratelimit and deny list response", async () => {
+  const redis = Redis.fromEnv();
+  const prefix = `test-resolve-prefix`;
 
-test.only("should override response in resolveResponses correctly", () => {
+  let callCount = 0;
+  const spyRedis = {
+    multi: () => {
+      callCount += 1;
+      return redis.multi();
+    }
+  }
+
   const initialResponse = {
     success: true,
     limit: 100,
@@ -31,8 +41,7 @@ test.only("should override response in resolveResponses correctly", () => {
     reason: undefined,
     deniedValue: undefined
   };
-  
-  const denyListResponse = "testValue";
+
   const expectedResponse = {
     success: false,
     limit: 100,
@@ -40,12 +49,52 @@ test.only("should override response in resolveResponses correctly", () => {
     reset: 60,
     pending: Promise.resolve(),
     reason: "denyList" as RatelimitResponseType,
-    deniedValue: denyListResponse
+    deniedValue: "testValue"
   };
 
-  const response = resolveResponses([initialResponse, denyListResponse]);
-  expect(response).toEqual(expectedResponse);
-});
+  test("should update ip deny list when invalidIpDenyList is true", async () => {
+    let callCount = 0;
+    const spyRedis = {
+      multi: () => {
+        callCount += 1;
+        return redis.multi();
+      }
+    }
+  
+    const denyListResponse: DenyListResponse = {
+      deniedValue: "testValue",
+      invalidIpDenyList: true
+    };
+
+    const response = resolveResponses(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
+    await response.pending;
+  
+    expect(response).toEqual(expectedResponse);
+    expect(callCount).toBe(1) // calls multi once to store ips
+  });
+
+  test("should update ip deny list when invalidIpDenyList is true", async () => {
+
+    let callCount = 0;
+    const spyRedis = {
+      multi: () => {
+        callCount += 1;
+        return redis.multi();
+      }
+    }
+  
+    const denyListResponse: DenyListResponse = {
+      deniedValue: "testValue",
+      invalidIpDenyList: false
+    };
+
+    const response = resolveResponses(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
+    await response.pending;
+  
+    expect(response).toEqual(expectedResponse);
+    expect(callCount).toBe(0) // doesn't call multi to update deny list
+  });
+})
 
 
 describe("should reject in deny list", async () => {
@@ -53,18 +102,22 @@ describe("should reject in deny list", async () => {
   const prefix = `test-prefix`;
   const denyListKey = [prefix, "denyList", "all"].join(":");
   
-  // Insert a value into the deny list
-  await redis.sadd(denyListKey, "denyIdentifier", "denyIp", "denyAgent", "denyCountry");
 
   const ratelimit = new Ratelimit({
     redis,
     limiter: Ratelimit.tokenBucket(10, "5 s", 10),
     prefix,
-    enableProtection: true
+    enableProtection: true,
+    denyListThreshold: 8
   });
 
   afterAll(async () => {
-    redis.del(denyListKey)
+    await redis.del(denyListKey)
+  })
+
+  // Insert a value into the deny list
+  beforeAll(async () => {
+    await redis.sadd(denyListKey, "denyIdentifier", "denyIp", "denyAgent", "denyCountry");
   })
 
   test("should allow with values not in the deny list", async () => {

@@ -1,7 +1,7 @@
-import { Analytics, type Geo } from "./analytics";
+import { Analytics } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list";
+import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list/index";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -73,6 +73,8 @@ export type RatelimitConfig<TContext> = {
    * @default false
    */
   enableProtection?: boolean
+
+  denyListThreshold?: number
 };
 
 /**
@@ -105,12 +107,16 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly enableProtection: boolean;
 
+  protected readonly denyListThreshold: number
+
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+
     this.enableProtection = config.enableProtection ?? false;
+    this.denyListThreshold = config.denyListThreshold ?? 6;
 
     this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
     this.analytics = config.analytics
@@ -275,23 +281,21 @@ export abstract class Ratelimit<TContext extends Context> {
     const key = this.getKey(identifier);
     const definedMembers = this.getDefinedMembers(identifier, req);
 
-    const deniedMember = checkDenyListCache(definedMembers)
+    const deniedValue = checkDenyListCache(definedMembers)
 
     let result: LimitPayload;
-    if (deniedMember) {
-      result = [defaultDeniedResponse(deniedMember), deniedMember];
+    if (deniedValue) {
+      result = [defaultDeniedResponse(deniedValue), {deniedValue, invalidIpDenyList: false}];
     } else {
       result = await Promise.all([
         this.limiter().limit(this.ctx, key, req?.rate),
-        checkDenyList(
-          this.primaryRedis,
-          this.prefix,
-          definedMembers
-        )
+        this.enableProtection
+        ? checkDenyList(this.primaryRedis, this.prefix, definedMembers)
+        : { deniedValue: undefined, invalidIpDenyList: false }
       ]);
     }
 
-    return resolveResponses(result)
+    return resolveResponses(this.primaryRedis, this.prefix, result, this.denyListThreshold)
   };
 
   /**

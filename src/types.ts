@@ -1,3 +1,4 @@
+import { Pipeline } from "@upstash/redis";
 import { Geo } from "./analytics";
 
 /**
@@ -87,7 +88,7 @@ export type RatelimitResponse = {
   /**
    * The value which was in the deny list if reason: "denyList"
    */
-  deniedValue?: string
+  deniedValue?: DeniedValue
 };
 
 export type Algorithm<TContext> = () => {
@@ -106,7 +107,13 @@ export type Algorithm<TContext> = () => {
 export type IsDenied = 0 | 1;
 
 export type DeniedValue = string | undefined;
-export type LimitPayload = [RatelimitResponse, DeniedValue];
+export type DenyListResponse = { deniedValue: DeniedValue, invalidIpDenyList: boolean }
+
+export const DenyListExtension = "denyList" as const
+export const IpDenyListKey = "ipDenyList" as const
+export const IpDenyListStatusKey = "ipDenyListStatus" as const
+
+export type LimitPayload = [RatelimitResponse, DenyListResponse];
 export type LimitOptions = {
   geo?: Geo,
   rate?: number,
@@ -138,4 +145,6 @@ export interface Redis {
   smismember: (
     key: string, members: string[]
   ) => Promise<IsDenied[]>;
+
+  multi: () => Pipeline
 }
