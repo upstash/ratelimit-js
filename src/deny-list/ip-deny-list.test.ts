@@ -140,3 +140,41 @@ describe("should update ip deny list status", async () => {
     expect(newStatusTTL).toBeGreaterThan(1000)
   })
 })
+
+describe("should only allow threshold values from 1 to 8", async () => {
+  const redis = Redis.fromEnv();
+  const prefix = `test-ip-list-prefix`;
+
+  test("should reject string", async () => {
+    try {
+      // @ts-expect-error
+      await updateIpDenyList(redis, prefix, "test")
+    } catch (error: any) {
+      expect(error.name).toEqual("ThresholdError")
+    }
+  })
+
+  test("should reject 0", async () => {
+    try {
+      await updateIpDenyList(redis, prefix, 0)
+    } catch (error: any) {
+      expect(error.name).toEqual("ThresholdError")
+    }
+  })
+
+  test("should reject negative", async () => {
+    try {
+      await updateIpDenyList(redis, prefix, -1)
+    } catch (error: any) {
+      expect(error.name).toEqual("ThresholdError")
+    }
+  })
+
+  test("should reject 9", async () => {
+    try {
+      await updateIpDenyList(redis, prefix, 9)
+    } catch (error: any) {
+      expect(error.name).toEqual("ThresholdError")
+    }
+  })
+})

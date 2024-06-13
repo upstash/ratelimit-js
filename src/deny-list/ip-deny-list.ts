@@ -3,13 +3,30 @@ import { getIpListTTL } from "./time"
 
 const baseUrl = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels"
 
+export class ThresholdError extends Error {
+  constructor(threshold: number) {
+    super(`Allowed threshold values are from 1 to 8, 1 and 8 included. Received: ${threshold}`);
+    this.name = "ThresholdError";
+  }
+}
+
 /**
  * Fetches the ips from the ipsum.txt at github
+ * 
+ * In the repo we are using, 30+ ip lists are aggregated. The results are
+ * stores in text files from 1 to 8.
+ * https://github.com/stamparm/ipsum/tree/master/levels
+ * 
+ * X.txt file holds ips which are in at least X of the lists.
  *
  * @param threshold ips with less than or equal to the threshold are not included
  * @returns list of ips
  */
 const getIpDenyList = async (threshold: number) => {
+  if (typeof threshold !== "number" || threshold < 1 || threshold > 8) {
+    throw new ThresholdError(threshold)
+  }
+
   try {
     // Fetch data from the URL
     const response = await fetch(`${baseUrl}/${threshold}.txt`)
