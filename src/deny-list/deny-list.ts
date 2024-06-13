@@ -80,7 +80,7 @@ export const checkDenyList = async (
  * @param denyListResponse 
  * @returns 
  */
-export const resolveResponses = (
+export const resolveLimitPayload = (
   redis: Redis,
   prefix: string,
   [ratelimitResponse, denyListResponse]: LimitPayload,

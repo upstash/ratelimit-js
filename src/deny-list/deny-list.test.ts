@@ -1,7 +1,7 @@
 import { expect, test, describe, afterAll, beforeAll } from "bun:test";
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "../index";
-import { checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list";
+import { checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list";
 import { DenyListResponse, RatelimitResponseType } from "../types";
 
 
@@ -66,7 +66,7 @@ describe("should resolve ratelimit and deny list response", async () => {
       invalidIpDenyList: true
     };
 
-    const response = resolveResponses(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
+    const response = resolveLimitPayload(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
     await response.pending;
   
     expect(response).toEqual(expectedResponse);
@@ -88,7 +88,7 @@ describe("should resolve ratelimit and deny list response", async () => {
       invalidIpDenyList: false
     };
 
-    const response = resolveResponses(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
+    const response = resolveLimitPayload(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
     await response.pending;
   
     expect(response).toEqual(expectedResponse);

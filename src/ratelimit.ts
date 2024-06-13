@@ -1,7 +1,7 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveResponses } from "./deny-list/index";
+import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -295,7 +295,7 @@ export abstract class Ratelimit<TContext extends Context> {
       ]);
     }
 
-    return resolveResponses(this.primaryRedis, this.prefix, result, this.denyListThreshold)
+    return resolveLimitPayload(this.primaryRedis, this.prefix, result, this.denyListThreshold)
   };
 
   /**
