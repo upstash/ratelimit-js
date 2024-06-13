@@ -9,7 +9,7 @@ const MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
 const MILLISECONDS_TO_2AM = 2 * MILLISECONDS_IN_HOUR;
 
 export const getIpListTTL = (time?: number) => {
-  const now = time ?? Date.now();
+  const now = time || Date.now();
 
   // Time since the last 2 AM UTC
   const timeSinceLast2AM = (now - MILLISECONDS_TO_2AM) % MILLISECONDS_IN_DAY;
