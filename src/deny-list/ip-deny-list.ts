@@ -46,6 +46,15 @@ const getIpDenyList = async (threshold: number) => {
 /**
  * Gets the list of ips from the github source which are not in the
  * deny list already
+ * 
+ * First, gets the ip list from github using the threshold. Then, calls redis with
+ * a transaction which does the following:
+ * - subtract the current ip deny list from all
+ * - delete current ip deny list
+ * - recreate ip deny list with the ips from github. Ips already in the users own lists
+ *   are excluded.
+ * - status key is set to valid with ttl until next 2 AM UTC, which is a bit later than
+ *   when the list is updated on github.
  *
  * @param redis redis instance
  * @param prefix ratelimit prefix
@@ -88,6 +97,15 @@ export const updateIpDenyList = async (
   return await transaction.exec()
 }
 
+/**
+ * Disables the ip deny list by removing the ip deny list from the all
+ * set and removing the ip deny list. Also sets the status key to disabled
+ * with no ttl.
+ * 
+ * @param redis redis instance
+ * @param prefix ratelimit prefix
+ * @returns 
+ */
 export const disableIpDenyList = async (redis: Redis, prefix: string) => {
   const allDenyListsKey = [prefix, DenyListExtension, "all"].join(":")
   const ipDenyListKey = [prefix, DenyListExtension, IpDenyListKey].join(":")
