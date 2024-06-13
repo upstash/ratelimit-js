@@ -23,7 +23,7 @@ describe("should reject in deny list", async () => {
 
   beforeEach(async () => {
     await redis.flushdb()
-    await redis.sadd(allDenyListsKey, "foo");
+    await redis.sadd(allDenyListsKey, "foo", "albatros");
   });
 
   test("should not check deny list when enableProtection: false", async () => {
@@ -35,7 +35,7 @@ describe("should reject in deny list", async () => {
       denyListThreshold: 8
     });
 
-    const result = await ratelimit.limit("foo")
+    const result = await ratelimit.limit("albatros")
     expect(result.success).toBeTrue()
 
     const [status, statusTTL, allSize, ipListsize] = await Promise.all([
@@ -48,7 +48,7 @@ describe("should reject in deny list", async () => {
     // no status flag
     expect(status).toBe(null)
     expect(statusTTL).toBe(-2)
-    expect(allSize).toBe(1) // foo
+    expect(allSize).toBe(2) // foo + albatros
     expect(ipListsize).toBe(0)
   })
 
@@ -68,7 +68,7 @@ describe("should reject in deny list", async () => {
     expect(status).toBe("valid")
     expect(statusTTL).toBeGreaterThan(1000)
     expect(allSize).toBeGreaterThan(0)
-    expect(ipListsize).toBe(allSize-1) // foo
+    expect(ipListsize).toBe(allSize-2) // foo + albatros
   })
 
   test("should not create ip denylist when enableProtection: true but flag is disabled", async () => {
@@ -87,7 +87,7 @@ describe("should reject in deny list", async () => {
     // no status flag
     expect(status).toBe("disabled")
     expect(statusTTL).toBe(-1)
-    expect(allSize).toBe(1) // foo
+    expect(allSize).toBe(2) // foo + albatros
     expect(ipListsize).toBe(0)
   })
 
@@ -107,7 +107,7 @@ describe("should reject in deny list", async () => {
     expect(status).toBe("valid")
     expect(statusTTL).toBeGreaterThan(1000)
     expect(allSize).toBeGreaterThan(0)
-    expect(ipListsize).toBe(allSize-1) // foo
+    expect(ipListsize).toBe(allSize-2) // foo + albatros
 
     // DISABLE: called from UI
     await disableIpDenyList(redis, prefix);
@@ -126,7 +126,7 @@ describe("should reject in deny list", async () => {
     // status flag exists and has ttl
     expect(newStatus).toBe("disabled")
     expect(newStatusTTL).toBe(-1)
-    expect(newAllSize).toBe(1) // foo
+    expect(newAllSize).toBe(2) // foo + albatros
     expect(newIpListsize).toBe(0)
   })
 
