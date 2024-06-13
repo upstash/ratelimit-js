@@ -1,6 +1,8 @@
-import { DeniedValue, LimitPayload, Redis } from "./types"
-import { RatelimitResponse } from "./types"
-import { Cache } from "./cache";
+import { DeniedValue, DenyListResponse, DenyListExtension, LimitPayload, IpDenyListStatusKey } from "../types"
+import { RatelimitResponse, Redis } from "../types"
+import { Cache } from "../cache";
+import { checkDenyListScript } from "./scripts";
+import { updateIpDenyList } from "./ip-deny-list";
 
 
 const denyListCache = new Cache(new Map());
@@ -46,21 +48,28 @@ export const checkDenyList = async (
   redis: Redis,
   prefix: string,
   members: string[]
-): Promise<DeniedValue> => {
-  const deniedMembers = await redis.smismember(
-    [prefix, "denyList", "all"].join(":"),
+): Promise<DenyListResponse> => {
+  const [ deniedValues, ipDenyListStatus ] = await redis.eval(
+    checkDenyListScript,
+    [
+      [prefix, DenyListExtension, "all"].join(":"),
+      [prefix, IpDenyListStatusKey].join(":"),
+    ],
     members
-  );
+  ) as [boolean[], number];
 
-  let deniedMember: DeniedValue = undefined;
-  deniedMembers.map((memberDenied, index) => {
+  let deniedValue: DeniedValue = undefined;
+  deniedValues.map((memberDenied, index) => {
     if (memberDenied) {
       blockMember(members[index])
-      deniedMember = members[index]
+      deniedValue = members[index]
     }
   })
 
-  return deniedMember;
+  return {
+    deniedValue,
+    invalidIpDenyList: ipDenyListStatus === -2
+  };
 };
 
 /**
@@ -71,15 +80,28 @@ export const checkDenyList = async (
  * @param denyListResponse 
  * @returns 
  */
-export const resolveResponses = (
-  [ratelimitResponse, denyListResponse]: LimitPayload
+export const resolveLimitPayload = (
+  redis: Redis,
+  prefix: string,
+  [ratelimitResponse, denyListResponse]: LimitPayload,
+  threshold: number
 ): RatelimitResponse => {
-  if (denyListResponse) {
+
+  if (denyListResponse.deniedValue) {
     ratelimitResponse.success = false;
     ratelimitResponse.remaining = 0;
     ratelimitResponse.reason = "denyList";
-    ratelimitResponse.deniedValue = denyListResponse
+    ratelimitResponse.deniedValue = denyListResponse.deniedValue
   }
+
+  if (denyListResponse.invalidIpDenyList) {
+    const updatePromise = updateIpDenyList(redis, prefix, threshold)
+    ratelimitResponse.pending = Promise.all([
+      ratelimitResponse.pending,
+      updatePromise
+    ])
+  }
+
   return ratelimitResponse;
 };
 
