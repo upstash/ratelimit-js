@@ -256,7 +256,10 @@ export abstract class Ratelimit<TContext extends Context> {
     await this.limiter().resetTokens(this.ctx, pattern);
   };
 
-  public getRemaining = async (identifier: string): Promise<number> => {
+  public getRemaining = async (identifier: string): Promise<{
+    remaining: number;
+    reset: number;
+  }> => {
     const pattern = [this.prefix, identifier].join(":");
 
     return await this.limiter().getRemaining(this.ctx, pattern);

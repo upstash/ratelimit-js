@@ -124,13 +124,13 @@ export const tokenBucketRemainingTokensScript = `
   local key         = KEYS[1]
   local maxTokens   = tonumber(ARGV[1])
         
-  local bucket = redis.call("HMGET", key, "tokens")
+  local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
 
   if bucket[1] == false then
-    return maxTokens
+    return {maxTokens, -1}
   end
         
-  return tonumber(bucket[1])
+  return {tonumber(bucket[2]), tonumber(bucket[1])}
 `;
 
 export const cachedFixedWindowLimitScript = `

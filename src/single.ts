@@ -214,7 +214,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           [null],
         ) as number;
 
-        return Math.max(0, tokens - usedTokens);
+        return {
+          remaining: Math.max(0, tokens - usedTokens),
+          reset: (bucket + 1) * windowDuration
+        };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
@@ -322,7 +325,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           [now, windowSize],
         ) as number;
 
-        return Math.max(0, tokens - usedTokens);
+        return {
+          remaining: Math.max(0, tokens - usedTokens),
+          reset: (currentWindow + 1) * windowSize
+        }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
@@ -416,15 +422,18 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
 
-        const remainingTokens = await safeEval(
+        const [remainingTokens, refilledAt] = await safeEval(
           ctx,
           tokenBucketRemainingTokensScript,
           "getRemainingHash",
           [identifier],
           [maxTokens],
-        ) as number;
+        ) as [number, number];
 
-        return remainingTokens;
+        return {
+          remaining: remainingTokens,
+          reset: refilledAt === -1 ? Date.now() + intervalDuration : refilledAt + intervalDuration
+        };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
@@ -541,7 +550,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
           const cachedUsedTokens = ctx.cache.get(key) ?? 0;
-          return Math.max(0, tokens - cachedUsedTokens);
+          return {
+            remaining: Math.max(0, tokens - cachedUsedTokens),
+            reset: (bucket + 1) * windowDuration
+          };
         }
 
         const usedTokens = await safeEval(
@@ -551,7 +563,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           [key],
           [null],
         ) as number;
-        return Math.max(0, tokens - usedTokens);
+        return {
+          remaining: Math.max(0, tokens - usedTokens),
+          reset: (bucket + 1) * windowDuration
+        };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         // Empty the cache
