@@ -9,6 +9,7 @@ import {
   fixedWindowRemainingTokensScript,
   slidingWindowLimitScript,
   slidingWindowRemainingTokensScript,
+  tokenBucketIdentifierNotFound,
   tokenBucketLimitScript,
   tokenBucketRemainingTokensScript,
 } from "./lua-scripts/single";
@@ -430,9 +431,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           [maxTokens],
         ) as [number, number];
 
+        const freshRefillAt = Date.now() + intervalDuration
+        const identifierRefillsAt = refilledAt + intervalDuration
+
         return {
           remaining: remainingTokens,
-          reset: refilledAt === -1 ? Date.now() + intervalDuration : refilledAt + intervalDuration
+          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {

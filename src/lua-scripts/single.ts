@@ -120,6 +120,8 @@ export const tokenBucketLimitScript = `
   return {remaining, refilledAt + interval}
 `;
 
+export const tokenBucketIdentifierNotFound = -1
+
 export const tokenBucketRemainingTokensScript = `
   local key         = KEYS[1]
   local maxTokens   = tonumber(ARGV[1])
@@ -127,7 +129,7 @@ export const tokenBucketRemainingTokensScript = `
   local bucket = redis.call("HMGET", key, "refilledAt", "tokens")
 
   if bucket[1] == false then
-    return {maxTokens, -1}
+    return {maxTokens, ${tokenBucketIdentifierNotFound}}
   end
         
   return {tonumber(bucket[2]), tonumber(bucket[1])}

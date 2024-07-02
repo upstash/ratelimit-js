@@ -256,6 +256,14 @@ export abstract class Ratelimit<TContext extends Context> {
     await this.limiter().resetTokens(this.ctx, pattern);
   };
 
+  /**
+   * Returns the remaining token count together with a reset timestamps
+   * 
+   * @param identifier identifir to check
+   * @returns object with `remaining` and reset fields. `remaining` denotes
+   *          the remaining tokens and reset denotes the timestamp when the
+   *          tokens reset.
+   */
   public getRemaining = async (identifier: string): Promise<{
     remaining: number;
     reset: number;
