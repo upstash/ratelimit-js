@@ -22,7 +22,6 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
           builder.limit(id),
           builder.getRemaining(id)
         ])
-        // console.log(limitResult.remaining, remainigResult.remaining);
         
         expect(limitResult.remaining).toBe(remainigResult.remaining)
         expect(limitResult.reset).toBe(remainigResult.reset)
