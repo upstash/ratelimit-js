@@ -99,8 +99,9 @@ export class Analytics {
     return result
   }
 
-  public async getMostAllowedBlocked(timestampCount: number, getTop?: number) {
+  public async getMostAllowedBlocked(timestampCount: number, getTop?: number, checkAtMost?: number) {
     getTop = getTop ?? 5
-    return this.analytics.getMostAllowedBlocked(this.table, timestampCount, getTop)
+    const timestamp = undefined // let the analytics handle getting the timestamp
+    return this.analytics.getMostAllowedBlocked(this.table, timestampCount, getTop, timestamp, checkAtMost)
   }
 }
