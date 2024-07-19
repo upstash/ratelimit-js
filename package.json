@@ -21,6 +21,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@upstash/core-analytics": "^0.0.9"
+    "@upstash/core-analytics": "^0.0.10"
   }
 }
