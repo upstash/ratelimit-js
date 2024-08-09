@@ -76,7 +76,7 @@ For more information on getting started, you can refer to [our documentation](ht
 
 ## Documentation
 
-See [the documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview) for more information details about this package.
+See [the documentation](https://upstash.com/docs/redis/sdks/ratelimit-ts/overview) for more information details about this package.
 
 ## Contributing
 
