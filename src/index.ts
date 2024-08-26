@@ -5,7 +5,8 @@ import type { MultiRegionRatelimitConfig } from "./multi";
 import { RegionRatelimit as Ratelimit } from "./single";
 import type { RegionRatelimitConfig as RatelimitConfig } from "./single";
 import type { Algorithm } from "./types";
-import * as IpDenyList from "./deny-list/ip-deny-list"
+import * as IpDenyList from "./deny-list/ip-deny-list";
+import { Duration } from "./duration";
 
 export {
   Ratelimit,
@@ -15,5 +16,6 @@ export {
   type Algorithm,
   Analytics,
   type AnalyticsConfig,
-  IpDenyList
+  IpDenyList,
+  type Duration,
 };
