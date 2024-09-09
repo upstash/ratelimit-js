@@ -2,6 +2,7 @@ import { Cache } from "./cache";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
+import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import {
   fixedWindowLimitScript,
   fixedWindowRemainingTokensScript,
@@ -115,8 +116,6 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       ctx: {
         regionContexts: config.redis.map(redis => ({
           redis: redis,
-          scriptHashes: {},
-          cacheScripts: config.cacheScripts ?? true,
         })),
         cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
       },
@@ -178,8 +177,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            fixedWindowLimitScript,
-            "limitHash",
+            SCRIPTS.multiRegionFixedWindow.limit,
             [key],
             [requestId, windowDuration, incrementBy],
           ) as Promise<string[]>,
@@ -284,8 +282,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            fixedWindowRemainingTokensScript,
-            "getRemainingHash",
+            SCRIPTS.multiRegionFixedWindow.getRemaining,
             [key],
             [null]
           ) as Promise<string[]>,
@@ -316,8 +313,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         await Promise.all(ctx.regionContexts.map((regionContext) => {
           safeEval(
             regionContext,
-            resetScript,
-            "resetHash",
+            RESET_SCRIPT,
             [pattern],
             [null]
           );
@@ -385,8 +381,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            slidingWindowLimitScript,
-            "limitHash",
+            SCRIPTS.multiRegionSlidingWindow.limit,
             [currentKey, previousKey],
             [tokens, now, windowDuration, requestId, incrementBy],
             // lua seems to return `1` for true and `null` for false
@@ -508,8 +503,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            slidingWindowRemainingTokensScript,
-            "getRemainingHash",
+            SCRIPTS.multiRegionSlidingWindow.getRemaining,
             [currentKey, previousKey],
             [now, windowSize],
             // lua seems to return `1` for true and `null` for false
@@ -532,8 +526,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         await Promise.all(ctx.regionContexts.map((regionContext) => {
           safeEval(
             regionContext,
-            resetScript,
-            "resetHash",
+            RESET_SCRIPT,
             [pattern],
             [null]
           );

@@ -1,6 +1,7 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
+import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { resetScript } from "./lua-scripts/reset";
 import {
   cachedFixedWindowLimitScript,
@@ -74,8 +75,12 @@ export type RegionRatelimitConfig = {
   analytics?: boolean;
 
   /**
-   * If enabled, lua scripts will be sent to Redis with SCRIPT LOAD durint the first request.
-   * In the subsequent requests, hash of the script will be used to invoke it
+   * @deprecated Has no affect since v2.0.3. Instead, hash values of scripts are
+   * hardcoded in the sdk and it attempts to run the script using EVALSHA (with the hash).
+   * If it fails, runs script load.
+   * 
+   * Previously, if enabled, lua scripts were sent to Redis with SCRIPT LOAD durint the first request.
+   * In the subsequent requests, hash of the script would be used to invoke the scripts
    * 
    * @default true
    */
@@ -120,8 +125,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       analytics: config.analytics,
       ctx: {
         redis: config.redis,
-        scriptHashes: {},
-        cacheScripts: config.cacheScripts ?? true,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
@@ -180,8 +183,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokensAfterUpdate = await safeEval(
           ctx,
-          fixedWindowLimitScript,
-          "limitHash",
+          SCRIPTS.fixedWindow.limit,
           [key],
           [windowDuration, incrementBy],
         ) as number;
@@ -209,8 +211,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          fixedWindowRemainingTokensScript,
-          "getRemainingHash",
+          SCRIPTS.fixedWindow.getRemaining,
           [key],
           [null],
         ) as number;
@@ -228,8 +229,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         await safeEval(
           ctx,
-          resetScript,
-          "resetHash",
+          RESET_SCRIPT,
           [pattern],
           [null],
         ) as number;
@@ -291,8 +291,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const remainingTokens = await safeEval(
           ctx,
-          slidingWindowLimitScript,
-          "limitHash",
+          SCRIPTS.slidingWindow.limit,
           [currentKey, previousKey],
           [tokens, now, windowSize, incrementBy],
         ) as number;
@@ -320,8 +319,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          slidingWindowRemainingTokensScript,
-          "getRemainingHash",
+          SCRIPTS.slidingWindow.getRemaining,
           [currentKey, previousKey],
           [now, windowSize],
         ) as number;
@@ -339,8 +337,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         await safeEval(
           ctx,
-          resetScript,
-          "resetHash",
+          RESET_SCRIPT,
           [pattern],
           [null],
         ) as number;
@@ -402,8 +399,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const [remaining, reset] = await safeEval(
           ctx,
-          tokenBucketLimitScript,
-          "limitHash",
+          SCRIPTS.tokenBucket.limit,
           [identifier],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
         ) as [number, number];
@@ -425,8 +421,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const [remainingTokens, refilledAt] = await safeEval(
           ctx,
-          tokenBucketRemainingTokensScript,
-          "getRemainingHash",
+          SCRIPTS.tokenBucket.getRemaining,
           [identifier],
           [maxTokens],
         ) as [number, number];
@@ -447,8 +442,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         await safeEval(
           ctx,
-          resetScript,
-          "resetHash",
+          RESET_SCRIPT,
           [pattern],
           [null],
         ) as number;
@@ -509,8 +503,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const pending = success
             ? safeEval(
               ctx,
-              cachedFixedWindowLimitScript,
-              "limitHash",
+              SCRIPTS.cachedFixedWindow.limit,
               [key],
               [windowDuration, incrementBy]
             )
@@ -527,8 +520,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokensAfterUpdate = await safeEval(
           ctx,
-          cachedFixedWindowLimitScript,
-          "limitHash",
+          SCRIPTS.cachedFixedWindow.limit,
           [key],
           [windowDuration, incrementBy]
         ) as number;
@@ -562,8 +554,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          cachedFixedWindowRemainingTokenScript,
-          "getRemainingHash",
+          SCRIPTS.cachedFixedWindow.getRemaining,
           [key],
           [null],
         ) as number;
@@ -586,8 +577,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         await safeEval(
           ctx,
-          resetScript,
-          "resetHash",
+          RESET_SCRIPT,
           [pattern],
           [null],
         ) as number;
