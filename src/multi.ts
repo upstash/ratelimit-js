@@ -177,7 +177,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            SCRIPTS.multiRegionFixedWindow.limit,
+            SCRIPTS.multiRegion.fixedWindow.limit,
             [key],
             [requestId, windowDuration, incrementBy],
           ) as Promise<string[]>,
@@ -282,7 +282,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            SCRIPTS.multiRegionFixedWindow.getRemaining,
+            SCRIPTS.multiRegion.fixedWindow.getRemaining,
             [key],
             [null]
           ) as Promise<string[]>,
@@ -381,7 +381,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            SCRIPTS.multiRegionSlidingWindow.limit,
+            SCRIPTS.multiRegion.slidingWindow.limit,
             [currentKey, previousKey],
             [tokens, now, windowDuration, requestId, incrementBy],
             // lua seems to return `1` for true and `null` for false
@@ -503,7 +503,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           redis: regionContext.redis,
           request: safeEval(
             regionContext,
-            SCRIPTS.multiRegionSlidingWindow.getRemaining,
+            SCRIPTS.multiRegion.slidingWindow.getRemaining,
             [currentKey, previousKey],
             [now, windowSize],
             // lua seems to return `1` for true and `null` for false

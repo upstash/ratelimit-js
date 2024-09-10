@@ -22,13 +22,7 @@ export const safeEval = async (
     return await ctx.redis.evalsha(script.hash, keys, args)
   } catch (error) {
     if (`${error}`.includes("NOSCRIPT")) {
-      console.log(
-        "Upstash Ratelimit: Script to run wasn't found in"
-        + " redis db. Script will be loaded to Redis before continuing."
-      );
       const hash = await ctx.redis.scriptLoad(script.script)
-
-      console.log("Upstash Ratelimit: Script loaded successfully.");
       
       if (hash !== script.hash) {
         console.warn(

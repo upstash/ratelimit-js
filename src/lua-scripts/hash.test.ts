@@ -10,8 +10,12 @@ describe("should use correct hash for lua scripts", () => {
     expect(hash).toBe(expectedHash)
   }
 
+  const algorithms = [
+    ...Object.entries(SCRIPTS.singleRegion), ...Object.entries(SCRIPTS.multiRegion)
+  ]
+
   // for each algorithm (fixedWindow, slidingWindow etc)
-  for (const [algorithm, scripts] of Object.entries(SCRIPTS)) {
+  for (const [algorithm, scripts] of algorithms) {
     describe(`${algorithm}`, () => {
       // for each method (limit & getRemaining)
       for (const [method, scriptInfo] of Object.entries(scripts)) {

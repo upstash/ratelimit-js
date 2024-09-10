@@ -183,7 +183,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokensAfterUpdate = await safeEval(
           ctx,
-          SCRIPTS.fixedWindow.limit,
+          SCRIPTS.singleRegion.fixedWindow.limit,
           [key],
           [windowDuration, incrementBy],
         ) as number;
@@ -211,7 +211,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          SCRIPTS.fixedWindow.getRemaining,
+          SCRIPTS.singleRegion.fixedWindow.getRemaining,
           [key],
           [null],
         ) as number;
@@ -291,7 +291,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const remainingTokens = await safeEval(
           ctx,
-          SCRIPTS.slidingWindow.limit,
+          SCRIPTS.singleRegion.slidingWindow.limit,
           [currentKey, previousKey],
           [tokens, now, windowSize, incrementBy],
         ) as number;
@@ -319,7 +319,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          SCRIPTS.slidingWindow.getRemaining,
+          SCRIPTS.singleRegion.slidingWindow.getRemaining,
           [currentKey, previousKey],
           [now, windowSize],
         ) as number;
@@ -399,7 +399,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const [remaining, reset] = await safeEval(
           ctx,
-          SCRIPTS.tokenBucket.limit,
+          SCRIPTS.singleRegion.tokenBucket.limit,
           [identifier],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
         ) as [number, number];
@@ -421,7 +421,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const [remainingTokens, refilledAt] = await safeEval(
           ctx,
-          SCRIPTS.tokenBucket.getRemaining,
+          SCRIPTS.singleRegion.tokenBucket.getRemaining,
           [identifier],
           [maxTokens],
         ) as [number, number];
@@ -503,7 +503,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const pending = success
             ? safeEval(
               ctx,
-              SCRIPTS.cachedFixedWindow.limit,
+              SCRIPTS.singleRegion.cachedFixedWindow.limit,
               [key],
               [windowDuration, incrementBy]
             )
@@ -520,7 +520,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokensAfterUpdate = await safeEval(
           ctx,
-          SCRIPTS.cachedFixedWindow.limit,
+          SCRIPTS.singleRegion.cachedFixedWindow.limit,
           [key],
           [windowDuration, incrementBy]
         ) as number;
@@ -554,7 +554,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const usedTokens = await safeEval(
           ctx,
-          SCRIPTS.cachedFixedWindow.getRemaining,
+          SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
           [key],
           [null],
         ) as number;
