@@ -22,12 +22,6 @@ export interface EphemeralCache {
 export type RegionContext = {
   redis: Redis;
   cache?: EphemeralCache,
-  scriptHashes: {
-    limitHash?: string,
-    getRemainingHash?: string,
-    resetHash?: string
-  },
-  cacheScripts: boolean,
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
