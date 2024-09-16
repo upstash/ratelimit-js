@@ -2,7 +2,7 @@ import { expect, test, describe, afterAll, beforeAll } from "bun:test";
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "../index";
 import { checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list";
-import { DenyListResponse, RatelimitResponseType } from "../types";
+import type { DenyListResponse, RatelimitResponseType } from "../types";
 
 
 test("should get expected response from defaultDeniedResponse", () => {
@@ -24,10 +24,10 @@ describe("should resolve ratelimit and deny list response", async () => {
   const redis = Redis.fromEnv();
   const prefix = `test-resolve-prefix`;
 
-  let callCount = 0;
-  const spyRedis = {
+  let _callCount = 0;
+  const _spyRedis = {
     multi: () => {
-      callCount += 1;
+      _callCount += 1;
       return redis.multi();
     }
   }
@@ -60,7 +60,7 @@ describe("should resolve ratelimit and deny list response", async () => {
         return redis.multi();
       }
     }
-  
+
     const denyListResponse: DenyListResponse = {
       deniedValue: "testValue",
       invalidIpDenyList: true
@@ -68,7 +68,7 @@ describe("should resolve ratelimit and deny list response", async () => {
 
     const response = resolveLimitPayload(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
     await response.pending;
-  
+
     expect(response).toEqual(expectedResponse);
     expect(callCount).toBe(1) // calls multi once to store ips
   });
@@ -82,7 +82,7 @@ describe("should resolve ratelimit and deny list response", async () => {
         return redis.multi();
       }
     }
-  
+
     const denyListResponse: DenyListResponse = {
       deniedValue: "testValue",
       invalidIpDenyList: false
@@ -90,7 +90,7 @@ describe("should resolve ratelimit and deny list response", async () => {
 
     const response = resolveLimitPayload(spyRedis as Redis, prefix, [initialResponse, denyListResponse], 8);
     await response.pending;
-  
+
     expect(response).toEqual(expectedResponse);
     expect(callCount).toBe(0) // doesn't call multi to update deny list
   });
@@ -101,7 +101,7 @@ describe("should reject in deny list", async () => {
   const redis = Redis.fromEnv();
   const prefix = `test-prefix`;
   const denyListKey = [prefix, "denyList", "all"].join(":");
-  
+
 
   const ratelimit = new Ratelimit({
     redis,
@@ -140,7 +140,7 @@ describe("should reject in deny list", async () => {
 
   test("should deny with ip in the deny list", async () => {
 
-    const { success, reason } = await ratelimit.limit("some-value", {ip: "denyIp"});
+    const { success, reason } = await ratelimit.limit("some-value", { ip: "denyIp" });
 
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
@@ -151,7 +151,7 @@ describe("should reject in deny list", async () => {
 
   test("should deny with user agent in the deny list", async () => {
 
-    const { success, reason } = await ratelimit.limit("some-value", {userAgent: "denyAgent"});
+    const { success, reason } = await ratelimit.limit("some-value", { userAgent: "denyAgent" });
 
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
@@ -162,7 +162,7 @@ describe("should reject in deny list", async () => {
 
   test("should deny with country in the deny list", async () => {
 
-    const { success, reason } = await ratelimit.limit("some-value", {country: "denyCountry"});
+    const { success, reason } = await ratelimit.limit("some-value", { country: "denyCountry" });
 
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
@@ -173,7 +173,7 @@ describe("should reject in deny list", async () => {
 
   test("should deny with multiple in deny list", async () => {
 
-    const { success, reason } = await ratelimit.limit("denyIdentifier", {country: "denyCountry"});
+    const { success, reason } = await ratelimit.limit("denyIdentifier", { country: "denyCountry" });
 
     expect(success).toBe(false);
     expect(reason).toBe("denyList");

@@ -121,14 +121,14 @@ export abstract class Ratelimit<TContext extends Context> {
     this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
     this.analytics = config.analytics
       ? new Analytics({
-          redis: this.primaryRedis,
-          prefix: this.prefix,
-        })
+        redis: this.primaryRedis,
+        prefix: this.prefix,
+      })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
-    } else if (typeof config.ephemeralCache === "undefined") {
+    } else if (config.ephemeralCache === undefined) {
       this.ctx.cache = new Cache(new Map());
     }
   }
@@ -173,7 +173,7 @@ export abstract class Ratelimit<TContext extends Context> {
     identifier: string,
     req?: LimitOptions,
   ): Promise<RatelimitResponse> => {
-    
+
     let timeoutId: any = null;
     try {
       const response = this.getRatelimitResponse(identifier, req);
@@ -294,17 +294,12 @@ export abstract class Ratelimit<TContext extends Context> {
 
     const deniedValue = checkDenyListCache(definedMembers)
 
-    let result: LimitPayload;
-    if (deniedValue) {
-      result = [defaultDeniedResponse(deniedValue), {deniedValue, invalidIpDenyList: false}];
-    } else {
-      result = await Promise.all([
-        this.limiter().limit(this.ctx, key, req?.rate),
-        this.enableProtection
+    const result: LimitPayload = deniedValue ? [defaultDeniedResponse(deniedValue), { deniedValue, invalidIpDenyList: false }] : (await Promise.all([
+      this.limiter().limit(this.ctx, key, req?.rate),
+      this.enableProtection
         ? checkDenyList(this.primaryRedis, this.prefix, definedMembers)
         : { deniedValue: undefined, invalidIpDenyList: false }
-      ]);
-    }
+    ]));
 
     return resolveLimitPayload(this.primaryRedis, this.prefix, result, this.denyListThreshold)
   };
@@ -324,13 +319,13 @@ export abstract class Ratelimit<TContext extends Context> {
       const timeoutResponse = new Promise<RatelimitResponse>((resolve) => {
         newTimeoutId = setTimeout(() => {
           resolve({
-              success: true,
-              limit: 0,
-              remaining: 0,
-              reset: 0,
-              pending: Promise.resolve(),
-              reason: "timeout"
-            });
+            success: true,
+            limit: 0,
+            remaining: 0,
+            reset: 0,
+            pending: Promise.resolve(),
+            reason: "timeout"
+          });
         }, this.timeout);
       })
       responseArray.push(timeoutResponse);
@@ -369,9 +364,9 @@ export abstract class Ratelimit<TContext extends Context> {
               : ratelimitResponse.success,
             ...geo,
           })
-          .catch((err) => {
+          .catch((error) => {
             let errorMessage = "Failed to record analytics"
-            if (`${err}`.includes("WRONGTYPE")) {
+            if (`${error}`.includes("WRONGTYPE")) {
               errorMessage = `
     Failed to record analytics. See the information below:
 
@@ -383,11 +378,11 @@ export abstract class Ratelimit<TContext extends Context> {
     for *an hour*, then simply enable it back.\n
     `
             }
-            console.warn(errorMessage, err);
+            console.warn(errorMessage, error);
           });
-          ratelimitResponse.pending = Promise.all([ratelimitResponse.pending, analyticsP]);
-      } catch (err) {
-        console.warn("Failed to record analytics", err);
+        ratelimitResponse.pending = Promise.all([ratelimitResponse.pending, analyticsP]);
+      } catch (error) {
+        console.warn("Failed to record analytics", error);
       };
     };
     return ratelimitResponse;
@@ -410,6 +405,6 @@ export abstract class Ratelimit<TContext extends Context> {
     req?: Pick<LimitOptions, "ip" | "userAgent" | "country">
   ): string[] => {
     const members = [identifier, req?.ip, req?.userAgent, req?.country];
-    return members.filter((item): item is string => Boolean(item))
+    return members.filter(Boolean)
   }
 }

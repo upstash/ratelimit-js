@@ -1,5 +1,5 @@
 import { getIpListTTL } from './time';
-import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 describe('getIpListTTL', () => {
   test('returns correct TTL when it is before 2 AM UTC', () => {

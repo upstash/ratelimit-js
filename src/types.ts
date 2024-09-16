@@ -1,10 +1,10 @@
-import { Pipeline } from "@upstash/redis";
-import { Geo } from "./analytics";
+import type { Pipeline } from "@upstash/redis";
+import type { Geo } from "./analytics";
 
 /**
  * EphemeralCache is used to block certain identifiers right away in case they have already exceeded the ratelimit.
  */
-export interface EphemeralCache {
+export type EphemeralCache = {
   isBlocked: (identifier: string) => { blocked: boolean; reset: number };
   blockUntil: (identifier: string, reset: number) => void;
 
@@ -122,7 +122,7 @@ export type LimitOptions = {
 /**
  * This is all we need from the redis sdk.
  */
-export interface Redis {
+export type Redis = {
   sadd: <TData>(key: string, ...members: TData[]) => Promise<number>;
 
   hset: <TValue>(key: string, obj: { [key: string]: TValue }) => Promise<number>;

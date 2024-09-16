@@ -1,5 +1,5 @@
-import { ScriptInfo } from "./lua-scripts/hash";
-import { Context, RegionContext } from "./types"
+import type { ScriptInfo } from "./lua-scripts/hash";
+import type { RegionContext } from "./types";
 
 /**
  * Runs the specified script with EVALSHA using the scriptHash parameter.
@@ -23,7 +23,7 @@ export const safeEval = async (
   } catch (error) {
     if (`${error}`.includes("NOSCRIPT")) {
       const hash = await ctx.redis.scriptLoad(script.script)
-      
+
       if (hash !== script.hash) {
         console.warn(
           "Upstash Ratelimit: Expected hash and the hash received from Redis"
@@ -31,7 +31,7 @@ export const safeEval = async (
           + " be reduced."
         );
       }
-      
+
       return await ctx.redis.evalsha(hash, keys, args)
     }
     throw error;

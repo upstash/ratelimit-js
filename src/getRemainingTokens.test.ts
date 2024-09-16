@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import { MultiRegionRatelimit } from "./multi";
 import type { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
-import { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
+import type { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
 
 const limit = 10;
 const refillRate = 10;
@@ -22,7 +22,7 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
           builder.limit(id),
           builder.getRemaining(id)
         ])
-        
+
         expect(limitResult.remaining).toBe(remainigResult.remaining)
         expect(limitResult.reset).toBe(remainigResult.reset)
         if (i == stopAt) {
@@ -30,10 +30,10 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
         }
       }
 
-      const {remaining} = await builder.getRemaining(id);
+      const { remaining } = await builder.getRemaining(id);
       expect(remaining).toBe(limit - stopAt);
     }, {
-      timeout: 10000,
+      timeout: 10_000,
       retry: 3
     });
   });
@@ -42,12 +42,13 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
 function newRegion(limiter: Algorithm<RegionContext>): Ratelimit<RegionContext> {
   return new RegionRatelimit({
     prefix: crypto.randomUUID(),
-    redis: Redis.fromEnv({enableAutoPipelining: true}),
+    redis: Redis.fromEnv({ enableAutoPipelining: true }),
     limiter,
   });
 }
 
 function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<MultiRegionContext> {
+  // eslint-disable-next-line unicorn/consistent-function-scoping
   function ensureEnv(key: string): string {
     const value = process.env[key];
     if (!value) {

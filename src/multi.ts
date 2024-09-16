@@ -3,15 +3,10 @@ import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
-import {
-  fixedWindowLimitScript,
-  fixedWindowRemainingTokensScript,
-  slidingWindowLimitScript,
-  slidingWindowRemainingTokensScript,
-} from "./lua-scripts/multi";
-import { resetScript } from "./lua-scripts/reset";
+
+
 import { Ratelimit } from "./ratelimit";
-import type { Algorithm, RegionContext, MultiRegionContext } from "./types";
+import type { Algorithm, MultiRegionContext } from "./types";
 
 import type { Redis } from "./types";
 
@@ -203,21 +198,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         async function sync() {
           const individualIDs = await Promise.all(dbs.map((s) => s.request));
 
-          const allIDs = Array.from(
-            new Set(
-              individualIDs
-                .flatMap((_) => _)
-                .reduce((acc: string[], curr, index) => {
-                  if (index % 2 === 0) {
-                    acc.push(curr);
-                  }
-                  return acc;
-                }, []),
-            ).values(),
-          );
+          const allIDs = [...new Set(
+            individualIDs.flat()
+              .reduce((acc: string[], curr, index) => {
+                if (index % 2 === 0) {
+                  acc.push(curr);
+                }
+                return acc;
+              }, []),
+          ).values()];
 
           for (const db of dbs) {
-            const usedDbTokens = (await db.request).reduce(
+            const usedDbTokensRequest = await db.request;
+            const usedDbTokens = usedDbTokensRequest.reduce(
               (accTokens: number, usedToken, index) => {
                 let parsedToken = 0;
                 if (index % 2) {
@@ -229,7 +222,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               0,
             );
 
-            const dbIds = (await db.request).reduce((ids: string[], currentId, index) => {
+            const dbIdsRequest = await db.request;
+            const dbIds = dbIdsRequest.reduce((ids: string[], currentId, index) => {
               if (index % 2 === 0) {
                 ids.push(currentId);
               }
@@ -427,18 +421,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         async function sync() {
           const res = await Promise.all(dbs.map((s) => s.request));
 
-          const allCurrentIds = Array.from(
-            new Set(
-              res
-                .flatMap(([current]) => current)
-                .reduce((acc: string[], curr, index) => {
-                  if (index % 2 === 0) {
-                    acc.push(curr);
-                  }
-                  return acc;
-                }, []),
-            ).values(),
-          );
+          const allCurrentIds = [...new Set(
+            res
+              .flatMap(([current]) => current)
+              .reduce((acc: string[], curr, index) => {
+                if (index % 2 === 0) {
+                  acc.push(curr);
+                }
+                return acc;
+              }, []),
+          ).values()];
 
           for (const db of dbs) {
             const [current, _previous, _success] = await db.request;
@@ -522,7 +514,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           ctx.cache.pop(identifier)
         }
 
-        
+
         await Promise.all(ctx.regionContexts.map((regionContext) => {
           safeEval(
             regionContext,

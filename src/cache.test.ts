@@ -10,16 +10,15 @@ test("ephemeral cache", async () => {
 
   const spy = new Proxy(redis, {
     get: (target, prop) => {
-      if (typeof metrics[prop] === "undefined") {
+      if (metrics[prop] === undefined) {
         metrics[prop] = 0;
       }
       metrics[prop]++;
-      // @ts-ignore - we don't care about the types here
+      // @ts-expect-error - we don't care about the types here
       return target[prop];
     },
   });
   const ratelimit = new Ratelimit({
-    // @ts-ignore - we don't care about the types here
     redis: spy,
     limiter: Ratelimit.tokenBucket(maxTokens, "5 s", maxTokens),
     ephemeralCache: new Map(),
@@ -42,4 +41,4 @@ test("ephemeral cache", async () => {
   expect(reasons).toContain("cacheBlock")
 
   await new Promise((r) => setTimeout(r, 5000));
-}, 10000);
+}, 10_000);

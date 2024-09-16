@@ -44,8 +44,8 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
     const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
       .toString()
       .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load)
-      .toString()
-      .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
+        .toString()
+        .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
     const ratelimit = builder(tc);
 
     const limits = {
@@ -58,8 +58,8 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
         async () => {
           log(name);
           const harness = new TestHarness(ratelimit);
-          await harness.attack(tc.rps * tc.load, attackDuration, tc.rate).catch((e) => {
-            console.error(e);
+          await harness.attack(tc.rps * tc.load, attackDuration, tc.rate).catch((error) => {
+            console.error(error);
           });
           log(
             "success:",
@@ -80,6 +80,7 @@ function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TCon
 }
 
 function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<MultiRegionContext> {
+  // eslint-disable-next-line unicorn/consistent-function-scoping
   function ensureEnv(key: string): string {
     const value = process.env[key];
     if (!value) {
@@ -120,7 +121,6 @@ describe("timeout", () => {
   test("pass after timeout", async () => {
     const r = new RegionRatelimit({
       prefix: crypto.randomUUID(),
-      // @ts-ignore - I just want to test the timeout
       redis: {
         ...Redis.fromEnv(),
         evalsha: () => new Promise((r) => setTimeout(r, 2000)),
@@ -141,7 +141,7 @@ describe("timeout", () => {
 
     // stop the test from leaking
     await new Promise((r) => setTimeout(r, 5000));
-  }, 10000);
+  }, 10_000);
 });
 
 describe("fixedWindow", () => {

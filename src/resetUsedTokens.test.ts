@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import { MultiRegionRatelimit } from "./multi";
 import type { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
-import { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
+import type { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
 
 const limit = 10;
 const refillRate = 10;
@@ -25,9 +25,9 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
 
       // reset tokens
       await builder.resetUsedTokens(id);
-      const {remaining} = await builder.getRemaining(id);
+      const { remaining } = await builder.getRemaining(id);
       expect(remaining).toBe(limit);
-    }, 10000);
+    }, 10_000);
   });
 }
 
@@ -40,6 +40,7 @@ function newRegion(limiter: Algorithm<RegionContext>): Ratelimit<RegionContext> 
 }
 
 function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<MultiRegionContext> {
+  // eslint-disable-next-line unicorn/consistent-function-scoping
   function ensureEnv(key: string): string {
     const value = process.env[key];
     if (!value) {

@@ -2,18 +2,7 @@ import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
-import { resetScript } from "./lua-scripts/reset";
-import {
-  cachedFixedWindowLimitScript,
-  cachedFixedWindowRemainingTokenScript,
-  fixedWindowLimitScript,
-  fixedWindowRemainingTokensScript,
-  slidingWindowLimitScript,
-  slidingWindowRemainingTokensScript,
-  tokenBucketIdentifierNotFound,
-  tokenBucketLimitScript,
-  tokenBucketRemainingTokensScript,
-} from "./lua-scripts/single";
+
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis } from "./types";
@@ -500,7 +489,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           const cachedTokensAfterUpdate = ctx.cache.incr(key);
           const success = cachedTokensAfterUpdate < tokens;
 
-        const pending = success
+          const pending = success
             ? safeEval(
               ctx,
               SCRIPTS.singleRegion.cachedFixedWindow.limit,
@@ -568,7 +557,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
-        
+
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         ctx.cache.pop(key)

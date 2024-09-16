@@ -13,18 +13,24 @@ export function ms(d: Duration): number {
   const unit = match[2] as Unit;
 
   switch (unit) {
-    case "ms":
+    case "ms": {
       return time;
-    case "s":
+    }
+    case "s": {
       return time * 1000;
-    case "m":
+    }
+    case "m": {
       return time * 1000 * 60;
-    case "h":
+    }
+    case "h": {
       return time * 1000 * 60 * 60;
-    case "d":
+    }
+    case "d": {
       return time * 1000 * 60 * 60 * 24;
+    }
 
-    default:
+    default: {
       throw new Error(`Unable to parse window size: ${d}`);
+    }
   }
 }

@@ -1,4 +1,5 @@
-import { Analytics as CoreAnalytics, Aggregate } from "@upstash/core-analytics";
+import type { Aggregate } from "@upstash/core-analytics";
+import { Analytics as CoreAnalytics } from "@upstash/core-analytics";
 import type { Redis } from "./types";
 
 export type Geo = {
@@ -51,10 +52,10 @@ export class Analytics {
    * @returns
    */
   public extractGeo(req: { geo?: Geo; cf?: Geo }): Geo {
-    if (typeof req.geo !== "undefined") {
+    if (req.geo !== undefined) {
       return req.geo;
     }
-    if (typeof req.cf !== "undefined") {
+    if (req.cf !== undefined) {
       return req.cf;
     }
 

@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { beforeEach, describe, expect, test } from "bun:test";
-import { DenyListExtension, IpDenyListStatusKey, IsDenied } from "../types";
+import type { IsDenied } from "../types";
+import { DenyListExtension, IpDenyListStatusKey } from "../types";
 import { checkDenyListScript } from "./scripts";
 import { disableIpDenyList, updateIpDenyList } from "./ip-deny-list";
 
