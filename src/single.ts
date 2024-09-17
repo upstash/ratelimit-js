@@ -2,6 +2,7 @@ import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
+import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
