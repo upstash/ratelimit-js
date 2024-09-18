@@ -24,14 +24,6 @@ describe("should resolve ratelimit and deny list response", async () => {
   const redis = Redis.fromEnv();
   const prefix = `test-resolve-prefix`;
 
-  let _callCount = 0;
-  const _spyRedis = {
-    multi: () => {
-      _callCount += 1;
-      return redis.multi();
-    }
-  }
-
   const initialResponse = {
     success: true,
     limit: 100,
