@@ -1,5 +1,6 @@
-import { DeniedValue, DenyListResponse, DenyListExtension, LimitPayload, IpDenyListStatusKey } from "../types"
-import { RatelimitResponse, Redis } from "../types"
+import type { DeniedValue, DenyListResponse, LimitPayload} from "../types";
+import { DenyListExtension, IpDenyListStatusKey } from "../types"
+import type { RatelimitResponse, Redis } from "../types"
 import { Cache } from "../cache";
 import { checkDenyListScript } from "./scripts";
 import { updateIpDenyList } from "./ip-deny-list";
@@ -30,7 +31,7 @@ export const checkDenyListCache = (members: string[]): DeniedValue => {
  */
 const blockMember = (member: string) => {
   if (denyListCache.size() > 1000) denyListCache.empty();
-  denyListCache.blockUntil(member, Date.now() + 60000);
+  denyListCache.blockUntil(member, Date.now() + 60_000);
 }
 
 /**

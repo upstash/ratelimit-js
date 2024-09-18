@@ -85,7 +85,7 @@ describe("should update ip deny list status", async () => {
 
   test("should handle timeout correctly", async () => {
 
-    await updateIpDenyList(redis, prefix, 8, 5_000); // update with 5 seconds ttl on status flag
+    await updateIpDenyList(redis, prefix, 8, 5000); // update with 5 seconds ttl on status flag
     const pipeline = redis.multi()
     pipeline.smembers(allDenyListsKey)
     pipeline.smembers(ipDenyListsKey)
@@ -99,12 +99,12 @@ describe("should update ip deny list status", async () => {
     expect(statusTTL).toBeGreaterThan(2) // ttl is more than 5 seconds
 
     // wait 6 seconds
-    await new Promise((r) => setTimeout(r, 6_000));
+    await new Promise((r) => setTimeout(r, 6000));
 
     const [newAllValues, newIpDenyListValues, newStatus, newStatusTTL]: [string[], string[], string | null, number] = await pipeline.exec();
 
     // deny lists remain as they are
-    expect(newIpDenyListValues.length).toBeGreaterThan(0) 
+    expect(newIpDenyListValues.length).toBeGreaterThan(0)
     expect(newAllValues.length).toBe(allValues.length)
     expect(newIpDenyListValues.length).toBe(ipDenyListValues.length)
 
@@ -115,7 +115,7 @@ describe("should update ip deny list status", async () => {
 
   test("should overwrite disabled status with updateIpDenyList", async () => {
     await disableIpDenyList(redis, prefix);
-    
+
     const pipeline = redis.multi()
     pipeline.smembers(allDenyListsKey)
     pipeline.smembers(ipDenyListsKey)
@@ -134,7 +134,7 @@ describe("should update ip deny list status", async () => {
     const [newAllValues, newIpDenyListValues, newStatus, newStatusTTL]: [string[], string[], string | null, number] = await pipeline.exec();
 
     // deny lists remain as they are
-    expect(newIpDenyListValues.length).toBeGreaterThan(0) 
+    expect(newIpDenyListValues.length).toBeGreaterThan(0)
     expect(newAllValues.length).toBe(newIpDenyListValues.length + 2)
     expect(newStatus).toBe("valid")
     expect(newStatusTTL).toBeGreaterThan(1000)
@@ -147,7 +147,7 @@ describe("should only allow threshold values from 1 to 8", async () => {
 
   test("should reject string", async () => {
     try {
-      // @ts-expect-error
+      // @ts-expect-error test incorrect input
       await updateIpDenyList(redis, prefix, "test")
     } catch (error: any) {
       expect(error.name).toEqual("ThresholdError")

@@ -1,4 +1,5 @@
-import { DenyListExtension, IpDenyListKey, IpDenyListStatusKey, Redis } from "../types"
+import type { Redis } from "../types";
+import { DenyListExtension, IpDenyListKey, IpDenyListStatusKey } from "../types"
 import { getIpListTTL } from "./time"
 
 const baseUrl = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels"

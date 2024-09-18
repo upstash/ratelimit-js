@@ -9,12 +9,15 @@
   "scripts": {
     "build": "tsup",
     "test": "bun test src --coverage",
-    "fmt": "bunx @biomejs/biome check --apply ./src"
+    "fmt": "prettier --write .",
+    "lint": "eslint \"src/**/*.{js,ts,tsx}\" --quiet --fix"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@upstash/redis": "^1.31.5",
     "bun-types": "latest",
-    "rome": "^11.0.0",
+    "eslint": "^9.10.0",
+    "eslint-plugin-unicorn": "^55.0.0",
     "tsup": "^7.2.0",
     "turbo": "^1.10.15",
     "typescript": "^5.0.0"
