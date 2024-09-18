@@ -13,7 +13,7 @@ const spy = new Proxy(redis, {
       metrics[prop] = 0;
     }
     metrics[prop]++;
-    // @ts-expect-error TODO: fix this
+    // @ts-expect-error we don't care about the types here
     return target[prop];
   },
 });
