@@ -79,6 +79,52 @@ jobs:
         working-directory: examples/cloudflare-workers
         env:
           DEPLOYMENT_URL: http://127.0.0.1:8787
+
+  cloudflare-workers-deployed:
+    concurrency: cloudflare-workers-deployed
+    needs:
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v3
+      - name: Setup nodejs
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install example
+        run: |
+          bun add @upstash/ratelimit@${{needs.release.outputs.version}}
+          npm i -g wrangler
+        working-directory: examples/cloudflare-workers
+
+      - name: Add account ID
+        run: echo 'account_id = "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"' >> wrangler.toml
+        working-directory: examples/cloudflare-workers
+
+      - name: Add environment
+        run: |
+          echo '[vars]' >> wrangler.toml
+          echo "UPSTASH_REDIS_REST_URL = \"$UPSTASH_REDIS_REST_URL\"" >> ./wrangler.toml
+          echo "UPSTASH_REDIS_REST_TOKEN = \"$UPSTASH_REDIS_REST_TOKEN\"" >> ./wrangler.toml
+        working-directory: examples/cloudflare-workers
+
+      - name: Deploy
+        run: wrangler publish
+        working-directory: examples/cloudflare-workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{secrets.CLOUDFLARE_API_TOKEN}}
+
+      - name: Test
+        run: bun test examples/cloudflare-workers/ci.test.ts
+        env:
+          DEPLOYMENT_URL: https://upstash-ratelimit.upsdev.workers.dev
   
   release:
     name: Release
