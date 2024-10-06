@@ -6,8 +6,8 @@ if (!deploymentURL) {
 }
 
 test("the server is running", async () => {
-	console.log(deploymentURL);
-	const res = await fetch(`${deploymentURL}/limit`);
+	console.log(`${deploymentURL}/api`);
+	const res = await fetch(`${deploymentURL}/api`);
 
 	if (res.status !== 200) {
 		console.log(await res.text());
