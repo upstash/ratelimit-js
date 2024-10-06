@@ -170,6 +170,7 @@ jobs:
     concurrency: release
     needs:
       - cloudflare-workers-local
+      - nextjs-local
 
     runs-on: ubuntu-latest
     outputs:
