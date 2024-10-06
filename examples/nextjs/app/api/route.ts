@@ -13,6 +13,7 @@ const redis = new Redis({
 
 // Create a new ratelimiter
 const ratelimit = new Ratelimit({
+  // @ts-ignore
   redis,
   limiter: Ratelimit.slidingWindow(10, "10 s"),
   prefix: "@upstash/ratelimit",
