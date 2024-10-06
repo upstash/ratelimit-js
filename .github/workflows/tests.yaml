@@ -125,6 +125,45 @@ jobs:
         run: bun test examples/cloudflare-workers/ci.test.ts
         env:
           DEPLOYMENT_URL: https://upstash-ratelimit.upsdev.workers.dev
+
+  nextjs-local:
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v3
+      - name: Setup nodejs
+        uses: actions/setup-node@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Install example
+        run: bun add @upstash/ratelimit@../..
+        working-directory: examples/nextjs
+
+      - name: Build example
+        run: bun run build
+        working-directory: examples/nextjs
+
+      - name: Run example
+        run: npm run start &
+        working-directory: examples/nextjs
+
+      - name: Test
+        run: bun test ci.test.ts
+        working-directory: examples/nextjs
+        env:
+          DEPLOYMENT_URL: http://localhost:3000
   
   release:
     name: Release
