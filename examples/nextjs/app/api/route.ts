@@ -20,13 +20,13 @@ export async function GET(request: Request) {
   const { success, limit, remaining, pending } = await ratelimit.limit(identifier);
   const response = {
     success: success,
-    limit: limit, 
+    limit: limit,
     remaining: remaining
   }
 
   // pending is a promise for handling the analytics submission
   waitUntil(pending)
-    
+
   if (!success) {
     return new Response(JSON.stringify(response), { status: 429 });
   }
