@@ -204,8 +204,6 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
           VERCEL_PROJECT_ID: "prj_NSOSq2ZawugKhtZGb3ViHX4b56hx"
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         working-directory: examples/nextjs
 
       - name: Deploy to Vercel
@@ -222,9 +220,6 @@ jobs:
       - name: Test
         run: bun test ci.test.ts
         working-directory: examples/nextjs
-        env:
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
   
   release:
     name: Release
