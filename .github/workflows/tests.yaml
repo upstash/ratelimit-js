@@ -39,8 +39,6 @@ jobs:
         run: bun run test
 
   cloudflare-workers-local:
-    needs:
-      - test
     runs-on: ubuntu-latest
     steps:
       - name: Setup repo
@@ -127,8 +125,6 @@ jobs:
           DEPLOYMENT_URL: https://upstash-ratelimit.upsdev.workers.dev
 
   nextjs-local:
-    needs:
-      - test
     runs-on: ubuntu-latest
     steps:
       - name: Setup repo
