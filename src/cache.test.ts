@@ -5,6 +5,7 @@ import { Ratelimit } from "./index";
 test("ephemeral cache", async () => {
   const maxTokens = 10;
   const redis = Redis.fromEnv();
+  await redis.scriptFlush()
 
   const metrics: Record<string | symbol, number> = {};
 
@@ -37,7 +38,7 @@ test("ephemeral cache", async () => {
   }
 
   expect(passes).toBeLessThanOrEqual(10);
-  expect(metrics.evalsha).toBe(11);
+  expect(metrics.evalsha).toBe(12);
   expect(reasons).toContain("cacheBlock")
 
   await new Promise((r) => setTimeout(r, 5000));
