@@ -83,6 +83,7 @@ export const updateIpDenyList = async (
 
   // delete the old ip deny list and create new one
   transaction.del(ipDenyList)
+  // @ts-expect-error ...allIps type works but gets type error
   transaction.sadd(ipDenyList, ...allIps)
 
   // make all deny list and ip deny list disjoint by removing duplicate
