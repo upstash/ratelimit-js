@@ -14,7 +14,7 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
-    "@upstash/ratelimit": "^1.0.3",
-    "@upstash/redis": "^1.20.6"
+    "@upstash/ratelimit": "latest",
+    "@upstash/redis": "latest"
   }
 }
