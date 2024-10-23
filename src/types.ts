@@ -1,4 +1,4 @@
-import type { Pipeline } from "@upstash/redis";
+import type { Redis as RedisCore } from "@upstash/redis";
 import type { Geo } from "./analytics";
 
 /**
@@ -123,25 +123,17 @@ export type LimitOptions = {
  * This is all we need from the redis sdk.
  */
 export type Redis = {
-  sadd: <TData>(key: string, ...members: TData[]) => Promise<number>;
+  sadd: RedisCore["sadd"]
 
-  hset: <TValue>(key: string, obj: { [key: string]: TValue }) => Promise<number>;
+  hset: RedisCore["hset"]
 
-  eval: <TArgs extends unknown[], TData = unknown>(
-    ...args: [script: string, keys: string[], args: TArgs]
-  ) => Promise<TData>;
+  eval: RedisCore["eval"]
 
-  evalsha: <TArgs extends unknown[], TData = unknown>(
-    ...args: [sha1: string, keys: string[], args: TArgs]
-  ) => Promise<TData>;
+  evalsha: RedisCore["evalsha"]
 
-  scriptLoad: (
-    ...args: [script: string]
-  ) => Promise<string>;
+  scriptLoad: RedisCore["scriptLoad"]
 
-  smismember: (
-    key: string, members: string[]
-  ) => Promise<IsDenied[]>;
+  smismember: RedisCore["smismember"]
 
-  multi: () => Pipeline
+  multi: RedisCore["multi"]
 }

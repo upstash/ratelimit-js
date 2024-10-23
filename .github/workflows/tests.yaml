@@ -39,8 +39,6 @@ jobs:
         run: bun run test
 
   cloudflare-workers-local:
-    needs:
-      - test
     runs-on: ubuntu-latest
     steps:
       - name: Setup repo
@@ -127,8 +125,6 @@ jobs:
           DEPLOYMENT_URL: https://upstash-ratelimit.upsdev.workers.dev
 
   nextjs-local:
-    needs:
-      - test
     runs-on: ubuntu-latest
     steps:
       - name: Setup repo
@@ -195,8 +191,8 @@ jobs:
           VERCEL_PROJECT_ID: "prj_NSOSq2ZawugKhtZGb3ViHX4b56hx"
         working-directory: examples/nextjs
 
-      - name: Install dependencies
-        run: bun install
+      - name: Install @upstash/ratelimit canary version
+        run: npm install @upstash/ratelimit@${{needs.release.outputs.version}}
         working-directory: examples/nextjs
 
       - name: Build Project

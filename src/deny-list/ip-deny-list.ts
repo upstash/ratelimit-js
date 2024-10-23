@@ -83,7 +83,8 @@ export const updateIpDenyList = async (
 
   // delete the old ip deny list and create new one
   transaction.del(ipDenyList)
-  transaction.sadd(ipDenyList, ...allIps)
+
+  transaction.sadd(ipDenyList, allIps.at(0), ...allIps.slice(1))
 
   // make all deny list and ip deny list disjoint by removing duplicate
   // ones from ip deny list

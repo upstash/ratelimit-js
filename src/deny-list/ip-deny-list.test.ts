@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { checkDenyList } from "./deny-list";
 import { disableIpDenyList, updateIpDenyList } from "./ip-deny-list";
 import { DenyListExtension, IpDenyListKey, IpDenyListStatusKey } from "../types";
+import { Ratelimit } from "..";
 
 describe("should update ip deny list status", async () => {
   const redis = Redis.fromEnv();
@@ -138,6 +139,37 @@ describe("should update ip deny list status", async () => {
     expect(newAllValues.length).toBe(newIpDenyListValues.length + 2)
     expect(newStatus).toBe("valid")
     expect(newStatusTTL).toBeGreaterThan(1000)
+  })
+
+  test("should be able to use ratelimit with deny list", async () => {
+
+    /**
+     * When enableProtection is set to true, there was an error in the
+     * @upstash/ratelimit 2.0.3 release. Because the @upstash/redis
+     * uses auto-pipelining by default, the client would send the
+     * EVALSHA and the protection EVAL at the same time.
+     * 
+     * When the db loses its scripts after a SCRIPT FLUSH or when
+     * ratelimit is used in a new DB, the EVALSHA will fail. But
+     * because since the EVAL and EVALSHA are pipelined, they will
+     * both fail and EVAL will get the EVALSHA's error.
+     */
+    const redis = Redis.fromEnv({ enableAutoPipelining: true });
+
+    // flush the db to make sure
+    await redis.scriptFlush()
+    // sleep for two secs
+    await new Promise(r => setTimeout(r, 2000));
+
+    const ratelimit = new Ratelimit({
+      limiter: Ratelimit.fixedWindow(2, "1s"),
+      redis,
+      enableProtection: true
+    })
+
+    const { success, remaining } = await ratelimit.limit("ip-deny-list")
+    expect(success).toBeTrue()
+    expect(remaining).toBe(1)
   })
 })
 
