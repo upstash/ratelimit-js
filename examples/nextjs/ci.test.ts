@@ -16,7 +16,7 @@ test("the server is running", async () => {
 }, { timeout: 10000 });
 
 test("the pages router example is working", async () => {
-	console.log(`${deploymentURL}/api`);
+	console.log(`${deploymentURL}/api/pages-test`);
 	const res = await fetch(`${deploymentURL}/api/pages-test`);
 
 	if (res.status !== 200) {

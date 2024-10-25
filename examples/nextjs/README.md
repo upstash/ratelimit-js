@@ -45,7 +45,7 @@ The `redis` parameter denotes the Upstash Redis instance we use. The `limiter` p
 
 To limit the requests, we call `ratelimit.limit` method with an identifier `"api"`. This identifier could be the ip address or the user id in your use case. See [our documentation](https://upstash.com/docs/oss/sdks/ts/ratelimit/methods#limit) for more information.
 
-There is also a pages router example in [`pages/api/limit.ts`].
+There is also a pages router example in `pages/api/limit.ts`.
 
 # Run locally
 
