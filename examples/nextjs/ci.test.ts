@@ -14,3 +14,13 @@ test("the server is running", async () => {
 	}
 	expect(res.status).toEqual(200);
 }, { timeout: 10000 });
+
+test("the pages router example is working", async () => {
+	console.log(`${deploymentURL}/api/pages-test`);
+	const res = await fetch(`${deploymentURL}/api/pages-test`);
+
+	if (res.status !== 200) {
+		console.log(await res.text());
+	}
+	expect(res.status).toEqual(200);
+}, { timeout: 10000 });
