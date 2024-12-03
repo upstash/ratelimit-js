@@ -9,7 +9,7 @@ import type { Algorithm, RegionContext } from "./types";
 import type { Redis as RedisCore } from "./types";
 
 // Fix for https://github.com/upstash/ratelimit-js/issues/125
-type Redis = Omit<RedisCore, "multi">
+type Redis = Pick<RedisCore, "get" | "set">
 
 export type RegionRatelimitConfig = {
   /**
