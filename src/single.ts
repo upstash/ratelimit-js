@@ -6,7 +6,10 @@ import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
-import type { Redis } from "./types";
+import type { Redis as RedisCore } from "./types";
+
+// Fix for https://github.com/upstash/ratelimit-js/issues/125
+type Redis = Omit<RedisCore, "multi">
 
 export type RegionRatelimitConfig = {
   /**
@@ -114,7 +117,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       timeout: config.timeout,
       analytics: config.analytics,
       ctx: {
-        redis: config.redis,
+        redis: config.redis as RedisCore,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
