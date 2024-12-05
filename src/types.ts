@@ -119,21 +119,4 @@ export type LimitOptions = {
   country?: string
 }
 
-/**
- * This is all we need from the redis sdk.
- */
-export type Redis = {
-  sadd: RedisCore["sadd"]
-
-  hset: RedisCore["hset"]
-
-  eval: RedisCore["eval"]
-
-  evalsha: RedisCore["evalsha"]
-
-  scriptLoad: RedisCore["scriptLoad"]
-
-  smismember: RedisCore["smismember"]
-
-  multi: RedisCore["multi"]
-}
+export type Redis = RedisCore

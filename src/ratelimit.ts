@@ -405,6 +405,6 @@ export abstract class Ratelimit<TContext extends Context> {
     req?: Pick<LimitOptions, "ip" | "userAgent" | "country">
   ): string[] => {
     const members = [identifier, req?.ip, req?.userAgent, req?.country];
-    return members.filter((item): item is string => Boolean(item));
+    return (members as string[]).filter(Boolean);
   }
 }
