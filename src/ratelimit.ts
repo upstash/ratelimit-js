@@ -1,7 +1,11 @@
-import { Analytics } from "./analytics";
 import { Cache } from "./cache";
-import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
+import type {
+  Algorithm,
+  Context,
+  LimitOptions,
+  RatelimitResponse,
+  Redis,
+} from "./types";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -26,7 +30,7 @@ export type RatelimitConfig<TContext> = {
   /**
    * All keys in redis are prefixed with this.
    *
-   * @default `@upstash/ratelimit`
+   * @default `@linklet-io/node-redis-ratelimit-js`
    */
   prefix?: string;
 
@@ -56,34 +60,15 @@ export type RatelimitConfig<TContext> = {
    * @default 5000
    */
   timeout?: number;
-
-  /**
-   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
-   * https://console.upstash.com/ratelimit
-   *
-   * @default false
-   */
-  analytics?: boolean;
-
-  /**
-   * Enables deny list. If set to true, requests with identifier or ip/user-agent/countrie
-   * in the deny list will be rejected automatically. To edit the deny list, check out the
-   * ratelimit dashboard at https://console.upstash.com/ratelimit
-   * 
-   * @default false
-   */
-  enableProtection?: boolean
-
-  denyListThreshold?: number
 };
 
 /**
- * Ratelimiter using serverless redis from https://upstash.com/
+ * Ratelimiter using redis
  *
  * @example
  * ```ts
  * const { limit } = new Ratelimit({
- *    redis: Redis.fromEnv(),
+ *    redis: createClient(),
  *    limiter: Ratelimit.slidingWindow(
  *      10,     // Allow 10 requests per window of 30 minutes
  *      "30 m", // interval of 30 minutes
@@ -103,28 +88,13 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly primaryRedis: Redis;
 
-  protected readonly analytics?: Analytics;
-
-  protected readonly enableProtection: boolean;
-
-  protected readonly denyListThreshold: number
-
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.prefix = config.prefix ?? "@linklet-io/node-redis-ratelimit-js";
 
-    this.enableProtection = config.enableProtection ?? false;
-    this.denyListThreshold = config.denyListThreshold ?? 6;
-
-    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
-    this.analytics = config.analytics
-      ? new Analytics({
-        redis: this.primaryRedis,
-        prefix: this.prefix,
-      })
-      : undefined;
+    this.primaryRedis = this.ctx.redis;
 
     if (config.ephemeralCache instanceof Map) {
       this.ctx.cache = new Cache(config.ephemeralCache);
@@ -141,7 +111,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * @example
    * ```ts
    *  const ratelimit = new Ratelimit({
-   *    redis: Redis.fromEnv(),
+   *    redis: createClient(),
    *    limiter: Ratelimit.slidingWindow(10, "10 s")
    *  })
    *
@@ -158,7 +128,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * @example
    * ```ts
    *  const ratelimit = new Ratelimit({
-   *    redis: Redis.fromEnv(),
+   *    redis: createClient(),
    *    limiter: Ratelimit.slidingWindow(100, "10 s")
    *  })
    *
@@ -171,18 +141,15 @@ export abstract class Ratelimit<TContext extends Context> {
    */
   public limit = async (
     identifier: string,
-    req?: LimitOptions,
+    req?: LimitOptions
   ): Promise<RatelimitResponse> => {
-
     let timeoutId: any = null;
     try {
       const response = this.getRatelimitResponse(identifier, req);
       const { responseArray, newTimeoutId } = this.applyTimeout(response);
       timeoutId = newTimeoutId;
 
-      const timedResponse = await Promise.race(responseArray);
-      const finalResponse = this.submitAnalytics(timedResponse, identifier, req);
-      return finalResponse;
+      return await Promise.race(responseArray);
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -201,7 +168,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * @example
    * ```ts
    *  const ratelimit = new Ratelimit({
-   *    redis: Redis.fromEnv(),
+   *    redis: createClient(),
    *    limiter: Ratelimit.slidingWindow(10, "10 s")
    *  })
    *
@@ -224,7 +191,7 @@ export abstract class Ratelimit<TContext extends Context> {
      * Maximum duration to wait in milliseconds.
      * After this time the request will be denied.
      */
-    timeout: number,
+    timeout: number
   ): Promise<RatelimitResponse> => {
     if (timeout <= 0) {
       throw new Error("timeout must be positive");
@@ -258,13 +225,15 @@ export abstract class Ratelimit<TContext extends Context> {
 
   /**
    * Returns the remaining token count together with a reset timestamps
-   * 
+   *
    * @param identifier identifir to check
    * @returns object with `remaining` and reset fields. `remaining` denotes
    *          the remaining tokens and reset denotes the timestamp when the
    *          tokens reset.
    */
-  public getRemaining = async (identifier: string): Promise<{
+  public getRemaining = async (
+    identifier: string
+  ): Promise<{
     remaining: number;
     reset: number;
   }> => {
@@ -274,13 +243,9 @@ export abstract class Ratelimit<TContext extends Context> {
   };
 
   /**
-   * Checks if the identifier or the values in req are in the deny list cache.
-   * If so, returns the default denied response.
-   * 
-   * Otherwise, calls redis to check the rate limit and deny list. Returns after
-   * resolving the result. Resolving is overriding the rate limit result if
-   * the some value is in deny list.
-   * 
+   * Calls redis to check the rate limit. Returns after
+   * resolving the result.
+   *
    * @param identifier identifier to block
    * @param req options with ip, user agent, country, rate and geo info
    * @returns rate limit response
@@ -290,24 +255,13 @@ export abstract class Ratelimit<TContext extends Context> {
     req?: LimitOptions
   ): Promise<RatelimitResponse> => {
     const key = this.getKey(identifier);
-    const definedMembers = this.getDefinedMembers(identifier, req);
-
-    const deniedValue = checkDenyListCache(definedMembers)
-
-    const result: LimitPayload = deniedValue ? [defaultDeniedResponse(deniedValue), { deniedValue, invalidIpDenyList: false }] : (await Promise.all([
-      this.limiter().limit(this.ctx, key, req?.rate),
-      this.enableProtection
-        ? checkDenyList(this.primaryRedis, this.prefix, definedMembers)
-        : { deniedValue: undefined, invalidIpDenyList: false }
-    ]));
-
-    return resolveLimitPayload(this.primaryRedis, this.prefix, result, this.denyListThreshold)
+    return this.limiter().limit(this.ctx, key, req?.rate);
   };
 
   /**
    * Creates an array with the original response promise and a timeout promise
    * if this.timeout > 0.
-   * 
+   *
    * @param response Ratelimit response promise
    * @returns array with the response and timeout promise. also includes the timeout id
    */
@@ -323,79 +277,27 @@ export abstract class Ratelimit<TContext extends Context> {
             limit: 0,
             remaining: 0,
             reset: 0,
-            pending: Promise.resolve(),
-            reason: "timeout"
+            reason: "timeout",
           });
         }, this.timeout);
-      })
+      });
       responseArray.push(timeoutResponse);
     }
 
     return {
       responseArray,
       newTimeoutId,
-    }
-  }
-
-  /**
-   * submits analytics if this.analytics is set
-   * 
-   * @param ratelimitResponse final rate limit response
-   * @param identifier identifier to submit
-   * @param req limit options
-   * @returns rate limit response after updating the .pending field
-   */
-  private submitAnalytics = (
-    ratelimitResponse: RatelimitResponse,
-    identifier: string,
-    req?: Pick<LimitOptions, "geo">,
-  ) => {
-    if (this.analytics) {
-      try {
-        const geo = req ? this.analytics.extractGeo(req) : undefined;
-        const analyticsP = this.analytics
-          .record({
-            identifier: ratelimitResponse.reason === "denyList" // if in denyList, use denied value as identifier
-              ? ratelimitResponse.deniedValue!
-              : identifier,
-            time: Date.now(),
-            success: ratelimitResponse.reason === "denyList" // if in denyList, label success as "denied"
-              ? "denied"
-              : ratelimitResponse.success,
-            ...geo,
-          })
-          .catch((error) => {
-            let errorMessage = "Failed to record analytics"
-            if (`${error}`.includes("WRONGTYPE")) {
-              errorMessage = `
-    Failed to record analytics. See the information below:
-
-    This can occur when you uprade to Ratelimit version 1.1.2
-    or later from an earlier version.
-
-    This occurs simply because the way we store analytics data
-    has changed. To avoid getting this error, disable analytics
-    for *an hour*, then simply enable it back.\n
-    `
-            }
-            console.warn(errorMessage, error);
-          });
-        ratelimitResponse.pending = Promise.all([ratelimitResponse.pending, analyticsP]);
-      } catch (error) {
-        console.warn("Failed to record analytics", error);
-      };
     };
-    return ratelimitResponse;
-  }
+  };
 
   private getKey = (identifier: string): string => {
     return [this.prefix, identifier].join(":");
-  }
+  };
 
   /**
    * returns a list of defined values from
    * [identifier, req.ip, req.userAgent, req.country]
-   * 
+   *
    * @param identifier identifier
    * @param req limit options
    * @returns list of defined values
@@ -406,5 +308,5 @@ export abstract class Ratelimit<TContext extends Context> {
   ): string[] => {
     const members = [identifier, req?.ip, req?.userAgent, req?.country];
     return (members as string[]).filter(Boolean);
-  }
+  };
 }

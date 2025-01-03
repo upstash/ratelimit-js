@@ -32,8 +32,12 @@ export class TestHarness<TContext extends Context> {
    * @param rps - req per second
    * @param duration - duration in seconds
    */
-  public async attack(rps: number, duration: number, rate?: number): Promise<void> {
-    const promises: Promise<{ success: boolean; pending: Promise<unknown> }>[] = [];
+  public async attack(
+    rps: number,
+    duration: number,
+    rate?: number
+  ): Promise<void> {
+    const promises: Promise<{ success: boolean }>[] = [];
 
     for (let i = 0; i < duration; i++) {
       for (let r = 0; r < rps; r++) {
@@ -44,7 +48,7 @@ export class TestHarness<TContext extends Context> {
           this.ratelimit.limit(this.id, { rate }).then((res) => {
             this.latencies[id].end = Date.now();
             return res;
-          }),
+          })
         );
         await new Promise((r) => setTimeout(r, 500 / rps));
       }
@@ -52,14 +56,13 @@ export class TestHarness<TContext extends Context> {
 
     await Promise.all(
       promises.map(async (p) => {
-        const { success, pending } = await p;
-        await pending;
+        const { success } = await p;
         if (success) {
           this.metrics.success++;
         } else {
           this.metrics.rejected++;
         }
-      }),
+      })
     );
   }
 }

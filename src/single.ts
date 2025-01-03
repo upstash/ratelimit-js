@@ -5,16 +5,18 @@ import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 
 import { Ratelimit } from "./ratelimit";
-import type { Algorithm, RegionContext } from "./types";
-import type { Redis as RedisCore } from "./types";
+import type {
+  Algorithm,
+  RatelimitResponse,
+  Redis as RedisCore,
+  RegionContext,
+} from "./types";
 
-// Fix for https://github.com/upstash/ratelimit-js/issues/125
-type Redis = Pick<RedisCore, "get" | "set">
+type Redis = RedisCore;
 
 export type RegionRatelimitConfig = {
   /**
-   * Instance of `@upstash/redis`
-   * @see https://github.com/upstash/upstash-redis#quick-start
+   * Instance of node-redis
    */
   redis: Redis;
   /**
@@ -30,7 +32,7 @@ export type RegionRatelimitConfig = {
   /**
    * All keys in redis are prefixed with this.
    *
-   * @default `@upstash/ratelimit`
+   * @default `@linklet-io/node-redis-ratelimit-js`
    */
   prefix?: string;
 
@@ -60,43 +62,25 @@ export type RegionRatelimitConfig = {
   timeout?: number;
 
   /**
-   * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
-   * https://console.upstash.com/ratelimit
-   *
-   * @default false
-   */
-  analytics?: boolean;
-
-  /**
    * @deprecated Has no affect since v2.0.3. Instead, hash values of scripts are
    * hardcoded in the sdk and it attempts to run the script using EVALSHA (with the hash).
    * If it fails, runs script load.
-   * 
+   *
    * Previously, if enabled, lua scripts were sent to Redis with SCRIPT LOAD durint the first request.
    * In the subsequent requests, hash of the script would be used to invoke the scripts
-   * 
+   *
    * @default true
    */
   cacheScripts?: boolean;
-
-  /**
-   * @default false
-   */
-  enableProtection?: boolean
-
-  /**
-   * @default 6
-   */
-  denyListThreshold?: number
 };
 
 /**
- * Ratelimiter using serverless redis from https://upstash.com/
+ * Ratelimiter using redis
  *
  * @example
  * ```ts
  * const { limit } = new Ratelimit({
- *    redis: Redis.fromEnv(),
+ *    redis: createClient(),
  *    limiter: Ratelimit.slidingWindow(
  *      "30 m", // interval of 30 minutes
  *      10,     // Allow 10 requests per window of 30 minutes
@@ -107,7 +91,7 @@ export type RegionRatelimitConfig = {
  */
 export class RegionRatelimit extends Ratelimit<RegionContext> {
   /**
-   * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithm of your choice.
+   * Create a new Ratelimit instance by providing a node-redis instance and the algorithm of your choice.
    */
 
   constructor(config: RegionRatelimitConfig) {
@@ -115,13 +99,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
-      analytics: config.analytics,
       ctx: {
         redis: config.redis as RedisCore,
       },
       ephemeralCache: config.ephemeralCache,
-      enableProtection: config.enableProtection,
-      denyListThreshold: config.denyListThreshold
     });
   }
 
@@ -151,7 +132,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
     return () => ({
@@ -166,20 +147,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               limit: tokens,
               remaining: 0,
               reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
 
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const usedTokensAfterUpdate = await safeEval(
+        const usedTokensAfterUpdate = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
           [key],
-          [windowDuration, incrementBy],
-        ) as number;
+          [windowDuration, incrementBy]
+        )) as number;
 
         const success = usedTokensAfterUpdate <= tokens;
 
@@ -195,37 +175,31 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           limit: tokens,
           remaining: remainingTokens,
           reset,
-          pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = await safeEval(
+        const usedTokens = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
           [key],
-          [null],
-        ) as number;
+          [null]
+        )) as number;
 
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -254,7 +228,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowSize = ms(window);
     return () => ({
@@ -274,20 +248,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               limit: tokens,
               remaining: 0,
               reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
 
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const remainingTokens = await safeEval(
+        const remainingTokens = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
           [currentKey, previousKey],
-          [tokens, now, windowSize, incrementBy],
-        ) as number;
+          [tokens, now, windowSize, incrementBy]
+        )) as number;
 
         const success = remainingTokens >= 0;
 
@@ -300,7 +273,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           limit: tokens,
           remaining: Math.max(0, remainingTokens),
           reset,
-          pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
@@ -310,30 +282,25 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = await safeEval(
+        const usedTokens = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
           [currentKey, previousKey],
-          [now, windowSize],
-        ) as number;
+          [now, windowSize]
+        )) as number;
 
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (currentWindow + 1) * windowSize
-        }
+          reset: (currentWindow + 1) * windowSize,
+        };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -367,7 +334,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * A newly created bucket starts with this many tokens.
      * Useful to allow higher burst limits.
      */
-    maxTokens: number,
+    maxTokens: number
   ): Algorithm<RegionContext> {
     const intervalDuration = ms(interval);
     return () => ({
@@ -380,8 +347,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               limit: maxTokens,
               remaining: 0,
               reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
@@ -390,12 +356,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const incrementBy = rate ? Math.max(1, rate) : 1;
 
-        const [remaining, reset] = await safeEval(
+        const [remaining, reset] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
           [identifier],
-          [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number];
+          [maxTokens, intervalDuration, refillRate, now, incrementBy]
+        )) as [number, number];
 
         const success = remaining >= 0;
         if (ctx.cache && !success) {
@@ -407,38 +373,34 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           limit: maxTokens,
           remaining,
           reset,
-          pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
-
-        const [remainingTokens, refilledAt] = await safeEval(
+        const [remainingTokens, refilledAt] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
           [identifier],
-          [maxTokens],
-        ) as [number, number];
+          [maxTokens]
+        )) as [number, number];
 
-        const freshRefillAt = Date.now() + intervalDuration
-        const identifierRefillsAt = refilledAt + intervalDuration
+        const freshRefillAt = Date.now() + intervalDuration;
+        const identifierRefillsAt = refilledAt + intervalDuration;
 
         return {
           remaining: remainingTokens,
-          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt
+          reset:
+            refilledAt === tokenBucketIdentifierNotFound
+              ? freshRefillAt
+              : identifierRefillsAt,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -474,12 +436,16 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
     return () => ({
-      async limit(ctx: RegionContext, identifier: string, rate?: number) {
+      async limit(
+        ctx: RegionContext,
+        identifier: string,
+        rate?: number
+      ): Promise<RatelimitResponse> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
@@ -493,30 +459,29 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           const cachedTokensAfterUpdate = ctx.cache.incr(key);
           const success = cachedTokensAfterUpdate < tokens;
 
-          const pending = success
-            ? safeEval(
+          if (success) {
+            safeEval(
               ctx,
               SCRIPTS.singleRegion.cachedFixedWindow.limit,
               [key],
               [windowDuration, incrementBy]
-            )
-            : Promise.resolve();
+            );
+          }
 
           return {
             success,
             limit: tokens,
             remaining: tokens - cachedTokensAfterUpdate,
             reset: reset,
-            pending,
           };
         }
 
-        const usedTokensAfterUpdate = await safeEval(
+        const usedTokensAfterUpdate = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
           [key],
           [windowDuration, incrementBy]
-        ) as number;
+        )) as number;
         ctx.cache.set(key, usedTokensAfterUpdate);
         const remaining = tokens - usedTokensAfterUpdate;
 
@@ -525,7 +490,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           limit: tokens,
           remaining,
           reset: reset,
-          pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
@@ -541,19 +505,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           const cachedUsedTokens = ctx.cache.get(key) ?? 0;
           return {
             remaining: Math.max(0, tokens - cachedUsedTokens),
-            reset: (bucket + 1) * windowDuration
+            reset: (bucket + 1) * windowDuration,
           };
         }
 
-        const usedTokens = await safeEval(
+        const usedTokens = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
           [key],
-          [null],
-        ) as number;
+          [null]
+        )) as number;
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -564,16 +528,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
-        ctx.cache.pop(key)
+        ctx.cache.pop(key);
 
         const pattern = [identifier, "*"].join(":");
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }

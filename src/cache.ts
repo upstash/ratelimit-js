@@ -42,11 +42,11 @@ export class Cache implements EphemeralCache {
   }
 
   public pop(key: string): void {
-    this.cache.delete(key)
+    this.cache.delete(key);
   }
 
   public empty(): void {
-    this.cache.clear()
+    this.cache.clear();
   }
 
   public size(): number {

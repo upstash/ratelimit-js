@@ -1,23 +1,6 @@
-# Upstash Rate Limit
+# Node Redis Rate Limit
 
-[![npm (scoped)](https://img.shields.io/npm/v/@upstash/ratelimit)](https://www.npmjs.com/package/@upstash/ratelimit)
-[![Tests](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml/badge.svg)](https://github.com/upstash/ratelimit/actions/workflows/tests.yaml)
-
-> [!NOTE]
->  **This project is in GA Stage.**
-> The Upstash Professional Support fully covers this project. It receives regular updates, and bug fixes. The Upstash team is committed to maintaining and improving its functionality.
-
-It is the only connectionless (HTTP based) rate limiting library and designed
-for:
-
-- Serverless functions (AWS Lambda, Vercel ....)
-- Cloudflare Workers & Pages
-- Vercel Edge
-- Fastly Compute@Edge
-- Next.js, Jamstack ...
-- Client side web/mobile applications
-- WebAssembly
-- and other environments where HTTP is preferred over TCP.
+A fork of [@upstash/ratelimit](https://github.com/upstash/ratelimit) that uses Redis' `redis` package instead of Upstash's `@upstash/redis`. For Node.js/Bun/Deno serverful environments. Strips out Upstash specific features - analytics, deny list, etc.
 
 ## Quick Start
 
@@ -26,36 +9,25 @@ for:
 #### npm
 
 ```bash
-npm install @upstash/ratelimit
+npm install @linklet-io/node-redis-ratelimit
 ```
-
-#### Deno
-
-```ts
-import { Ratelimit } from "https://cdn.skypack.dev/@upstash/ratelimit@latest";
-```
-
-### Create database
-
-Create a new redis database on [upstash](https://console.upstash.com/). See [here](https://github.com/upstash/upstash-redis#quick-start) for documentation on how to create a redis instance.
 
 ### Basic Usage
 
 ```ts
-import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
-import { Redis } from "@upstash/redis"; // see below for cloudflare and fastly adapters
+import { Ratelimit } from "@linklet-io/node-redis-ratelimit";
+import { createClient } from "redis";
 
 // Create a new ratelimiter, that allows 10 requests per 10 seconds
 const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
+  redis: createClient(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
-  analytics: true,
   /**
    * Optional prefix for the keys used in redis. This is useful if you want to share a redis
    * instance with other applications and want to avoid key collisions. The default prefix is
-   * "@upstash/ratelimit"
+   * "@linklet-io/node-redis-ratelimit-js"
    */
-  prefix: "@upstash/ratelimit",
+  prefix: "@linklet-io/node-redis-ratelimit-js",
 });
 
 // Use a constant string to limit all requests with a single ratelimit
@@ -87,20 +59,14 @@ the url and token.
 
 ### Running tests
 
-To run the tests, you will need to set some environment variables. Here is a list of
-variables to set:
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
-- `US1_UPSTASH_REDIS_REST_URL`
-- `US1_UPSTASH_REDIS_REST_TOKEN`
-- `APN_UPSTASH_REDIS_REST_URL`
-- `APN_UPSTASH_REDIS_REST_TOKEN`
-- `EU2_UPSTASH_REDIS_REST_URL`
-- `EU2_UPSTASH_REDIS_REST_TOKEN`
+To run the tests, you will need to have a redis instance. Example using docker:
 
-You can create a single Upstash Redis and use its URL and token for all four above.
+```sh
+docker run -p 6379:6379 -it redis/redis-stack-server:latest
+```
 
-Once you set the environment variables, simply run:
+Once you have a redis instance, simply run:
+
 ```sh
 pnpm test
 ```

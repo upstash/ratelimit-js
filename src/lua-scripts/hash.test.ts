@@ -1,18 +1,26 @@
-import { Redis } from "@upstash/redis";
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createClient } from "redis";
 import { RESET_SCRIPT, SCRIPTS } from "./hash";
 
+const redis = createClient({
+  url: process.env.REDIS_URL ?? "redis://localhost:6379",
+});
+
 describe("should use correct hash for lua scripts", () => {
-  const redis = Redis.fromEnv();
+  beforeAll(async () => {
+    await redis.connect();
+  });
+
+  afterAll(async () => {
+    await redis.quit();
+  });
 
   const validateHash = async (script: string, expectedHash: string) => {
-    const hash = await redis.scriptLoad(script)
-    expect(hash).toBe(expectedHash)
-  }
+    const hash = await redis.scriptLoad(script);
+    expect(hash).toBe(expectedHash);
+  };
 
-  const algorithms = [
-    ...Object.entries(SCRIPTS.singleRegion), ...Object.entries(SCRIPTS.multiRegion)
-  ]
+  const algorithms = [...Object.entries(SCRIPTS.singleRegion)];
 
   // for each algorithm (fixedWindow, slidingWindow etc)
   for (const [algorithm, scripts] of algorithms) {
@@ -20,13 +28,13 @@ describe("should use correct hash for lua scripts", () => {
       // for each method (limit & getRemaining)
       for (const [method, scriptInfo] of Object.entries(scripts)) {
         test(method, async () => {
-          await validateHash(scriptInfo.script, scriptInfo.hash)
-        })
+          await validateHash(scriptInfo.script, scriptInfo.hash);
+        });
       }
-    })
+    });
   }
 
   test("reset script", async () => {
-    await validateHash(RESET_SCRIPT.script, RESET_SCRIPT.hash)
-  })
-})
+    await validateHash(RESET_SCRIPT.script, RESET_SCRIPT.hash);
+  });
+});

@@ -1,13 +1,26 @@
-import { describe, expect, test } from "bun:test";
-import { Redis } from "@upstash/redis";
-import { MultiRegionRatelimit } from "./multi";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createClient } from "redis";
 import type { Ratelimit } from "./ratelimit";
 import { RegionRatelimit } from "./single";
-import type { Algorithm, Context, MultiRegionContext, RegionContext } from "./types";
+import type { Algorithm, Context, RegionContext } from "./types";
 
 const limit = 10;
 const refillRate = 10;
 const windowString = "30s";
+
+const redis = createClient({
+  url: process.env.REDIS_URL ?? "redis://localhost:6379",
+});
+
+function newRegion(
+  limiter: Algorithm<RegionContext>
+): Ratelimit<RegionContext> {
+  return new RegionRatelimit({
+    prefix: crypto.randomUUID(),
+    redis,
+    limiter,
+  });
+}
 
 function run<TContext extends Context>(builder: Ratelimit<TContext>) {
   const id = crypto.randomUUID();
@@ -15,13 +28,9 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
   describe("resetUsedTokens", () => {
     test("reset the tokens", async () => {
       // Consume tokens until the remaining tokens are either equal to 2 or lesser than that
-
-      const pendings: Promise<unknown>[] = []
       for (let i = 0; i < 15; i++) {
-        const { pending } = await builder.limit(id);
-        pendings.push(pending)
+        await builder.limit(id);
       }
-      await Promise.all(pendings)
 
       // reset tokens
       await builder.resetUsedTokens(id);
@@ -31,62 +40,34 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
   });
 }
 
-function newRegion(limiter: Algorithm<RegionContext>): Ratelimit<RegionContext> {
-  return new RegionRatelimit({
-    prefix: crypto.randomUUID(),
-    redis: Redis.fromEnv(),
-    limiter,
+describe("resetUsedTokens", () => {
+  beforeAll(async () => {
+    await redis.connect();
   });
-}
 
-function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<MultiRegionContext> {
-  // eslint-disable-next-line unicorn/consistent-function-scoping
-  function ensureEnv(key: string): string {
-    const value = process.env[key];
-    if (!value) {
-      throw new Error(`Environment variable ${key} not found`);
-    }
-    return value;
-  }
-
-  return new MultiRegionRatelimit({
-    prefix: crypto.randomUUID(),
-    redis: [
-      new Redis({
-        url: ensureEnv("EU2_UPSTASH_REDIS_REST_URL"),
-        token: ensureEnv("EU2_UPSTASH_REDIS_REST_TOKEN"),
-      }),
-      new Redis({
-        url: ensureEnv("APN_UPSTASH_REDIS_REST_URL"),
-        token: ensureEnv("APN_UPSTASH_REDIS_REST_TOKEN"),
-      }),
-      new Redis({
-        url: ensureEnv("US1_UPSTASH_REDIS_REST_URL"),
-        token: ensureEnv("US1_UPSTASH_REDIS_REST_TOKEN"),
-      }),
-    ],
-    limiter,
+  afterAll(async () => {
+    await redis.quit();
   });
-}
 
-describe("fixedWindow", () => {
-  describe("region", () => run(newRegion(RegionRatelimit.fixedWindow(limit, windowString))));
+  describe("fixedWindow", () => {
+    describe("region", () =>
+      run(newRegion(RegionRatelimit.fixedWindow(limit, windowString))));
+  });
 
-  describe("multiRegion", () =>
-    run(newMultiRegion(MultiRegionRatelimit.fixedWindow(limit, windowString))));
-});
+  describe("slidingWindow", () => {
+    describe("region", () =>
+      run(newRegion(RegionRatelimit.slidingWindow(limit, windowString))));
+  });
 
-describe("slidingWindow", () => {
-  describe("region", () => run(newRegion(RegionRatelimit.slidingWindow(limit, windowString))));
-  describe("multiRegion", () =>
-    run(newMultiRegion(MultiRegionRatelimit.slidingWindow(limit, windowString))));
-});
+  describe("tokenBucket", () => {
+    describe("region", () =>
+      run(
+        newRegion(RegionRatelimit.tokenBucket(refillRate, windowString, limit))
+      ));
+  });
 
-describe("tokenBucket", () => {
-  describe("region", () =>
-    run(newRegion(RegionRatelimit.tokenBucket(refillRate, windowString, limit))));
-});
-
-describe("cachedFixedWindow", () => {
-  describe("region", () => run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
+  describe("cachedFixedWindow", () => {
+    describe("region", () =>
+      run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
+  });
 });

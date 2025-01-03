@@ -120,7 +120,7 @@ export const tokenBucketLimitScript = `
   return {remaining, refilledAt + interval}
 `;
 
-export const tokenBucketIdentifierNotFound = -1
+export const tokenBucketIdentifierNotFound = -1;
 
 export const tokenBucketRemainingTokensScript = `
   local key         = KEYS[1]

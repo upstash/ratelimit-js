@@ -1,9 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import crypto from "node:crypto";
-import { Redis } from "@upstash/redis";
+import { createClient } from "redis";
 import { Ratelimit } from "./index";
 
-const redis = Redis.fromEnv();
+const redis = createClient({
+  url: process.env.REDIS_URL ?? "redis://localhost:6379",
+});
 
 const metrics: Record<string | symbol, number> = {};
 
@@ -14,15 +16,24 @@ const spy = new Proxy(redis, {
     }
     metrics[prop]++;
     // @ts-expect-error we don't care about the types here
-    return target[prop];
+    return target[prop].bind(target);
   },
 });
+
 const limiter = new Ratelimit({
   redis: spy,
   limiter: Ratelimit.fixedWindow(5, "5 s"),
 });
 
 describe("blockUntilReady", () => {
+  beforeAll(async () => {
+    await redis.connect();
+  });
+
+  afterAll(async () => {
+    await redis.quit();
+  });
+
   test("reaching the timeout", async () => {
     const id = crypto.randomUUID();
 
@@ -35,7 +46,6 @@ describe("blockUntilReady", () => {
     const res = await limiter.blockUntilReady(id, 1200);
     expect(res.success).toBe(false);
     expect(start + 1000).toBeLessThanOrEqual(Date.now());
-    await res.pending;
   }, 20_000);
 
   test("resolving before the timeout", async () => {
@@ -50,7 +60,5 @@ describe("blockUntilReady", () => {
     const res = await limiter.blockUntilReady(id, 1000);
     expect(res.success).toBe(true);
     expect(start + 1000).toBeGreaterThanOrEqual(Date.now());
-
-    await res.pending;
   }, 20_000);
 });
