@@ -36,11 +36,11 @@ export const SCRIPTS: {
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "e1391e429b699c780eb0480350cd5b7280fd9213"
+        hash: "20408d957f9eabcc56b113f37785bbbbd301329c"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,
-        hash: "65a73ac5a05bf9712903bc304b77268980c1c417"
+        hash: "5584aba50ee1821800228a532bec593cd08b7022"
       },
     },
     tokenBucket: {
