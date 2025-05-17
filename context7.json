@@ -1,14 +1,15 @@
 {
-    "projectTitle": "Upstash Ratelimit",
-  "description": "Ratelimiing library based on Upstash Redis",
+    "projectTitle": "Upstash Ratelimit JS",
+  "description": "Rate limiting library based on Upstash Redis",
   "folders": [
   ],
   "excludeFolders": [
-    "src"
+    "src",
+    "cmd"
   ],
   "rules": [
-    "Use Upstash Redis as a database",
-    "Use single region set up"
+    "Use Upstash Redis as the database",
+    "Use single region set up of Upstash"
   ],
   "previousVersions": [
     {
