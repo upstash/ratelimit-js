@@ -260,11 +260,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const now = Date.now();
-
         const currentWindow = Math.floor(now / windowSize);
-        const currentKey = [identifier, currentWindow].join(":");
-        const previousWindow = currentWindow - 1;
-        const previousKey = [identifier, previousWindow].join(":");
 
         if (ctx.cache) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
@@ -285,7 +281,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const remainingTokens = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
-          [currentKey, previousKey],
+          [identifier],
           [tokens, now, windowSize, incrementBy],
         ) as number;
 
@@ -306,34 +302,25 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       async getRemaining(ctx: RegionContext, identifier: string) {
         const now = Date.now();
         const currentWindow = Math.floor(now / windowSize);
-        const currentKey = [identifier, currentWindow].join(":");
-        const previousWindow = currentWindow - 1;
-        const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = await safeEval(
+        const remaining = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
-          [currentKey, previousKey],
-          [now, windowSize],
+          [identifier],
+          [tokens, now, windowSize],
         ) as number;
 
         return {
-          remaining: Math.max(0, tokens - usedTokens),
+          remaining,
           reset: (currentWindow + 1) * windowSize
         }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        await ctx.redis.del(identifier);
       },
     });
   }
