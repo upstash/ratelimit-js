@@ -25,59 +25,81 @@ export const fixedWindowRemainingTokensScript = `
     `;
 
 export const slidingWindowLimitScript = `
-  local currentKey  = KEYS[1]           -- identifier including prefixes
-  local previousKey = KEYS[2]           -- key of the previous bucket
+  local key         = KEYS[1]           -- identifier including prefixes
   local tokens      = tonumber(ARGV[1]) -- tokens per window
   local now         = ARGV[2]           -- current timestamp in milliseconds
   local window      = ARGV[3]           -- interval in milliseconds
   local incrementBy = ARGV[4]           -- increment rate per request at a given value, default is 1
-
-  local requestsInCurrentWindow = redis.call("GET", currentKey)
-  if requestsInCurrentWindow == false then
-    requestsInCurrentWindow = 0
+  
+  -- following block is equivalent to, but less commands than "GET" + "INCRBY"
+  local value = redis.pcall("INCRBY", key, incrementBy)
+  -- by design, blocked keys hold non-integer string, see below. So above command might throw error
+  if type(value) ~= "number" then return -1 end
+  value = value - incrementBy    -- pre-existing value or 0
+  
+  -- extract info by decoding value. To understand the encoding, see newValue definition below
+  local requestsInCurrentWindow = value % tokens
+  local valueByTokens = math.floor(value / tokens)
+  local requestsInPreviousWindow = valueByTokens % tokens
+  local bitRepresentingWindow = math.floor(valueByTokens / tokens)
+  local currWinIndex = math.floor(now / window)
+  local currWinMod2 = currWinIndex % 2
+  local needsReset = bitRepresentingWindow ~= currWinMod2 or value == 0
+  
+  local newValue
+  if needsReset then
+    requestsInPreviousWindow = requestsInCurrentWindow
+    requestsInCurrentWindow = incrementBy
+    newValue = (currWinMod2*tokens + requestsInPreviousWindow)*tokens + requestsInCurrentWindow
+  else
+    requestsInCurrentWindow = requestsInCurrentWindow + incrementBy
   end
-
-  local requestsInPreviousWindow = redis.call("GET", previousKey)
-  if requestsInPreviousWindow == false then
-    requestsInPreviousWindow = 0
-  end
+  
   local percentageInCurrent = ( now % window ) / window
   -- weighted requests to consider from the previous window
   requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
-  if requestsInPreviousWindow + requestsInCurrentWindow >= tokens then
-    return -1
+  local remaining = tokens - ( requestsInPreviousWindow + requestsInCurrentWindow )
+
+  if remaining <= 0 then
+    local reset = ( currWinIndex + 1 ) * window    -- expire by next window
+    -- set a string at key so that next "INCRBY" throws error
+    redis.call("SET", key, "BLOCKED!", "PXAT", reset)
+  elseif needsReset then
+    local reset = ( currWinIndex + 2 ) * window    -- live for another window
+    redis.call("SET", key, newValue, "PXAT", reset)   -- store value encoding new info
   end
 
-  local newValue = redis.call("INCRBY", currentKey, incrementBy)
-  if newValue == tonumber(incrementBy) then
-    -- The first time this key is set, the value will be equal to incrementBy.
-    -- So we only need the expire command once
-    redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
-  end
-  return tokens - ( newValue + requestsInPreviousWindow )
+  return remaining
 `;
 
 export const slidingWindowRemainingTokensScript = `
-  local currentKey  = KEYS[1]           -- identifier including prefixes
-  local previousKey = KEYS[2]           -- key of the previous bucket
-  local now         = ARGV[1]           -- current timestamp in milliseconds
-  local window      = ARGV[2]           -- interval in milliseconds
-
-  local requestsInCurrentWindow = redis.call("GET", currentKey)
-  if requestsInCurrentWindow == false then
+  local key         = KEYS[1]           -- identifier including prefixes
+  local tokens      = tonumber(ARGV[1]) -- tokens per window
+  local now         = ARGV[2]           -- current timestamp in milliseconds
+  local window      = ARGV[3]           -- interval in milliseconds
+  
+  local value = redis.call("GET", key) or 0 -- value is 0 when key doesn't exist
+  -- by design, blocked keys hold non-integer string
+  if tonumber(value) == nil then return 0 end
+  
+  -- extract info by decoding value
+  local requestsInCurrentWindow = value % tokens
+  local valueByTokens = math.floor(value / tokens)
+  local requestsInPreviousWindow = valueByTokens % tokens
+  local bitRepresentingWindow = math.floor(valueByTokens / tokens)
+  local currWinIndex = math.floor(now / window)
+  local currWinMod2 = currWinIndex % 2
+  local needsReset = bitRepresentingWindow ~= currWinMod2 or value == 0
+  
+  if needsReset then
+    requestsInPreviousWindow = requestsInCurrentWindow
     requestsInCurrentWindow = 0
   end
-
-  local requestsInPreviousWindow = redis.call("GET", previousKey)
-  if requestsInPreviousWindow == false then
-    requestsInPreviousWindow = 0
-  end
-
+  
   local percentageInCurrent = ( now % window ) / window
   -- weighted requests to consider from the previous window
   requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
-
-  return requestsInPreviousWindow + requestsInCurrentWindow
+  return tokens - ( requestsInPreviousWindow + requestsInCurrentWindow )
 `;
 
 export const tokenBucketLimitScript = `
