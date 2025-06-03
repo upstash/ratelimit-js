@@ -1,7 +1,6 @@
 {
     "projectTitle": "Upstash Ratelimit JS",
   "description": "Rate limiting library based on Upstash Redis",
-    "redirect": "https://github.com/upstash/ratelimit-py",
   "folders": [
   ],
   "excludeFolders": [
