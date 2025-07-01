@@ -1,0 +1,90 @@
+name: 🐛 Bug Report
+description: Report a bug to help us improve
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🙏 Thanks for taking the time to report this issue!
+        ### Please complete the information below to help us fix the problem quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 🔍 Describe the bug
+      description: A clear and concise description of what the bug is
+      placeholder: When I try to use the package or API, it breaks when I...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 🔄 Steps to reproduce
+      description: How can we recreate this issue? Be specific!
+      placeholder: |
+        1. Import '...'
+        2. Initialize or make a request '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Expected behavior
+      description: What did you expect to happen?
+      placeholder: The package or API should handle or make a request correctly...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 💻 Operating System
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other (please specify in Additional Info)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 📊 Node and package Version
+      description: What Node and package version are you using?
+      placeholder: e.g Node v22.16.0 and @upstash/ratelimit v2.0.5
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📷 Screenshots
+      description: If applicable, add screenshots to help explain your problem
+      placeholder: You can paste images directly here!
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📝 Additional context
+      description: Add any other information about the problem here
+      placeholder: Related issues, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: ✨ Before submitting
+      description: Please confirm the following
+      options:
+        - label: 🔍 I've searched for existing issues and this hasn't been reported before
+          required: true
+        - label: ℹ️ I've included all the information needed to reproduce the issue
+          required: true
