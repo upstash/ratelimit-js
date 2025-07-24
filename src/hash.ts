@@ -22,17 +22,7 @@ export const safeEval = async (
     return await ctx.redis.evalsha(script.hash, keys, args)
   } catch (error) {
     if (`${error}`.includes("NOSCRIPT")) {
-      const hash = await ctx.redis.scriptLoad(script.script)
-
-      if (hash !== script.hash) {
-        console.warn(
-          "Upstash Ratelimit: Expected hash and the hash received from Redis"
-          + " are different. Ratelimit will work as usual but performance will"
-          + " be reduced."
-        );
-      }
-
-      return await ctx.redis.evalsha(hash, keys, args)
+      return await ctx.redis.eval(script.script, keys, args)
     }
     throw error;
   }
