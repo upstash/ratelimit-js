@@ -1,6 +1,6 @@
 {
     "projectTitle": "Upstash Ratelimit JS",
-  "description": "Rate limiting library based on Upstash Redis",
+  "description": "Rate limiting library designed for serverless runtimes",
   "folders": [
   ],
   "excludeFolders": [
