@@ -23,8 +23,11 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       }
       await Promise.all(pendings)
 
+      await new Promise(r => setTimeout(r, 300));
+
       // reset tokens
       await builder.resetUsedTokens(id);
+      await new Promise(r => setTimeout(r, 300));
       const { remaining } = await builder.getRemaining(id);
       expect(remaining).toBe(limit);
     }, 10_000);
