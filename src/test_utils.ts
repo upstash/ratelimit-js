@@ -46,7 +46,7 @@ export class TestHarness<TContext extends Context> {
             return res;
           }),
         );
-        await new Promise((r) => setTimeout(r, 500 / rps));
+        await new Promise((r) => setTimeout(r, 1000 / rps));
       }
     }
 

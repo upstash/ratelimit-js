@@ -9,7 +9,7 @@ import type { Algorithm, RegionContext } from "./types";
 import type { Redis as RedisCore } from "./types";
 
 // Fix for https://github.com/upstash/ratelimit-js/issues/125
-type Redis = Pick<RedisCore, "get" | "set">
+type Redis = Pick<RedisCore, "evalsha" | "get" | "set">
 
 export type RegionRatelimitConfig = {
   /**
@@ -490,7 +490,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
-          const cachedTokensAfterUpdate = ctx.cache.incr(key);
+          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
           const success = cachedTokensAfterUpdate < tokens;
 
           const pending = success
