@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@upstash/ratelimit": "latest",
+    "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "latest",
     "@vercel/functions": "^1.0.2",
     "next": "14.2.23",
@@ -19,8 +19,8 @@
   "devDependencies": {
     "@types/bun": "^1.1.10",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19",
     "bun-types": "latest",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
