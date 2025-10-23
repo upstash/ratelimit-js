@@ -11,75 +11,101 @@ import { TestHarness } from "./test_utils";
 import type { Context, MultiRegionContext, RegionContext } from "./types";
 
 type TestCase = {
-  // requests per second
-  rps: number;
   /**
-   * Multiplier for rate
-   *
-   * rate = 10, load = 0.5 -> attack rate will be 5
+   * Limit allowed during window
+   */
+  limit: number;
+  /**
+   * Request load
+   * 
+   * E.g., 0.5 means 50% of the limit in each window will be consumed,
+   * so all requests will succeed (assuming rate=1)
+   * 
+   * E.g., 2 means 200% of the limit in each window will be consumed,
+   * so half of the requests will be rejected (assuming rate=1)
    */
   load: number;
   /**
-   * rate at which the tokens will be added or consumed, default should be 1
-   * @default 1
+   * rate at which the tokens will be added or consumed
    */
-  rate?: number;
+  rate: number;
 };
-const attackDuration = 10;
-const window = 5;
+const attackDuration = 8;
+const window = 4;
 const windowString: Duration = `${window} s`;
 
 const testcases: TestCase[] = [];
 
-for (const rps of [10, 100]) {
-  for (const load of [0.5, 0.7]) {
-    for (const rate of [undefined, 10]) {
-      testcases.push({ load, rps, rate });
+for (const limit of [8, 32]) {
+  for (const load of [0.8, 1.6]) {
+    for (const rate of [1, 3]) {
+      testcases.push({ load, limit, rate });
     }
   }
 }
 
-function run<TContext extends Context>(builder: (tc: TestCase) => Ratelimit<TContext>) {
+function run<TContext extends Context>(
+  builder: (tc: TestCase) => Ratelimit<TContext>
+) {
   for (const tc of testcases) {
-    const name = `${tc.rps.toString().padStart(4, " ")}/s - Load: ${(tc.load * 100)
-      .toString()
-      .padStart(3, " ")}% -> Sending ${(tc.rps * tc.load)
-        .toString()
-        .padStart(4, " ")}req/s at the rate of ${tc.rate ?? 1}`;
-    const ratelimit = builder(tc);
+
+    const windowCount = attackDuration / window;
+    /**
+     * Total number of requests sent during the attack
+     */
+    const attackRequestCount = windowCount * tc.limit * tc.load;
+    /**
+     * Number of requests the simulated attacker shall attempt
+     */
+    const attackRequestPerSecond = attackRequestCount / attackDuration;
+    /**
+     * Maximum number of requests that can be allowed per second
+     */
+    const maxSuccessRequestCount = windowCount * tc.limit / tc.rate;
+    /**
+     * Number of successful requests expected during the attack
+     */
+    const expectedSuccessRequestCount = Number.parseFloat(Math.min(maxSuccessRequestCount, attackRequestCount).toFixed(2));
 
     const limits = {
-      lte: ((attackDuration * tc.rps * (tc.rate ?? 1)) / window) * 1.5,
-      gte: ((attackDuration * tc.rps) / window) * 0.5,
+      lte: Number.parseFloat((expectedSuccessRequestCount * 1.5).toFixed(2)),
+      gte: Number.parseFloat((expectedSuccessRequestCount * 0.5).toFixed(2)),
     };
+
+    const name = `${tc.limit} Limit, ${tc.load * 100}% Load, ${attackRequestPerSecond} req/s (with rate=${tc.rate})`;
+    const range = `Range:  ${limits.gte} - ${limits.lte} Success`
+    
+    const ratelimit = builder(tc);
+
     describe(name, () => {
       test(
-        `should be within ${limits.gte} - ${limits.lte}`,
+        range,
         async () => {
-          log(name);
+          log();
+          log(`  Config: ${name}`);
+          log(`  ${range} (Expected: ${expectedSuccessRequestCount})`);
           const harness = new TestHarness(ratelimit);
-          await harness.attack(tc.rps * tc.load, attackDuration, tc.rate).catch((error) => {
-            console.error(error);
-          });
+          await harness
+            .attack(attackRequestPerSecond, attackDuration, tc.rate)
+            .catch((error) => {
+              console.error(error);
+            });
           log(
-            "success:",
-            harness.metrics.success,
-            ", blocked:",
-            harness.metrics.rejected,
-            "out of:",
-            harness.metrics.requests,
+            `  Result: success: ${harness.metrics.success}, blocked: ${harness.metrics.rejected} (out of: ${harness.metrics.requests})`
           );
 
           expect(harness.metrics.success).toBeLessThanOrEqual(limits.lte);
           expect(harness.metrics.success).toBeGreaterThanOrEqual(limits.gte);
         },
-        attackDuration * 1000 * 4,
+        attackDuration * 1000 * 4
       );
     });
   }
 }
 
-function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<MultiRegionContext> {
+function newMultiRegion(
+  limiter: Algorithm<MultiRegionContext>
+): Ratelimit<MultiRegionContext> {
   // eslint-disable-next-line unicorn/consistent-function-scoping
   function ensureEnv(key: string): string {
     const value = process.env[key];
@@ -109,7 +135,9 @@ function newMultiRegion(limiter: Algorithm<MultiRegionContext>): Ratelimit<Multi
   });
 }
 
-function newRegion(limiter: Algorithm<RegionContext>): Ratelimit<RegionContext> {
+function newRegion(
+  limiter: Algorithm<RegionContext>
+): Ratelimit<RegionContext> {
   return new RegionRatelimit({
     prefix: crypto.randomUUID(),
     redis: Redis.fromEnv(),
@@ -146,32 +174,44 @@ describe("timeout", () => {
 
 describe("fixedWindow", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString))));
+    run((tc) =>
+      newRegion(RegionRatelimit.fixedWindow(tc.limit, windowString))
+    ));
 
   describe("multiRegion", () =>
     run((tc) =>
-      newMultiRegion(MultiRegionRatelimit.fixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+      newMultiRegion(
+        MultiRegionRatelimit.fixedWindow(tc.limit, windowString)
+      )
     ));
 });
 describe("slidingWindow", () => {
   describe("region", () =>
-    run((tc) => newRegion(RegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString))));
+    run((tc) =>
+      newRegion(RegionRatelimit.slidingWindow(tc.limit, windowString))
+    ));
   describe("multiRegion", () =>
     run((tc) =>
-      newMultiRegion(MultiRegionRatelimit.slidingWindow(tc.rps * (tc.rate ?? 1), windowString)),
+      newMultiRegion(
+        MultiRegionRatelimit.slidingWindow(tc.limit, windowString)
+      )
     ));
 });
 
 describe("tokenBucket", () => {
   describe("region", () =>
     run((tc) =>
-      newRegion(RegionRatelimit.tokenBucket(tc.rps, windowString, tc.rps * (tc.rate ?? 1))),
+      newRegion(
+        RegionRatelimit.tokenBucket(tc.limit, windowString, tc.limit)
+      )
     ));
 });
 
 describe("cachedFixedWindow", () => {
   describe("region", () =>
     run((tc) =>
-      newRegion(RegionRatelimit.cachedFixedWindow(tc.rps * (tc.rate ?? 1), windowString)),
+      newRegion(
+        RegionRatelimit.cachedFixedWindow(tc.limit, windowString)
+      )
     ));
 });
