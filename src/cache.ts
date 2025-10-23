@@ -34,9 +34,9 @@ export class Cache implements EphemeralCache {
     return this.cache.get(key) || null;
   }
 
-  public incr(key: string): number {
+  public incr(key: string, incrementAmount: number = 1): number {
     let value = this.cache.get(key) ?? 0;
-    value += 1;
+    value += incrementAmount;
     this.cache.set(key, value);
     return value;
   }

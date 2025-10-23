@@ -11,7 +11,7 @@ export type EphemeralCache = {
   set: (key: string, value: number) => void;
   get: (key: string) => number | null;
 
-  incr: (key: string) => number;
+  incr: (key: string, incrementAmount?: number) => number;
 
   pop: (key: string) => void;
   empty: () => void;
