@@ -116,7 +116,10 @@ export const tokenBucketLimitScript = `
   local expireAt = math.ceil(((maxTokens - remaining) / refillRate)) * interval
         
   redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
-  redis.call("PEXPIRE", key, expireAt)
+
+  if (expireAt > 0) then
+    redis.call("PEXPIRE", key, expireAt)
+  end
   return {remaining, refilledAt + interval}
 `;
 

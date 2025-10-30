@@ -166,7 +166,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const requestId = randomId();
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
           redis: regionContext.redis,
@@ -369,7 +369,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const currentKey = [identifier, currentWindow].join(":");
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const dbs = ctx.regionContexts.map((regionContext) => ({
           redis: regionContext.redis,

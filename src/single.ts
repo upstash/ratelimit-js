@@ -172,7 +172,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const usedTokensAfterUpdate = await safeEval(
           ctx,
@@ -280,7 +280,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const remainingTokens = await safeEval(
           ctx,
@@ -388,7 +388,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const now = Date.now();
 
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const [remaining, reset] = await safeEval(
           ctx,
@@ -486,7 +486,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const reset = (bucket + 1) * windowDuration;
-        const incrementBy = rate ? Math.max(1, rate) : 1;
+        const incrementBy = rate ?? 1;
 
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
