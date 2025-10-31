@@ -30,7 +30,7 @@ export const slidingWindowLimitScript = `
   local tokens      = tonumber(ARGV[1]) -- tokens per window
   local now         = ARGV[2]           -- current timestamp in milliseconds
   local window      = ARGV[3]           -- interval in milliseconds
-  local incrementBy = ARGV[4]           -- increment rate per request at a given value, default is 1
+  local incrementBy = tonumber(ARGV[4]) -- increment rate per request at a given value, default is 1
 
   local requestsInCurrentWindow = redis.call("GET", currentKey)
   if requestsInCurrentWindow == false then
@@ -44,7 +44,9 @@ export const slidingWindowLimitScript = `
   local percentageInCurrent = ( now % window ) / window
   -- weighted requests to consider from the previous window
   requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
-  if requestsInPreviousWindow + requestsInCurrentWindow >= tokens then
+
+  -- Only check limit if not refunding (negative rate)
+  if incrementBy > 0 and requestsInPreviousWindow + requestsInCurrentWindow >= tokens then
     return -1
   end
 
@@ -108,7 +110,8 @@ export const tokenBucketLimitScript = `
     refilledAt = refilledAt + numRefills * interval
   end
 
-  if tokens == 0 then
+  -- Only reject if tokens are 0 and we're consuming (not refunding)
+  if tokens == 0 and incrementBy > 0 then
     return {-1, refilledAt + interval}
   end
 

@@ -158,7 +158,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
-        if (ctx.cache) {
+        const incrementBy = rate ?? 1;
+
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
             return {
@@ -172,8 +175,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const incrementBy = rate ?? 1;
-
         const usedTokensAfterUpdate = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
@@ -186,8 +187,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
 
         const reset = (bucket + 1) * windowDuration;
-        if (ctx.cache && !success) {
-          ctx.cache.blockUntil(identifier, reset);
+        if (ctx.cache) {
+          if (!success) {
+            ctx.cache.blockUntil(identifier, reset);
+          } else if (incrementBy < 0) {
+            // Successful refund: unblock from cache
+            ctx.cache.pop(identifier);
+          }
         }
 
         return {
@@ -265,8 +271,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const currentKey = [identifier, currentWindow].join(":");
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
+        const incrementBy = rate ?? 1;
 
-        if (ctx.cache) {
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
             return {
@@ -280,8 +288,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const incrementBy = rate ?? 1;
-
         const remainingTokens = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
@@ -292,8 +298,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const success = remainingTokens >= 0;
 
         const reset = (currentWindow + 1) * windowSize;
-        if (ctx.cache && !success) {
-          ctx.cache.blockUntil(identifier, reset);
+        if (ctx.cache) {
+          if (!success) {
+            ctx.cache.blockUntil(identifier, reset);
+          } else if (incrementBy < 0) {
+            // Successful refund: unblock from cache
+            ctx.cache.pop(identifier);
+          }
         }
         return {
           success,
@@ -372,7 +383,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     const intervalDuration = ms(interval);
     return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
-        if (ctx.cache) {
+        const now = Date.now();
+        const incrementBy = rate ?? 1;
+
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
             return {
@@ -386,10 +401,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const now = Date.now();
-
-        const incrementBy = rate ?? 1;
-
         const [remaining, reset] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
@@ -398,8 +409,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         ) as [number, number];
 
         const success = remaining >= 0;
-        if (ctx.cache && !success) {
-          ctx.cache.blockUntil(identifier, reset);
+        if (ctx.cache) {
+          if (!success) {
+            ctx.cache.blockUntil(identifier, reset);
+          } else if (incrementBy < 0) {
+            // Successful refund: unblock from cache
+            ctx.cache.pop(identifier);
+          }
         }
 
         return {

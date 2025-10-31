@@ -151,7 +151,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
     return () => ({
       async limit(ctx: MultiRegionContext, identifier: string, rate?: number) {
-        if (ctx.cache) {
+        const requestId = randomId();
+        const bucket = Math.floor(Date.now() / windowDuration);
+        const key = [identifier, bucket].join(":");
+        const incrementBy = rate ?? 1;
+
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
             return {
@@ -164,11 +170,6 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             };
           }
         }
-
-        const requestId = randomId();
-        const bucket = Math.floor(Date.now() / windowDuration);
-        const key = [identifier, bucket].join(":");
-        const incrementBy = rate ?? 1;
 
         const dbs: { redis: Redis; request: Promise<string[]> }[] =
           ctx.regionContexts.map((regionContext) => ({
@@ -264,11 +265,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
          * Do not await sync. This should not run in the critical path.
          */
 
-        const success = remaining > 0;
+        const success = remaining >= 0;
         const reset = (bucket + 1) * windowDuration;
 
-        if (ctx.cache && !success) {
-          ctx.cache.blockUntil(identifier, reset);
+        if (ctx.cache) {
+          if (!success) {
+            ctx.cache.blockUntil(identifier, reset);
+          } else if (incrementBy < 0) {
+            // Successful refund: unblock from cache
+            ctx.cache.pop(identifier);
+          }
         }
         return {
           success,
@@ -359,7 +365,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
     return () => ({
       async limit(ctx: MultiRegionContext, identifier: string, rate?: number) {
-        if (ctx.cache) {
+        const requestId = randomId();
+        const now = Date.now();
+
+        const currentWindow = Math.floor(now / windowSize);
+        const currentKey = [identifier, currentWindow].join(":");
+        const previousWindow = currentWindow - 1;
+        const previousKey = [identifier, previousWindow].join(":");
+        const incrementBy = rate ?? 1;
+
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
           const { blocked, reset } = ctx.cache.isBlocked(identifier);
           if (blocked) {
             return {
@@ -372,15 +388,6 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             };
           }
         }
-
-        const requestId = randomId();
-        const now = Date.now();
-
-        const currentWindow = Math.floor(now / windowSize);
-        const currentKey = [identifier, currentWindow].join(":");
-        const previousWindow = currentWindow - 1;
-        const previousKey = [identifier, previousWindow].join(":");
-        const incrementBy = rate ?? 1;
 
         const dbs = ctx.regionContexts.map((regionContext) => ({
           redis: regionContext.redis,
@@ -498,8 +505,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
         // const success = remaining >= 0;
         const reset = (currentWindow + 1) * windowDuration;
-        if (ctx.cache && !success) {
-          ctx.cache.blockUntil(identifier, reset);
+        if (ctx.cache) {
+          if (!success) {
+            ctx.cache.blockUntil(identifier, reset);
+          } else if (incrementBy < 0) {
+            // Successful refund: unblock from cache
+            ctx.cache.pop(identifier);
+          }
         }
         return {
           success: Boolean(success),
