@@ -12,7 +12,7 @@ type Algorithm = {
   getRemaining: ScriptInfo,
 }
 
-type AlgorithmKind = 
+type AlgorithmKind =
   | "fixedWindow"
   | "slidingWindow"
   | "tokenBucket"
@@ -36,7 +36,7 @@ export const SCRIPTS: {
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "e1391e429b699c780eb0480350cd5b7280fd9213"
+        hash: "b9a1f390f466f1706d7edcb5ae444a3931ea182f"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,
@@ -46,7 +46,7 @@ export const SCRIPTS: {
     tokenBucket: {
       limit: {
         script: Single.tokenBucketLimitScript,
-        hash: "6c3d36a671bd782111b655fe10f3c9ab2e5bc610"
+        hash: "d1f857ebbdaeca90ccd2cd4eada61d7c8e5db1ca"
       },
       getRemaining: {
         script: Single.tokenBucketRemainingTokensScript,
@@ -78,7 +78,7 @@ export const SCRIPTS: {
     slidingWindow: {
       limit: {
         script: Multi.slidingWindowLimitScript,
-        hash: "cb4fdc2575056df7c6d422764df0de3a08d6753b"
+        hash: "4bec2a53f5bc651ad05a99b6cbc1a0c54f391d21"
       },
       getRemaining: {
         script: Multi.slidingWindowRemainingTokensScript,

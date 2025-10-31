@@ -45,7 +45,9 @@ export const slidingWindowLimitScript = `
 	end
 
 	local percentageInCurrent = ( now % window) / window
-	if requestsInPreviousWindow * (1 - percentageInCurrent ) + requestsInCurrentWindow >= tokens then
+
+	-- Only check limit if not refunding (negative rate)
+	if incrementBy > 0 and requestsInPreviousWindow * (1 - percentageInCurrent ) + requestsInCurrentWindow + incrementBy > tokens then
 	  return {currentFields, previousFields, false}
 	end
 
