@@ -4,7 +4,6 @@ import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 
-
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, MultiRegionContext } from "./types";
 
@@ -12,7 +11,8 @@ import type { Redis } from "./types";
 
 function randomId(): string {
   let result = "";
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
   for (let i = 0; i < 16; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -77,7 +77,7 @@ export type MultiRegionRatelimitConfig = {
   /**
    * If enabled, lua scripts will be sent to Redis with SCRIPT LOAD durint the first request.
    * In the subsequent requests, hash of the script will be used to invoke it
-   * 
+   *
    * @default true
    */
   cacheScripts?: boolean;
@@ -109,10 +109,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       timeout: config.timeout,
       analytics: config.analytics,
       ctx: {
-        regionContexts: config.redis.map(redis => ({
+        regionContexts: config.redis.map((redis) => ({
           redis: redis,
         })),
-        cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
+        cache: config.ephemeralCache
+          ? new Cache(config.ephemeralCache)
+          : undefined,
       },
     });
   }
@@ -143,7 +145,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<MultiRegionContext> {
     const windowDuration = ms(window);
 
@@ -158,7 +160,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
@@ -168,27 +170,31 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const key = [identifier, bucket].join(":");
         const incrementBy = rate ?? 1;
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
-          redis: regionContext.redis,
-          request: safeEval(
-            regionContext,
-            SCRIPTS.multiRegion.fixedWindow.limit,
-            [key],
-            [requestId, windowDuration, incrementBy],
-          ) as Promise<string[]>,
-        }));
+        const dbs: { redis: Redis; request: Promise<string[]> }[] =
+          ctx.regionContexts.map((regionContext) => ({
+            redis: regionContext.redis,
+            request: safeEval(
+              regionContext,
+              SCRIPTS.multiRegion.fixedWindow.limit,
+              [key],
+              [requestId, windowDuration, incrementBy]
+            ) as Promise<string[]>,
+          }));
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
         const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
-        const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
-          let parsedToken = 0;
-          if (index % 2) {
-            parsedToken = Number.parseInt(usedToken);
-          }
+        const usedTokens = firstResponse.reduce(
+          (accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
+            if (index % 2) {
+              parsedToken = Number.parseInt(usedToken);
+            }
 
-          return accTokens + parsedToken;
-        }, 0);
+            return accTokens + parsedToken;
+          },
+          0
+        );
 
         const remaining = tokens - usedTokens;
 
@@ -198,15 +204,16 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         async function sync() {
           const individualIDs = await Promise.all(dbs.map((s) => s.request));
 
-          const allIDs = [...new Set(
-            individualIDs.flat()
-              .reduce((acc: string[], curr, index) => {
+          const allIDs = [
+            ...new Set(
+              individualIDs.flat().reduce((acc: string[], curr, index) => {
                 if (index % 2 === 0) {
                   acc.push(curr);
                 }
                 return acc;
-              }, []),
-          ).values()];
+              }, [])
+            ).values(),
+          ];
 
           for (const db of dbs) {
             const usedDbTokensRequest = await db.request;
@@ -219,16 +226,19 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
 
                 return accTokens + parsedToken;
               },
-              0,
+              0
             );
 
             const dbIdsRequest = await db.request;
-            const dbIds = dbIdsRequest.reduce((ids: string[], currentId, index) => {
-              if (index % 2 === 0) {
-                ids.push(currentId);
-              }
-              return ids;
-            }, []);
+            const dbIds = dbIdsRequest.reduce(
+              (ids: string[], currentId, index) => {
+                if (index % 2 === 0) {
+                  ids.push(currentId);
+                }
+                return ids;
+              },
+              []
+            );
             /**
              * If the bucket in this db is already full, it doesn't matter which ids it contains.
              * So we do not have to sync.
@@ -272,46 +282,47 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map((regionContext) => ({
-          redis: regionContext.redis,
-          request: safeEval(
-            regionContext,
-            SCRIPTS.multiRegion.fixedWindow.getRemaining,
-            [key],
-            [null]
-          ) as Promise<string[]>,
-        }));
+        const dbs: { redis: Redis; request: Promise<string[]> }[] =
+          ctx.regionContexts.map((regionContext) => ({
+            redis: regionContext.redis,
+            request: safeEval(
+              regionContext,
+              SCRIPTS.multiRegion.fixedWindow.getRemaining,
+              [key],
+              [null]
+            ) as Promise<string[]>,
+          }));
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
         const firstResponse = await Promise.any(dbs.map((s) => s.request));
-        const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
-          let parsedToken = 0;
-          if (index % 2) {
-            parsedToken = Number.parseInt(usedToken);
-          }
+        const usedTokens = firstResponse.reduce(
+          (accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
+            if (index % 2) {
+              parsedToken = Number.parseInt(usedToken);
+            }
 
-          return accTokens + parsedToken;
-        }, 0);
+            return accTokens + parsedToken;
+          },
+          0
+        );
 
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await Promise.all(ctx.regionContexts.map((regionContext) => {
-          safeEval(
-            regionContext,
-            RESET_SCRIPT,
-            [pattern],
-            [null]
-          );
-        }))
+        await Promise.all(
+          ctx.regionContexts.map((regionContext) => {
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+          })
+        );
       },
     });
   }
@@ -340,7 +351,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<MultiRegionContext> {
     const windowSize = ms(window);
 
@@ -357,7 +368,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
@@ -377,39 +388,49 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             regionContext,
             SCRIPTS.multiRegion.slidingWindow.limit,
             [currentKey, previousKey],
-            [tokens, now, windowDuration, requestId, incrementBy],
+            [tokens, now, windowDuration, requestId, incrementBy]
             // lua seems to return `1` for true and `null` for false
           ) as Promise<[string[], string[], 1 | null]>,
         }));
 
         const percentageInCurrent = (now % windowDuration) / windowDuration;
-        const [current, previous, success] = await Promise.any(dbs.map((s) => s.request));
+        const [current, previous, success] = await Promise.any(
+          dbs.map((s) => s.request)
+        );
 
         // in the case of success, the new request is not included in the current array.
         // add it manually
         if (success) {
-          current.push(requestId, incrementBy.toString())
+          current.push(requestId, incrementBy.toString());
         }
 
-        const previousUsedTokens = previous.reduce((accTokens: number, usedToken, index) => {
-          let parsedToken = 0;
-          if (index % 2) {
-            parsedToken = Number.parseInt(usedToken);
-          }
+        const previousUsedTokens = previous.reduce(
+          (accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
+            if (index % 2) {
+              parsedToken = Number.parseInt(usedToken);
+            }
 
-          return accTokens + parsedToken;
-        }, 0);
+            return accTokens + parsedToken;
+          },
+          0
+        );
 
-        const currentUsedTokens = current.reduce((accTokens: number, usedToken, index) => {
-          let parsedToken = 0;
-          if (index % 2) {
-            parsedToken = Number.parseInt(usedToken);
-          }
+        const currentUsedTokens = current.reduce(
+          (accTokens: number, usedToken, index) => {
+            let parsedToken = 0;
+            if (index % 2) {
+              parsedToken = Number.parseInt(usedToken);
+            }
 
-          return accTokens + parsedToken;
-        }, 0);
+            return accTokens + parsedToken;
+          },
+          0
+        );
 
-        const previousPartialUsed = Math.ceil(previousUsedTokens * (1 - percentageInCurrent));
+        const previousPartialUsed = Math.ceil(
+          previousUsedTokens * (1 - percentageInCurrent)
+        );
 
         const usedTokens = previousPartialUsed + currentUsedTokens;
 
@@ -421,16 +442,18 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         async function sync() {
           const res = await Promise.all(dbs.map((s) => s.request));
 
-          const allCurrentIds = [...new Set(
-            res
-              .flatMap(([current]) => current)
-              .reduce((acc: string[], curr, index) => {
-                if (index % 2 === 0) {
-                  acc.push(curr);
-                }
-                return acc;
-              }, []),
-          ).values()];
+          const allCurrentIds = [
+            ...new Set(
+              res
+                .flatMap(([current]) => current)
+                .reduce((acc: string[], curr, index) => {
+                  if (index % 2 === 0) {
+                    acc.push(curr);
+                  }
+                  return acc;
+                }, [])
+            ).values(),
+          ];
 
           for (const db of dbs) {
             const [current, _previous, _success] = await db.request;
@@ -441,14 +464,17 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               return ids;
             }, []);
 
-            const usedDbTokens = current.reduce((accTokens: number, usedToken, index) => {
-              let parsedToken = 0;
-              if (index % 2) {
-                parsedToken = Number.parseInt(usedToken);
-              }
+            const usedDbTokens = current.reduce(
+              (accTokens: number, usedToken, index) => {
+                let parsedToken = 0;
+                if (index % 2) {
+                  parsedToken = Number.parseInt(usedToken);
+                }
 
-              return accTokens + parsedToken;
-            }, 0);
+                return accTokens + parsedToken;
+              },
+              0
+            );
             /**
              * If the bucket in this db is already full, it doesn't matter which ids it contains.
              * So we do not have to sync.
@@ -497,7 +523,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             regionContext,
             SCRIPTS.multiRegion.slidingWindow.getRemaining,
             [currentKey, previousKey],
-            [now, windowSize],
+            [now, windowSize]
             // lua seems to return `1` for true and `null` for false
           ) as Promise<number>,
         }));
@@ -505,24 +531,20 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const usedTokens = await Promise.any(dbs.map((s) => s.request));
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (currentWindow + 1) * windowSize
+          reset: (currentWindow + 1) * windowSize,
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-
-        await Promise.all(ctx.regionContexts.map((regionContext) => {
-          safeEval(
-            regionContext,
-            RESET_SCRIPT,
-            [pattern],
-            [null]
-          );
-        }))
+        await Promise.all(
+          ctx.regionContexts.map((regionContext) => {
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+          })
+        );
       },
     });
   }
