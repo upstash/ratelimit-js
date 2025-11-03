@@ -36,7 +36,7 @@ export const SCRIPTS: {
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "b9a1f390f466f1706d7edcb5ae444a3931ea182f"
+        hash: "9b7842963bd73721f1a3011650c23c0010848ee3"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,

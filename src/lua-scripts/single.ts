@@ -51,7 +51,7 @@ export const slidingWindowLimitScript = `
   end
 
   local newValue = redis.call("INCRBY", currentKey, incrementBy)
-  if newValue == tonumber(incrementBy) then
+  if newValue == incrementBy then
     -- The first time this key is set, the value will be equal to incrementBy.
     -- So we only need the expire command once
     redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
