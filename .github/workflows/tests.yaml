@@ -19,6 +19,7 @@ env:
 
 jobs:
   test:
+  runs-on: ubuntu-latest
     name: Tests
     steps:
       - name: Setup repo
