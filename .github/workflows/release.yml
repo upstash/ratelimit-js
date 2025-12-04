@@ -8,9 +8,6 @@ on:
 jobs:
   release:
     name: Release
-    runs-on:
-      group: large-runners
-      labels: ubuntu-4x
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
