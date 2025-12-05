@@ -19,7 +19,7 @@ const spy = new Proxy(redis, {
 });
 const limiter = new Ratelimit({
   redis: spy,
-  limiter: Ratelimit.fixedWindow(5, "5 s"),
+  limiter: Ratelimit.fixedWindow(1, "5 h"),
 });
 
 describe("blockUntilReady", () => {
@@ -27,8 +27,8 @@ describe("blockUntilReady", () => {
     const id = crypto.randomUUID();
 
     // Use up all tokens in the current window
-    for (let i = 0; i < 15; i++) {
-      await limiter.limit(id);
+    for (let i = 0; i < 3; i++) {
+      await limiter.limit(id, { rate: 5 });
     }
 
     const start = Date.now();
