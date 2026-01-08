@@ -231,5 +231,42 @@ describe("Dynamic Limits", () => {
       expect(success).toBe(false);
       expect(limit).toBe(2);
     });
+
+    test("should disable dynamic limit and fall back to default", async () => {
+      const prefix = `ratelimit-test-disable-${Date.now()}`;
+      const ratelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.fixedWindow(5, "1000 s"),
+        prefix,
+        dynamicLimits: true,
+        ephemeralCache: false,
+      });
+
+      const identifier = `test-${Date.now()}`;
+
+      // Set dynamic limit to 2
+      await ratelimit.setDynamicLimit({ limit: 2 });
+
+      // Use up the 2 requests
+      await ratelimit.limit(identifier);
+      await ratelimit.limit(identifier);
+
+      // Should be rate limited with limit 2
+      let result = await ratelimit.limit(identifier);
+      expect(result.success).toBe(false);
+      expect(result.limit).toBe(2);
+
+      // Disable dynamic limit
+      await ratelimit.setDynamicLimit({ limit: false });
+
+      // Verify it's been removed
+      const dynamicLimit = await ratelimit.getDynamicLimit();
+      expect(dynamicLimit).toBeNull();
+
+      // Should now use default limit (5)
+      result = await ratelimit.limit(identifier);
+      expect(result.success).toBe(true);
+      expect(result.limit).toBe(5);
+    });
   });
 });

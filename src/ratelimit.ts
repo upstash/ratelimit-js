@@ -445,11 +445,14 @@ export abstract class Ratelimit<TContext extends Context> {
    * 
    * // Set global dynamic limit to 120 requests
    * await ratelimit.setDynamicLimit({ limit: 120 });
+   * 
+   * // Disable dynamic limit (falls back to default)
+   * await ratelimit.setDynamicLimit({ limit: false });
    * ```
    * 
-   * @param options.limit - The new rate limit to apply globally
+   * @param options.limit - The new rate limit to apply globally, or false to disable
    */
-  public setDynamicLimit = async (options: { limit: number }): Promise<void> => {
+  public setDynamicLimit = async (options: { limit: number | false }): Promise<void> => {
     if (!this.dynamicLimits) {
       throw new Error(
         "dynamicLimits must be enabled in the Ratelimit constructor to use setDynamicLimit()"
@@ -457,7 +460,12 @@ export abstract class Ratelimit<TContext extends Context> {
     }
 
     const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
-    await this.primaryRedis.set(globalKey, options.limit);
+    
+    if (options.limit === false) {
+      await this.primaryRedis.del(globalKey);
+    } else {
+      await this.primaryRedis.set(globalKey, options.limit);
+    }
   };
 
   /**
