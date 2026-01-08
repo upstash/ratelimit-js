@@ -1,6 +1,6 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
-import { DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
+import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
@@ -127,7 +127,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
     this.enableProtection = config.enableProtection ?? false;
@@ -461,11 +461,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
     const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
     
-    if (options.limit === false) {
-      await this.primaryRedis.del(globalKey);
-    } else {
-      await this.primaryRedis.set(globalKey, options.limit);
-    }
+    await (options.limit === false ? this.primaryRedis.del(globalKey) : this.primaryRedis.set(globalKey, options.limit));
   };
 
   /**

@@ -30,7 +30,7 @@ export type RegionContext = {
   /**
    * The prefix used for Redis keys
    */
-  prefix?: string;
+  prefix: string;
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 

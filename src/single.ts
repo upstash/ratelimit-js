@@ -3,7 +3,7 @@ import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
-import { DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
+import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
@@ -130,6 +130,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       analytics: config.analytics,
       ctx: {
         redis: config.redis as RedisCore,
+        prefix: config.prefix ?? DEFAULT_PREFIX,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
@@ -172,10 +173,25 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const incrementBy = rate ?? 1;
+
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
+          const { blocked, reset } = ctx.cache.isBlocked(identifier);
+          if (blocked) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: 0,
+              reset: reset,
+              pending: Promise.resolve(),
+              reason: "cacheBlock"
+            };
+          }
+        }
         
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
@@ -188,9 +204,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const success = usedTokensAfterUpdate <= effectiveLimit;
         const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
         const reset = (bucket + 1) * windowDuration;
-
-        // Only check cache block if not refunding (negative rate)
-        if (ctx.cache && incrementBy > 0) {
+        if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
@@ -213,7 +227,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remaining] = await safeEval(
@@ -280,9 +294,24 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousKey = [identifier, previousWindow].join(":");
         const incrementBy = rate ?? 1;
 
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
+          const { blocked, reset } = ctx.cache.isBlocked(identifier);
+          if (blocked) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: 0,
+              reset: reset,
+              pending: Promise.resolve(),
+              reason: "cacheBlock"
+            };
+          }
+        }
+
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remainingTokens, effectiveLimit] = await safeEval(
@@ -321,7 +350,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remaining] = await safeEval(
@@ -389,9 +418,24 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const now = Date.now();
         const incrementBy = rate ?? 1;
 
+        // Only check cache block if not refunding (negative rate)
+        if (ctx.cache && incrementBy > 0) {
+          const { blocked, reset } = ctx.cache.isBlocked(identifier);
+          if (blocked) {
+            return {
+              success: false,
+              limit: maxTokens,
+              remaining: 0,
+              reset: reset,
+              pending: Promise.resolve(),
+              reason: "cacheBlock"
+            };
+          }
+        }
+
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remaining, reset, effectiveLimit] = await safeEval(
@@ -423,7 +467,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       async getRemaining(ctx: RegionContext, identifier: string) {
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remainingTokens, refilledAt] = await safeEval(
@@ -505,7 +549,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const hit = typeof ctx.cache.get(key) === "number";
@@ -560,7 +604,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         // Prepare dynamic limit key if enabled
         const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
         const [remaining] = await safeEval(
