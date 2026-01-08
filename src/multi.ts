@@ -81,6 +81,18 @@ export type MultiRegionRatelimitConfig = {
    * @default true
    */
   cacheScripts?: boolean;
+
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * before applying the regular limit. This allows you to change the rate
+   * limit at runtime using setDynamicLimit().
+   *
+   * Note: Dynamic limits are not yet supported for multi-region rate limiters.
+   * This option will be ignored for MultiRegionRatelimit.
+   *
+   * @default false
+   */
+  dynamicLimits?: boolean;
 };
 
 /**
@@ -108,6 +120,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       limiter: config.limiter,
       timeout: config.timeout,
       analytics: config.analytics,
+      dynamicLimits: config.dynamicLimits,
       ctx: {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
@@ -117,6 +130,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           : undefined,
       },
     });
+    
+    if (config.dynamicLimits) {
+      console.warn(
+        "Warning: Dynamic limits are not yet supported for multi-region rate limiters. " +
+        "The dynamicLimits option will be ignored."
+      );
+    }
   }
 
   /**

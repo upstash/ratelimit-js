@@ -3,6 +3,7 @@ import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
+import { DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
@@ -88,6 +89,17 @@ export type RegionRatelimitConfig = {
    * @default 6
    */
   denyListThreshold?: number
+
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * before applying the regular limit. This allows you to change the rate
+   * limit at runtime using setDynamicLimit().
+   *
+   * When enabled, adds +1 Redis command (GET) to every limit check.
+   *
+   * @default false
+   */
+  dynamicLimits?: boolean;
 };
 
 /**
@@ -121,7 +133,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
-      denyListThreshold: config.denyListThreshold
+      denyListThreshold: config.denyListThreshold,
+      dynamicLimits: config.dynamicLimits
     });
   }
 
@@ -159,35 +172,25 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const incrementBy = rate ?? 1;
+        
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+          ctx,
+          SCRIPTS.singleRegion.fixedWindow.limit,
+          [key, dynamicLimitKey],
+          [tokens, windowDuration, incrementBy],
+        ) as [number, number];
+
+        const success = usedTokensAfterUpdate <= effectiveLimit;
+        const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
+        const reset = (bucket + 1) * windowDuration;
 
         // Only check cache block if not refunding (negative rate)
         if (ctx.cache && incrementBy > 0) {
-          const { blocked, reset } = ctx.cache.isBlocked(identifier);
-          if (blocked) {
-            return {
-              success: false,
-              limit: tokens,
-              remaining: 0,
-              reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
-            };
-          }
-        }
-
-        const usedTokensAfterUpdate = await safeEval(
-          ctx,
-          SCRIPTS.singleRegion.fixedWindow.limit,
-          [key],
-          [windowDuration, incrementBy],
-        ) as number;
-
-        const success = usedTokensAfterUpdate <= tokens;
-
-        const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
-
-        const reset = (bucket + 1) * windowDuration;
-        if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
@@ -198,7 +201,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           success,
-          limit: tokens,
+          limit: effectiveLimit,
           remaining: remainingTokens,
           reset,
           pending: Promise.resolve(),
@@ -208,15 +211,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remaining] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
-          [key],
-          [null],
-        ) as number;
+          [key, dynamicLimitKey],
+          [tokens],
+        ) as [number, number];
 
         return {
-          remaining: Math.max(0, tokens - usedTokens),
+          remaining: Math.max(0, remaining),
           reset: (bucket + 1) * windowDuration
         };
       },
@@ -266,38 +274,27 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const now = Date.now();
-
         const currentWindow = Math.floor(now / windowSize);
         const currentKey = [identifier, currentWindow].join(":");
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
         const incrementBy = rate ?? 1;
 
-        // Only check cache block if not refunding (negative rate)
-        if (ctx.cache && incrementBy > 0) {
-          const { blocked, reset } = ctx.cache.isBlocked(identifier);
-          if (blocked) {
-            return {
-              success: false,
-              limit: tokens,
-              remaining: 0,
-              reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
-            };
-          }
-        }
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
-        const remainingTokens = await safeEval(
+        const [remainingTokens, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
-          [currentKey, previousKey],
+          [currentKey, previousKey, dynamicLimitKey],
           [tokens, now, windowSize, incrementBy],
-        ) as number;
+        ) as [number, number];
 
         const success = remainingTokens >= 0;
-
         const reset = (currentWindow + 1) * windowSize;
+
         if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
@@ -306,9 +303,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             ctx.cache.pop(identifier);
           }
         }
+        
         return {
           success,
-          limit: tokens,
+          limit: effectiveLimit,
           remaining: Math.max(0, remainingTokens),
           reset,
           pending: Promise.resolve(),
@@ -321,15 +319,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remaining] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
-          [currentKey, previousKey],
-          [now, windowSize],
-        ) as number;
+          [currentKey, previousKey, dynamicLimitKey],
+          [tokens, now, windowSize],
+        ) as [number, number];
 
         return {
-          remaining: Math.max(0, tokens - usedTokens),
+          remaining: Math.max(0, remaining),
           reset: (currentWindow + 1) * windowSize
         }
       },
@@ -386,29 +389,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const now = Date.now();
         const incrementBy = rate ?? 1;
 
-        // Only check cache block if not refunding (negative rate)
-        if (ctx.cache && incrementBy > 0) {
-          const { blocked, reset } = ctx.cache.isBlocked(identifier);
-          if (blocked) {
-            return {
-              success: false,
-              limit: maxTokens,
-              remaining: 0,
-              reset: reset,
-              pending: Promise.resolve(),
-              reason: "cacheBlock"
-            };
-          }
-        }
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
-        const [remaining, reset] = await safeEval(
+        const [remaining, reset, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
-          [identifier],
+          [identifier, dynamicLimitKey],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
         const success = remaining >= 0;
+        
         if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
@@ -420,20 +414,24 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           success,
-          limit: maxTokens,
-          remaining,
+          limit: effectiveLimit,
+          remaining: Math.max(0, remaining),
           reset,
           pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
         const [remainingTokens, refilledAt] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
-          [identifier],
+          [identifier, dynamicLimitKey],
           [maxTokens],
-        ) as [number, number];
+        ) as [number, number, number];
 
         const freshRefillAt = Date.now() + intervalDuration
         const identifierRefillsAt = refilledAt + intervalDuration
@@ -499,46 +497,54 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
+        
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const reset = (bucket + 1) * windowDuration;
         const incrementBy = rate ?? 1;
 
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
-          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          const success = cachedTokensAfterUpdate < tokens;
-
-          const pending = success
-            ? safeEval(
-              ctx,
-              SCRIPTS.singleRegion.cachedFixedWindow.limit,
-              [key],
-              [windowDuration, incrementBy]
-            )
-            : Promise.resolve();
+          
+          // Need to check dynamic limit even in cache hit case
+          const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+            ctx,
+            SCRIPTS.singleRegion.cachedFixedWindow.limit,
+            [key, dynamicLimitKey],
+            [tokens, windowDuration, incrementBy]
+          ) as [number, number];
+          
+          // Update cache with actual value from Redis
+          ctx.cache.set(key, usedTokensAfterUpdate);
+          const success = usedTokensAfterUpdate <= effectiveLimit;
 
           return {
             success,
-            limit: tokens,
-            remaining: tokens - cachedTokensAfterUpdate,
+            limit: effectiveLimit,
+            remaining: effectiveLimit - usedTokensAfterUpdate,
             reset: reset,
-            pending,
+            pending: Promise.resolve(),
           };
         }
 
-        const usedTokensAfterUpdate = await safeEval(
+        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
-          [key],
-          [windowDuration, incrementBy]
-        ) as number;
+          [key, dynamicLimitKey],
+          [tokens, windowDuration, incrementBy]
+        ) as [number, number];
+        
         ctx.cache.set(key, usedTokensAfterUpdate);
-        const remaining = tokens - usedTokensAfterUpdate;
+        const remaining = effectiveLimit - usedTokensAfterUpdate;
 
         return {
           success: remaining >= 0,
-          limit: tokens,
+          limit: effectiveLimit,
           remaining,
           reset: reset,
           pending: Promise.resolve(),
@@ -552,23 +558,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const hit = typeof ctx.cache.get(key) === "number";
-        if (hit) {
-          const cachedUsedTokens = ctx.cache.get(key) ?? 0;
-          return {
-            remaining: Math.max(0, tokens - cachedUsedTokens),
-            reset: (bucket + 1) * windowDuration
-          };
-        }
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix ?? "@upstash/ratelimit"}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
-        const usedTokens = await safeEval(
+        const [remaining] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
-          [key],
-          [null],
-        ) as number;
+          [key, dynamicLimitKey],
+          [tokens],
+        ) as [number, number];
+        
         return {
-          remaining: Math.max(0, tokens - usedTokens),
+          remaining: Math.max(0, remaining),
           reset: (bucket + 1) * windowDuration
         };
       },

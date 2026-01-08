@@ -1,5 +1,6 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
+import { DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
@@ -29,6 +30,17 @@ export type RatelimitConfig<TContext> = {
    * @default `@upstash/ratelimit`
    */
   prefix?: string;
+
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * before applying the regular limit. This allows you to change the rate
+   * limit at runtime using setDynamicLimit().
+   *
+   * When enabled, adds +1 Redis command (GET) to every limit check.
+   *
+   * @default false
+   */
+  dynamicLimits?: boolean;
 
   /**
    * If enabled, the ratelimiter will keep a global cache of identifiers, that have
@@ -109,16 +121,25 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly denyListThreshold: number
 
+  protected readonly dynamicLimits: boolean;
+
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? "@upstash/ratelimit";
+    this.dynamicLimits = config.dynamicLimits ?? false;
 
     this.enableProtection = config.enableProtection ?? false;
     this.denyListThreshold = config.denyListThreshold ?? 6;
 
-    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis
+    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis;
+
+    // Pass dynamicLimits and prefix to context if it's a RegionContext
+    if ("redis" in this.ctx) {
+      this.ctx.dynamicLimits = this.dynamicLimits;
+      this.ctx.prefix = this.prefix;
+    }
     this.analytics = config.analytics
       ? new Analytics({
         redis: this.primaryRedis,
@@ -407,4 +428,58 @@ export abstract class Ratelimit<TContext extends Context> {
     const members = [identifier, req?.ip, req?.userAgent, req?.country];
     return (members as string[]).filter(Boolean);
   }
+
+  /**
+   * Set a dynamic rate limit globally.
+   * 
+   * When dynamicLimits is enabled, this limit will override the default limit
+   * set in the constructor for all requests.
+   * 
+   * @example
+   * ```ts
+   * const ratelimit = new Ratelimit({
+   *   redis: Redis.fromEnv(),
+   *   limiter: Ratelimit.slidingWindow(10, "10 s"),
+   *   dynamicLimits: true
+   * });
+   * 
+   * // Set global dynamic limit to 120 requests
+   * await ratelimit.setDynamicLimit({ limit: 120 });
+   * ```
+   * 
+   * @param options.limit - The new rate limit to apply globally
+   */
+  public setDynamicLimit = async (options: { limit: number }): Promise<void> => {
+    if (!this.dynamicLimits) {
+      throw new Error(
+        "dynamicLimits must be enabled in the Ratelimit constructor to use setDynamicLimit()"
+      );
+    }
+
+    const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
+    await this.primaryRedis.set(globalKey, options.limit);
+  };
+
+  /**
+   * Get the current global dynamic rate limit.
+   * 
+   * @example
+   * ```ts
+   * const limit = await ratelimit.getDynamicLimit();
+   * console.log(limit); // 120 or null if not set
+   * ```
+   * 
+   * @returns The current global dynamic limit, or null if not set
+   */
+  public getDynamicLimit = async (): Promise<number | null> => {
+    if (!this.dynamicLimits) {
+      throw new Error(
+        "dynamicLimits must be enabled in the Ratelimit constructor to use getDynamicLimit()"
+      );
+    }
+
+    const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
+    const result = await this.primaryRedis.get(globalKey);
+    return result === null ? null : Number(result);
+  };
 }
