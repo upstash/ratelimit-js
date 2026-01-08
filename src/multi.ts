@@ -1,4 +1,5 @@
 import { Cache } from "./cache";
+import { DEFAULT_PREFIX } from "./constants";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
@@ -124,6 +125,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       ctx: {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
+          prefix: config.prefix ?? DEFAULT_PREFIX,
         })),
         cache: config.ephemeralCache
           ? new Cache(config.ephemeralCache)
