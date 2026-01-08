@@ -208,19 +208,8 @@ export const tokenBucketRemainingTokensScript = `
 
 export const cachedFixedWindowLimitScript = `
   local key     = KEYS[1]
-  local dynamicLimitKey = KEYS[2]  -- optional: key for dynamic limit in redis
-  local tokens  = tonumber(ARGV[1])  -- default limit
-  local window  = ARGV[2]
-  local incrementBy   = ARGV[3] -- increment rate per request at a given value, default is 1
-
-  -- Check for dynamic limit
-  local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
-    local dynamicLimit = redis.call("GET", dynamicLimitKey)
-    if dynamicLimit then
-      effectiveLimit = tonumber(dynamicLimit)
-    end
-  end
+  local window  = ARGV[1]
+  local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
 
   local r = redis.call("INCRBY", key, incrementBy)
   if r == incrementBy then
@@ -229,28 +218,16 @@ export const cachedFixedWindowLimitScript = `
   redis.call("PEXPIRE", key, window)
   end
       
-  return {r, effectiveLimit}
+  return r
 `;
 
 export const cachedFixedWindowRemainingTokenScript = `
   local key = KEYS[1]
-  local dynamicLimitKey = KEYS[2]  -- optional: key for dynamic limit in redis
-  local tokens = tonumber(ARGV[1])  -- default limit
-
-  -- Check for dynamic limit
-  local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
-    local dynamicLimit = redis.call("GET", dynamicLimitKey)
-    if dynamicLimit then
-      effectiveLimit = tonumber(dynamicLimit)
-    end
-  end
+  local tokens = 0
 
   local value = redis.call('GET', key)
-  local usedTokens = 0
   if value then
-    usedTokens = tonumber(value)
+      tokens = value
   end
-  
-  return {effectiveLimit - usedTokens, effectiveLimit}
+  return tokens
 `;

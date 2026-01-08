@@ -542,53 +542,53 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           throw new Error("This algorithm requires a cache");
         }
         
+        if (ctx.dynamicLimits) {
+          console.warn(
+            "Warning: Dynamic limits are not yet supported for cachedFixedWindow algorithm. " +
+            "The dynamicLimits option will be ignored."
+          );
+        }
+        
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const reset = (bucket + 1) * windowDuration;
         const incrementBy = rate ?? 1;
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
-
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
-          
-          // Need to check dynamic limit even in cache hit case
-          const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
-            ctx,
-            SCRIPTS.singleRegion.cachedFixedWindow.limit,
-            [key, dynamicLimitKey],
-            [tokens, windowDuration, incrementBy]
-          ) as [number, number];
-          
-          // Update cache with actual value from Redis
-          ctx.cache.set(key, usedTokensAfterUpdate);
-          const success = usedTokensAfterUpdate <= effectiveLimit;
+          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
+          const success = cachedTokensAfterUpdate < tokens;
+
+          const pending = success
+            ? safeEval(
+              ctx,
+              SCRIPTS.singleRegion.cachedFixedWindow.limit,
+              [key],
+              [windowDuration, incrementBy]
+            )
+            : Promise.resolve();
 
           return {
             success,
-            limit: effectiveLimit,
-            remaining: effectiveLimit - usedTokensAfterUpdate,
+            limit: tokens,
+            remaining: tokens - cachedTokensAfterUpdate,
             reset: reset,
-            pending: Promise.resolve(),
+            pending,
           };
         }
 
-        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+        const usedTokensAfterUpdate = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
-          [key, dynamicLimitKey],
-          [tokens, windowDuration, incrementBy]
-        ) as [number, number];
-        
+          [key],
+          [windowDuration, incrementBy]
+        ) as number;
         ctx.cache.set(key, usedTokensAfterUpdate);
-        const remaining = effectiveLimit - usedTokensAfterUpdate;
+        const remaining = tokens - usedTokensAfterUpdate;
 
         return {
           success: remaining >= 0,
-          limit: effectiveLimit,
+          limit: tokens,
           remaining,
           reset: reset,
           pending: Promise.resolve(),
@@ -602,20 +602,23 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        const hit = typeof ctx.cache.get(key) === "number";
+        if (hit) {
+          const cachedUsedTokens = ctx.cache.get(key) ?? 0;
+          return {
+            remaining: Math.max(0, tokens - cachedUsedTokens),
+            reset: (bucket + 1) * windowDuration
+          };
+        }
 
-        const [remaining] = await safeEval(
+        const usedTokens = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
-          [key, dynamicLimitKey],
-          [tokens],
-        ) as [number, number];
-        
+          [key],
+          [null],
+        ) as number;
         return {
-          remaining: Math.max(0, remaining),
+          remaining: Math.max(0, tokens - usedTokens),
           reset: (bucket + 1) * windowDuration
         };
       },

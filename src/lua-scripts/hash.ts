@@ -56,11 +56,11 @@ export const SCRIPTS: {
     cachedFixedWindow: {
       limit: {
         script: Single.cachedFixedWindowLimitScript,
-        hash: "ccd4cda88bbc83633c84f81dc22844d68f774dc1"
+        hash: "c26b12703dd137939b9a69a3a9b18e906a2d940f"
       },
       getRemaining: {
         script: Single.cachedFixedWindowRemainingTokenScript,
-        hash: "40515c9dd0a08f8584f5f9b593935f6a87c1c1c3"
+        hash: "8e8f222ccae68b595ee6e3f3bf2199629a62b91a"
       },
     }
   },
