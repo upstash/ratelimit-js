@@ -281,13 +281,14 @@ export abstract class Ratelimit<TContext extends Context> {
    * Returns the remaining token count together with a reset timestamps
    * 
    * @param identifier identifir to check
-   * @returns object with `remaining` and reset fields. `remaining` denotes
-   *          the remaining tokens and reset denotes the timestamp when the
-   *          tokens reset.
+   * @returns object with `remaining`, `reset`, and `limit` fields. `remaining` denotes
+   *          the remaining tokens, `limit` is the effective limit (considering dynamic
+   *          limits if enabled), and `reset` denotes the timestamp when the tokens reset.
    */
   public getRemaining = async (identifier: string): Promise<{
     remaining: number;
     reset: number;
+    limit: number;
   }> => {
     const pattern = [this.prefix, identifier].join(":");
 
@@ -469,13 +470,13 @@ export abstract class Ratelimit<TContext extends Context> {
    * 
    * @example
    * ```ts
-   * const limit = await ratelimit.getDynamicLimit();
-   * console.log(limit); // 120 or null if not set
+   * const { dynamicLimit } = await ratelimit.getDynamicLimit();
+   * console.log(dynamicLimit); // 120 or null if not set
    * ```
    * 
-   * @returns The current global dynamic limit, or null if not set
+   * @returns Object containing the current global dynamic limit, or null if not set
    */
-  public getDynamicLimit = async (): Promise<number | null> => {
+  public getDynamicLimit = async (): Promise<{ dynamicLimit: number | null }> => {
     if (!this.dynamicLimits) {
       throw new Error(
         "dynamicLimits must be enabled in the Ratelimit constructor to use getDynamicLimit()"
@@ -484,6 +485,6 @@ export abstract class Ratelimit<TContext extends Context> {
 
     const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
     const result = await this.primaryRedis.get(globalKey);
-    return result === null ? null : Number(result);
+    return { dynamicLimit: result === null ? null : Number(result) };
   };
 }

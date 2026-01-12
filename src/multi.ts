@@ -338,6 +338,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (bucket + 1) * windowDuration,
+          limit: tokens
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
@@ -566,6 +567,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (currentWindow + 1) * windowSize,
+          limit: tokens
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {

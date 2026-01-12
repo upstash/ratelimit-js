@@ -230,7 +230,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
-        const [remaining] = await safeEval(
+        const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
           [key, dynamicLimitKey],
@@ -239,7 +239,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           remaining: Math.max(0, remaining),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
+          limit: effectiveLimit
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -353,7 +354,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
-        const [remaining] = await safeEval(
+        const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
           [currentKey, previousKey, dynamicLimitKey],
@@ -362,7 +363,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           remaining: Math.max(0, remaining),
-          reset: (currentWindow + 1) * windowSize
+          reset: (currentWindow + 1) * windowSize,
+          limit: effectiveLimit
         }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -470,7 +472,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
           : "";
 
-        const [remainingTokens, refilledAt] = await safeEval(
+        const [remainingTokens, refilledAt, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
           [identifier, dynamicLimitKey],
@@ -481,8 +483,9 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const identifierRefillsAt = refilledAt + intervalDuration
 
         return {
-          remaining: remainingTokens,
-          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt
+          remaining: Math.max(0, remainingTokens),
+          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt,
+          limit: effectiveLimit
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -607,7 +610,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           const cachedUsedTokens = ctx.cache.get(key) ?? 0;
           return {
             remaining: Math.max(0, tokens - cachedUsedTokens),
-            reset: (bucket + 1) * windowDuration
+            reset: (bucket + 1) * windowDuration,
+            limit: tokens
           };
         }
 
@@ -619,7 +623,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         ) as number;
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
+          limit: tokens
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {

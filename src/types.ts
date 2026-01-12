@@ -105,7 +105,8 @@ export type Algorithm<TContext> = () => {
   ) => Promise<RatelimitResponse>;
   getRemaining: (ctx: TContext, identifier: string) => Promise<{
     remaining: number,
-    reset: number
+    reset: number,
+    limit: number
   }>;
   resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
