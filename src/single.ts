@@ -3,6 +3,7 @@ import { ms } from "./duration";
 import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
+import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
 import { Ratelimit } from "./ratelimit";
 import type { Algorithm, RegionContext } from "./types";
@@ -88,6 +89,17 @@ export type RegionRatelimitConfig = {
    * @default 6
    */
   denyListThreshold?: number
+
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * before applying the regular limit. This allows you to change the rate
+   * limit at runtime using setDynamicLimit().
+   *
+   * When enabled, adds +1 Redis command (GET) to every limit check.
+   *
+   * @default false
+   */
+  dynamicLimits?: boolean;
 };
 
 /**
@@ -118,10 +130,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       analytics: config.analytics,
       ctx: {
         redis: config.redis as RedisCore,
+        prefix: config.prefix ?? DEFAULT_PREFIX,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
-      denyListThreshold: config.denyListThreshold
+      denyListThreshold: config.denyListThreshold,
+      dynamicLimits: config.dynamicLimits
     });
   }
 
@@ -174,18 +188,21 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             };
           }
         }
+        
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
-        const usedTokensAfterUpdate = await safeEval(
+        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
-          [key],
-          [windowDuration, incrementBy],
-        ) as number;
+          [key, dynamicLimitKey],
+          [tokens, windowDuration, incrementBy],
+        ) as [number, number];
 
-        const success = usedTokensAfterUpdate <= tokens;
-
-        const remainingTokens = Math.max(0, tokens - usedTokensAfterUpdate);
-
+        const success = usedTokensAfterUpdate <= effectiveLimit;
+        const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
         const reset = (bucket + 1) * windowDuration;
         if (ctx.cache) {
           if (!success) {
@@ -198,7 +215,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           success,
-          limit: tokens,
+          limit: effectiveLimit,
           remaining: remainingTokens,
           reset,
           pending: Promise.resolve(),
@@ -208,16 +225,22 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const usedTokens = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
-          [key],
-          [null],
-        ) as number;
+          [key, dynamicLimitKey],
+          [tokens],
+        ) as [number, number];
 
         return {
-          remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          remaining: Math.max(0, remaining),
+          reset: (bucket + 1) * windowDuration,
+          limit: effectiveLimit
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -266,7 +289,6 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
         const now = Date.now();
-
         const currentWindow = Math.floor(now / windowSize);
         const currentKey = [identifier, currentWindow].join(":");
         const previousWindow = currentWindow - 1;
@@ -288,16 +310,21 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const remainingTokens = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remainingTokens, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
-          [currentKey, previousKey],
+          [currentKey, previousKey, dynamicLimitKey],
           [tokens, now, windowSize, incrementBy],
-        ) as number;
+        ) as [number, number];
 
         const success = remainingTokens >= 0;
-
         const reset = (currentWindow + 1) * windowSize;
+
         if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
@@ -306,9 +333,10 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             ctx.cache.pop(identifier);
           }
         }
+        
         return {
           success,
-          limit: tokens,
+          limit: effectiveLimit,
           remaining: Math.max(0, remainingTokens),
           reset,
           pending: Promise.resolve(),
@@ -321,16 +349,22 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        const usedTokens = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
-          [currentKey, previousKey],
-          [now, windowSize],
-        ) as number;
+          [currentKey, previousKey, dynamicLimitKey],
+          [tokens, now, windowSize],
+        ) as [number, number];
 
         return {
-          remaining: Math.max(0, tokens - usedTokens),
-          reset: (currentWindow + 1) * windowSize
+          remaining: Math.max(0, remaining),
+          reset: (currentWindow + 1) * windowSize,
+          limit: effectiveLimit
         }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -401,14 +435,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        const [remaining, reset] = await safeEval(
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
+
+        const [remaining, reset, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
-          [identifier],
+          [identifier, dynamicLimitKey],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
         const success = remaining >= 0;
+        
         if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
@@ -420,27 +460,32 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         return {
           success,
-          limit: maxTokens,
-          remaining,
+          limit: effectiveLimit,
+          remaining: Math.max(0, remaining),
           reset,
           pending: Promise.resolve(),
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
+        // Prepare dynamic limit key if enabled
+        const dynamicLimitKey = ctx.dynamicLimits 
+          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
+          : "";
 
-        const [remainingTokens, refilledAt] = await safeEval(
+        const [remainingTokens, refilledAt, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
-          [identifier],
+          [identifier, dynamicLimitKey],
           [maxTokens],
-        ) as [number, number];
+        ) as [number, number, number];
 
         const freshRefillAt = Date.now() + intervalDuration
         const identifierRefillsAt = refilledAt + intervalDuration
 
         return {
-          remaining: remainingTokens,
-          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt
+          remaining: Math.max(0, remainingTokens),
+          reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt,
+          limit: effectiveLimit
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -499,6 +544,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
+        
+        if (ctx.dynamicLimits) {
+          console.warn(
+            "Warning: Dynamic limits are not yet supported for cachedFixedWindow algorithm. " +
+            "The dynamicLimits option will be ignored."
+          );
+        }
+        
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const reset = (bucket + 1) * windowDuration;
@@ -557,7 +610,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           const cachedUsedTokens = ctx.cache.get(key) ?? 0;
           return {
             remaining: Math.max(0, tokens - cachedUsedTokens),
-            reset: (bucket + 1) * windowDuration
+            reset: (bucket + 1) * windowDuration,
+            limit: tokens
           };
         }
 
@@ -569,7 +623,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         ) as number;
         return {
           remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration
+          reset: (bucket + 1) * windowDuration,
+          limit: tokens
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {

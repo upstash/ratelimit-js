@@ -1,4 +1,5 @@
 import { Cache } from "./cache";
+import { DEFAULT_PREFIX } from "./constants";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
@@ -81,6 +82,18 @@ export type MultiRegionRatelimitConfig = {
    * @default true
    */
   cacheScripts?: boolean;
+
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * before applying the regular limit. This allows you to change the rate
+   * limit at runtime using setDynamicLimit().
+   *
+   * Note: Dynamic limits are not yet supported for multi-region rate limiters.
+   * This option will be ignored for MultiRegionRatelimit.
+   *
+   * @default false
+   */
+  dynamicLimits?: boolean;
 };
 
 /**
@@ -108,15 +121,24 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       limiter: config.limiter,
       timeout: config.timeout,
       analytics: config.analytics,
+      dynamicLimits: config.dynamicLimits,
       ctx: {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
+          prefix: config.prefix ?? DEFAULT_PREFIX,
         })),
         cache: config.ephemeralCache
           ? new Cache(config.ephemeralCache)
           : undefined,
       },
     });
+    
+    if (config.dynamicLimits) {
+      console.warn(
+        "Warning: Dynamic limits are not yet supported for multi-region rate limiters. " +
+        "The dynamicLimits option will be ignored."
+      );
+    }
   }
 
   /**
@@ -316,6 +338,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (bucket + 1) * windowDuration,
+          limit: tokens
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
@@ -544,6 +567,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (currentWindow + 1) * windowSize,
+          limit: tokens
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {

@@ -22,6 +22,15 @@ export type EphemeralCache = {
 export type RegionContext = {
   redis: Redis;
   cache?: EphemeralCache,
+  /**
+   * If enabled, the ratelimiter will check for dynamic limits in Redis
+   * using MGET before applying the regular limit.
+   */
+  dynamicLimits?: boolean;
+  /**
+   * The prefix used for Redis keys
+   */
+  prefix: string;
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
@@ -96,7 +105,8 @@ export type Algorithm<TContext> = () => {
   ) => Promise<RatelimitResponse>;
   getRemaining: (ctx: TContext, identifier: string) => Promise<{
     remaining: number,
-    reset: number
+    reset: number,
+    limit: number
   }>;
   resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
