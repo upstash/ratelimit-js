@@ -4,6 +4,11 @@ on:
   release:
     types:
       - published
+  workflow_call:
+    outputs:
+      version:
+        description: "The released package version"
+        value: ${{ jobs.release.outputs.version }}
 
 permissions:
   id-token: write  # Required for OIDC
@@ -13,12 +18,30 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Set env
-        run: echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Get version (release event)
+        if: github.event_name == 'release'
+        id: release-version
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+
+      - name: Get version (workflow call - canary)
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+        id: canary-version
+        run: echo "version=0.0.0-ci.${GITHUB_SHA}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Set version output
+        id: version
+        run: |
+          if [ -n "${{ steps.release-version.outputs.version }}" ]; then
+            echo "version=${{ steps.release-version.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ steps.canary-version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -27,7 +50,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Set package version
-        run: echo $(jq --arg v "${{ env.VERSION }}" '(.version) = $v' package.json) > package.json
+        run: echo $(jq --arg v "${{ steps.version.outputs.version }}" '(.version) = $v' package.json) > package.json
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -41,9 +64,13 @@ jobs:
         run: bun run build
 
       - name: Publish release candidate
-        if: "github.event.release.prerelease"
-        run: npm publish --access public --tag=canary --no-git-checks
+        if: github.event_name == 'release' && github.event.release.prerelease
+        run: npm publish --access public --tag=canary --provenance --no-git-checks
 
-      - name: Publish
-        if: "!github.event.release.prerelease"
-        run: npm publish --access public --no-git-checks
+      - name: Publish stable release
+        if: github.event_name == 'release' && !github.event.release.prerelease
+        run: npm publish --access public --provenance --no-git-checks
+
+      - name: Publish canary (workflow call)
+        if: github.event_name != 'release'
+        run: npm publish --access public --tag=ci --provenance --no-git-checks
