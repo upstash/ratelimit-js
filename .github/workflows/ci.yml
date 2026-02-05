@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  release:
+    types:
+      - published
+  schedule:
+    - cron: "0 0 * * *" # daily
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  tests:
+    if: github.event_name != 'release'
+    uses: ./.github/workflows/tests.yaml
+    secrets: inherit
+
+  release:
+    if: github.event_name == 'release'
+    uses: ./.github/workflows/release.yml
+    with:
+      prerelease: ${{ github.event.release.prerelease }}
+    secrets: inherit

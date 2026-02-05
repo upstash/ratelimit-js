@@ -1,18 +1,16 @@
 name: Release
 
 on:
-  release:
-    types:
-      - published
   workflow_call:
+    inputs:
+      prerelease:
+        description: "Whether this is a prerelease"
+        type: boolean
+        required: true
     outputs:
       version:
         description: "The released package version"
         value: ${{ jobs.release.outputs.version }}
-
-permissions:
-  id-token: write  # Required for OIDC
-  contents: read
 
 jobs:
   release:
@@ -24,24 +22,9 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Get version (release event)
-        if: github.event_name == 'release'
-        id: release-version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-
-      - name: Get version (workflow call - canary)
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'schedule'
-        id: canary-version
-        run: echo "version=0.0.0-ci.${GITHUB_SHA}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
-
-      - name: Set version output
+      - name: Get version
         id: version
-        run: |
-          if [ -n "${{ steps.release-version.outputs.version }}" ]; then
-            echo "version=${{ steps.release-version.outputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ steps.canary-version.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,14 +46,10 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Publish release candidate
-        if: github.event_name == 'release' && github.event.release.prerelease
+      - name: Publish prerelease
+        if: inputs.prerelease
         run: npm publish --access public --tag=canary --provenance --no-git-checks
 
       - name: Publish stable release
-        if: github.event_name == 'release' && !github.event.release.prerelease
+        if: ${{ !inputs.prerelease }}
         run: npm publish --access public --provenance --no-git-checks
-
-      - name: Publish canary (workflow call)
-        if: github.event_name != 'release'
-        run: npm publish --access public --tag=ci --provenance --no-git-checks
