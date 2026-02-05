@@ -252,7 +252,7 @@ jobs:
         run: bun run build
 
       - name: Publish CI canary
-        run: npm publish --access public --tag=ci --provenance --no-git-checks
+        run: npm publish --access public --tag=ci --provenance
 
       - name: Sleep
         run: sleep 5
