@@ -6,6 +6,10 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:upstash/ratelimit-js.git"
+  },
   "scripts": {
     "build": "tsup",
     "test": "bun test src --coverage",

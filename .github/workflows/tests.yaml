@@ -1,8 +1,6 @@
 name: Tests
 on:
-  pull_request:
-  schedule:
-    - cron: "0 0 * * *" # daily
+  workflow_call:
 
 env:
   UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
@@ -214,9 +212,9 @@ jobs:
       - name: Test
         run: bun test ci.test.ts
         working-directory: examples/nextjs
-  
+
   release:
-    name: Release
+    name: Release Canary
     concurrency: release
     needs:
       - cloudflare-workers-local
@@ -227,16 +225,17 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get version
         id: version
         run: echo "::set-output name=version::v0.0.0-ci.${GITHUB_SHA}-$(date +%Y%m%d%H%M%S)"
 
       - name: Setup Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - name: Set package version
         run: echo $(jq --arg v "${{ steps.version.outputs.version }}" '(.version) = $v' package.json) > package.json
@@ -252,11 +251,8 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Add npm token
-        run: echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
-
-      - name: Publish release candidate
-        run: npm publish --access public --tag=ci
+      - name: Publish CI canary
+        run: npm publish --access public --tag=ci --provenance
 
       - name: Sleep
         run: sleep 5
