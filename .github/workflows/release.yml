@@ -7,24 +7,17 @@ on:
         description: "Whether this is a prerelease"
         type: boolean
         required: true
-    outputs:
-      version:
-        description: "The released package version"
-        value: ${{ jobs.release.outputs.version }}
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - name: Set env
+        run: echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,7 +26,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Set package version
-        run: echo $(jq --arg v "${{ steps.version.outputs.version }}" '(.version) = $v' package.json) > package.json
+        run: echo $(jq --arg v "${{ env.VERSION }}" '(.version) = $v' package.json) > package.json
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1

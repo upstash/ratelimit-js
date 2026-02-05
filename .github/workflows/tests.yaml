@@ -74,83 +74,6 @@ jobs:
         env:
           DEPLOYMENT_URL: http://127.0.0.1:8787
 
-  nextjs-local:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup repo
-        uses: actions/checkout@v3
-      - name: Setup nodejs
-        uses: actions/setup-node@v3
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Build
-        run: bun run build
-
-      - name: Install example
-        run: bun add @upstash/ratelimit@../..
-        working-directory: examples/nextjs
-
-      - name: Build example
-        run: bun run build
-        working-directory: examples/nextjs
-
-      - name: Run example
-        run: npm run start &
-        working-directory: examples/nextjs
-
-      - name: Test
-        run: bun test ci.test.ts
-        working-directory: examples/nextjs
-        env:
-          DEPLOYMENT_URL: http://localhost:3000
-
-  release:
-    name: Release Canary
-    concurrency: release
-    needs:
-      - cloudflare-workers-local
-      - nextjs-local
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: echo "version=0.0.0-ci.${GITHUB_SHA}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - name: Set package version
-        run: echo $(jq --arg v "${{ steps.version.outputs.version }}" '(.version) = $v' package.json) > package.json
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build
-        run: bun run build
-
-      - name: Publish CI canary
-        run: npm publish --access public --tag=ci --provenance --no-git-checks
-
   cloudflare-workers-deployed:
     concurrency: cloudflare-workers-deployed
     needs:
@@ -196,6 +119,44 @@ jobs:
         run: bun test examples/cloudflare-workers/ci.test.ts
         env:
           DEPLOYMENT_URL: https://upstash-ratelimit.upsdev.workers.dev
+
+  nextjs-local:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v3
+      - name: Setup nodejs
+        uses: actions/setup-node@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Install example
+        run: bun add @upstash/ratelimit@../..
+        working-directory: examples/nextjs
+
+      - name: Build example
+        run: bun run build
+        working-directory: examples/nextjs
+
+      - name: Run example
+        run: npm run start &
+        working-directory: examples/nextjs
+
+      - name: Test
+        run: bun test ci.test.ts
+        working-directory: examples/nextjs
+        env:
+          DEPLOYMENT_URL: http://localhost:3000
+
 
   nextjs-deployed:
     concurrency: nextjs-deployed
@@ -251,3 +212,47 @@ jobs:
       - name: Test
         run: bun test ci.test.ts
         working-directory: examples/nextjs
+
+  release:
+    name: Release Canary
+    concurrency: release
+    needs:
+      - cloudflare-workers-local
+      - nextjs-local
+
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: echo "::set-output name=version::v0.0.0-ci.${GITHUB_SHA}-$(date +%Y%m%d%H%M%S)"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Set package version
+        run: echo $(jq --arg v "${{ steps.version.outputs.version }}" '(.version) = $v' package.json) > package.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish CI canary
+        run: npm publish --access public --tag=ci --provenance --no-git-checks
+
+      - name: Sleep
+        run: sleep 5
