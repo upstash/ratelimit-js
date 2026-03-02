@@ -1,5 +1,5 @@
 ---
-name: ratelimit-ts
+name: upstash-ratelimit-ts
 description: Lightweight guidance for using the Redis Rate Limit TypeScript SDK, including setup steps, basic usage, and pointers to advanced algorithm, features, pricing, and traffic‑protection docs.
 ---
 
