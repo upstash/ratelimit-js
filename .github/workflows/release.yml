@@ -28,6 +28,9 @@ jobs:
       - name: Set package version
         run: echo $(jq --arg v "${{ env.VERSION }}" '(.version) = $v' package.json) > package.json
 
+      - name: Set telemetry version
+        run: echo "export const VERSION = \"${{ env.VERSION }}\";" > src/version.ts
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:

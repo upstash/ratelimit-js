@@ -6,6 +6,7 @@ import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
 import { Ratelimit } from "./ratelimit";
+import { addTelemetry } from "./telemetry";
 import type { Algorithm, RegionContext } from "./types";
 import type { Redis as RedisCore } from "./types";
 
@@ -100,6 +101,18 @@ export type RegionRatelimitConfig = {
    * @default false
    */
   dynamicLimits?: boolean;
+
+  /**
+   * Enable telemetry to help us improve the SDK.
+   *
+   * The sdk name and version are sent to Upstash as a header on the requests
+   * made by the redis client you provide.
+   *
+   * Can also be disabled with the `UPSTASH_DISABLE_TELEMETRY` env variable.
+   *
+   * @default true
+   */
+  enableTelemetry?: boolean;
 };
 
 /**
@@ -137,6 +150,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       denyListThreshold: config.denyListThreshold,
       dynamicLimits: config.dynamicLimits
     });
+
+    addTelemetry(config.redis, config.enableTelemetry);
   }
 
   /**

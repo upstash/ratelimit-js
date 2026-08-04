@@ -78,6 +78,25 @@ For more information on getting started, you can refer to [our documentation](ht
 
 See [the documentation](https://upstash.com/docs/redis/sdks/ratelimit-ts/overview) for more information details about this package.
 
+## Telemetry
+
+The SDK reports its name and version to Upstash as a header on the requests made
+by the redis client you provide, so we know which SDK versions are in use. No
+personal data, keys or identifiers are collected.
+
+You can opt out with `enableTelemetry: false`:
+
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  enableTelemetry: false,
+});
+```
+
+or by setting the `UPSTASH_DISABLE_TELEMETRY` environment variable. Disabling
+telemetry on the redis client itself also disables it here.
+
 ## Contributing
 
 ### Database
