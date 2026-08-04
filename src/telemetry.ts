@@ -22,7 +22,7 @@ const getSafeEnv = (): Record<string, string | undefined> =>
  * Reports the sdk name and version to Upstash through the redis client's
  * telemetry headers. The redis client itself already reports the platform and
  * the runtime, so we only append our own sdk tag, resulting in a header like
- * `@upstash/redis@1.35.0,@upstash/ratelimit@1.1.2`.
+ * `@upstash/redis@1.35.0,@upstash/ratelimit@2.0.8`.
  *
  * Opt out with `enableTelemetry: false` in the Ratelimit config, with the same
  * option on the redis client, or with the `UPSTASH_DISABLE_TELEMETRY` env var.

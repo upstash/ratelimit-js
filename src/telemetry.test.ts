@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
+import { MultiRegionRatelimit } from "./multi";
+import { RegionRatelimit } from "./single";
 import { addTelemetry } from "./telemetry";
 import { VERSION } from "./version";
 
@@ -63,5 +65,51 @@ describe("addTelemetry", () => {
     };
 
     expect(() => addTelemetry(client)).not.toThrow();
+  });
+});
+
+describe("constructor wiring", () => {
+  test("RegionRatelimit tags its redis client", () => {
+    const { client, calls } = createRedisMock();
+    new RegionRatelimit({
+      redis: client as never,
+      limiter: RegionRatelimit.slidingWindow(10, "10 s"),
+    });
+
+    expect(calls).toEqual([{ sdk: `@upstash/ratelimit@${VERSION}` }]);
+  });
+
+  test("RegionRatelimit respects enableTelemetry: false", () => {
+    const { client, calls } = createRedisMock();
+    new RegionRatelimit({
+      redis: client as never,
+      limiter: RegionRatelimit.slidingWindow(10, "10 s"),
+      enableTelemetry: false,
+    });
+
+    expect(calls.length).toBe(0);
+  });
+
+  test("MultiRegionRatelimit tags every redis client once", () => {
+    const first = createRedisMock();
+    const second = createRedisMock();
+    new MultiRegionRatelimit({
+      redis: [first.client, second.client] as never,
+      limiter: MultiRegionRatelimit.slidingWindow(10, "10 s"),
+    });
+
+    expect(first.calls).toEqual([{ sdk: `@upstash/ratelimit@${VERSION}` }]);
+    expect(second.calls).toEqual([{ sdk: `@upstash/ratelimit@${VERSION}` }]);
+  });
+
+  test("MultiRegionRatelimit respects enableTelemetry: false", () => {
+    const { client, calls } = createRedisMock();
+    new MultiRegionRatelimit({
+      redis: [client] as never,
+      limiter: MultiRegionRatelimit.slidingWindow(10, "10 s"),
+      enableTelemetry: false,
+    });
+
+    expect(calls.length).toBe(0);
   });
 });
