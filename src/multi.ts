@@ -6,6 +6,7 @@ import { safeEval } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 
 import { Ratelimit } from "./ratelimit";
+import { addTelemetry } from "./telemetry";
 import type { Algorithm, MultiRegionContext } from "./types";
 
 import type { Redis } from "./types";
@@ -94,6 +95,18 @@ export type MultiRegionRatelimitConfig = {
    * @default false
    */
   dynamicLimits?: boolean;
+
+  /**
+   * Enable telemetry to help us improve the SDK.
+   *
+   * The sdk name and version are sent to Upstash as a header on the requests
+   * made by the redis clients you provide.
+   *
+   * Can also be disabled with the `UPSTASH_DISABLE_TELEMETRY` env variable.
+   *
+   * @default true
+   */
+  enableTelemetry?: boolean;
 };
 
 /**
@@ -132,7 +145,11 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           : undefined,
       },
     });
-    
+
+    for (const redis of config.redis) {
+      addTelemetry(redis, config.enableTelemetry);
+    }
+
     if (config.dynamicLimits) {
       console.warn(
         "Warning: Dynamic limits are not yet supported for multi-region rate limiters. " +
