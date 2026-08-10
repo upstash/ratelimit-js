@@ -8,7 +8,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:upstash/ratelimit-js.git"
+    "url": "git+https://github.com/upstash/ratelimit-js.git"
   },
   "scripts": {
     "build": "tsup",
@@ -31,5 +31,9 @@
   "license": "MIT",
   "dependencies": {
     "@upstash/core-analytics": "^0.0.10"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/upstash/ratelimit-js/issues"
+  },
+  "homepage": "https://github.com/upstash/ratelimit-js#readme"
 }
