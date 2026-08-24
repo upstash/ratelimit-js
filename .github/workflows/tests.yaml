@@ -19,6 +19,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     name: Tests
+    # The suite shares one Redis database across runs and some tests flushdb();
+    # concurrent runs (e.g. two quick pushes) wipe each other's keys mid-test.
+    concurrency:
+      group: tests-shared-redis
+      cancel-in-progress: false
     steps:
       - name: Setup repo
         uses: actions/checkout@v2
