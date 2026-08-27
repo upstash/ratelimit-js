@@ -19,6 +19,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     name: Tests
+    # The suite shares one Redis database across runs and some tests flushdb();
+    # concurrent runs (e.g. two quick pushes) wipe each other's keys mid-test.
+    concurrency:
+      group: tests-shared-redis
+      cancel-in-progress: false
     steps:
       - name: Setup repo
         uses: actions/checkout@v2
@@ -254,5 +259,18 @@ jobs:
       - name: Publish CI canary
         run: npm publish --access public --tag=ci --provenance
 
-      - name: Sleep
-        run: sleep 5
+      - name: Wait for npm to serve the ci version
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${VERSION#v}"
+          for i in $(seq 1 36); do
+            if npm view "@upstash/ratelimit@${VERSION}" version >/dev/null 2>&1; then
+              echo "@upstash/ratelimit@${VERSION} is available on npm"
+              exit 0
+            fi
+            echo "waiting for @upstash/ratelimit@${VERSION} to appear on npm ($i/36)..."
+            sleep 5
+          done
+          echo "::error::@upstash/ratelimit@${VERSION} not visible on npm after 3 minutes"
+          exit 1
