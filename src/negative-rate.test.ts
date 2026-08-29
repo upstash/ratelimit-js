@@ -253,3 +253,35 @@ describe("cachedFixedWindow", () => {
   describe("region", () =>
     run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
 });
+
+// Token-bucket only: a rejected request must not consume tokens. This assertion
+// does not hold for the window algorithms (they count-then-reject, so an
+// over-limit request still increments), so it lives outside run().
+describe("tokenBucket rejected request keeps the bucket intact", () => {
+  const builder = newRegion(
+    RegionRatelimit.tokenBucket(limit, windowString, limit)
+  );
+
+  test("a rate larger than the remaining tokens rejects without deducting", async () => {
+    const id = crypto.randomUUID();
+
+    // Leave 2 tokens in a bucket of `limit`.
+    const first = await builder.limit(id, { rate: limit - 2 });
+    expect(first.success).toBe(true);
+    await first.pending;
+    expect((await builder.getRemaining(id)).remaining).toBe(2);
+
+    // 2 tokens left, ask for 5: it must be rejected AND leave the bucket at 2,
+    // not drive it negative (which would lock the identifier out well past the
+    // rejected request).
+    const denied = await builder.limit(id, { rate: 5 });
+    expect(denied.success).toBe(false);
+    await denied.pending;
+    expect((await builder.getRemaining(id)).remaining).toBe(2);
+
+    // The 2 tokens the denied request must not have touched are still spendable.
+    const ok = await builder.limit(id, { rate: 2 });
+    expect(ok.success).toBe(true);
+    expect(ok.remaining).toBe(0);
+  });
+});
