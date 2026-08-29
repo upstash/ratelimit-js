@@ -165,8 +165,12 @@ export const tokenBucketLimitScript = `
     refilledAt = refilledAt + numRefills * interval
   end
 
-  -- Only reject if tokens are 0 and we're consuming (not refunding)
-  if tokens == 0 and incrementBy > 0 then
+  -- Only reject when consuming (not refunding) and there are not enough tokens
+  -- for this request. Checking tokens == 0 only covered incrementBy == 1: with
+  -- a larger rate (e.g. 2 tokens left, incrementBy 5) the request fell through,
+  -- drove tokens negative and still wrote it back, so a rejected request
+  -- consumed tokens and a single large rate could lock the identifier out.
+  if incrementBy > 0 and tokens < incrementBy then
     return {-1, refilledAt + interval, effectiveLimit}
   end
 
