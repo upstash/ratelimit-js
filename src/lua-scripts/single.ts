@@ -7,7 +7,7 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -31,7 +31,7 @@ export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -58,7 +58,7 @@ export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -102,7 +102,7 @@ export const slidingWindowRemainingTokensScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -138,7 +138,7 @@ export const tokenBucketLimitScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = maxTokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -190,7 +190,7 @@ export const tokenBucketRemainingTokensScript = `#!lua flags=allow-key-locking
 
   -- Check for dynamic limit
   local effectiveLimit = maxTokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)

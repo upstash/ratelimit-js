@@ -26,31 +26,31 @@ export const SCRIPTS: {
     fixedWindow: {
       limit: {
         script: Single.fixedWindowLimitScript,
-        hash: "4ef8749b9e927b157546ebad13061fa86b9ffc2e"
+        hash: "b2efc02798c8e9b471a10f9b1d5745db89923ff3"
       },
       getRemaining: {
         script: Single.fixedWindowRemainingTokensScript,
-        hash: "e62252cb05b4676b27a5d396da02f0ca0d375d88"
+        hash: "823cb2a5a902d69681244f5e28e5ebb8f2a89edd"
       },
     },
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "5cd9665be7533e4dfabb3581021737fc69b41ae8"
+        hash: "74740bb3d7792848093cdef586b6b6037c455fd6"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,
-        hash: "1bdbbdb2082bb557084518c64486d7d5a29d1bfe"
+        hash: "7ca36169e0fc9caedd81b4eef8e99854c157f9b5"
       },
     },
     tokenBucket: {
       limit: {
         script: Single.tokenBucketLimitScript,
-        hash: "8f7286b9b0f65d631f760ba615f7b3c598a569a3"
+        hash: "a9873a8026b509e99a49a0e5a2049756c693c384"
       },
       getRemaining: {
         script: Single.tokenBucketRemainingTokensScript,
-        hash: "08d3b3381c507b6f7bfec1bbfa0a6053434b16bd"
+        hash: "40daf4a441df736f5c99f8b77bbe176c909e5de4"
       },
     },
     cachedFixedWindow: {
