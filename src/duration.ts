@@ -1,32 +1,35 @@
-type Unit = "ms" | "s" | "m" | "h" | "d";
+type Unit = "ms" | "s" | "m" | "h" | "d" | "w";
 export type Duration = `${number} ${Unit}` | `${number}${Unit}`;
 
 /**
  * Convert a human readable duration to milliseconds
  */
 export function ms(d: Duration): number {
-  const match = d.match(/^(\d+)\s?(ms|s|m|h|d)$/);
+  const match = d.match(/^(\d+(?:\.\d+)?)\s?(ms|s|m|h|d|w)$/);
   if (!match) {
     throw new Error(`Unable to parse window size: ${d}`);
   }
-  const time = Number.parseInt(match[1]);
+  const time = Number.parseFloat(match[1]);
   const unit = match[2] as Unit;
 
   switch (unit) {
     case "ms": {
-      return time;
+      return Math.round(time);
     }
     case "s": {
-      return time * 1000;
+      return Math.round(time * 1000);
     }
     case "m": {
-      return time * 1000 * 60;
+      return Math.round(time * 1000 * 60);
     }
     case "h": {
-      return time * 1000 * 60 * 60;
+      return Math.round(time * 1000 * 60 * 60);
     }
     case "d": {
-      return time * 1000 * 60 * 60 * 24;
+      return Math.round(time * 1000 * 60 * 60 * 24);
+    }
+    case "w": {
+      return Math.round(time * 1000 * 60 * 60 * 24 * 7);
     }
 
     default: {
