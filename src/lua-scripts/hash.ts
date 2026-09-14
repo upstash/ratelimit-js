@@ -26,41 +26,41 @@ export const SCRIPTS: {
     fixedWindow: {
       limit: {
         script: Single.fixedWindowLimitScript,
-        hash: "472e55443b62f60d0991028456c57815a387066d"
+        hash: "b2efc02798c8e9b471a10f9b1d5745db89923ff3"
       },
       getRemaining: {
         script: Single.fixedWindowRemainingTokensScript,
-        hash: "40515c9dd0a08f8584f5f9b593935f6a87c1c1c3"
+        hash: "823cb2a5a902d69681244f5e28e5ebb8f2a89edd"
       },
     },
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "977fb636fb5ceb7e98a96d1b3a1272ba018efdae"
+        hash: "74740bb3d7792848093cdef586b6b6037c455fd6"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,
-        hash: "ee3a3265fad822f83acad23f8a1e2f5c0b156b03"
+        hash: "7ca36169e0fc9caedd81b4eef8e99854c157f9b5"
       },
     },
     tokenBucket: {
       limit: {
         script: Single.tokenBucketLimitScript,
-        hash: "b35c5bc0b7fdae7dd0573d4529911cabaf9d1d89"
+        hash: "a9873a8026b509e99a49a0e5a2049756c693c384"
       },
       getRemaining: {
         script: Single.tokenBucketRemainingTokensScript,
-        hash: "deb03663e8af5a968deee895dd081be553d2611b"
+        hash: "40daf4a441df736f5c99f8b77bbe176c909e5de4"
       },
     },
     cachedFixedWindow: {
       limit: {
         script: Single.cachedFixedWindowLimitScript,
-        hash: "c26b12703dd137939b9a69a3a9b18e906a2d940f"
+        hash: "1861a700bafe96c833a483af6b1c28a8897cfdb0"
       },
       getRemaining: {
         script: Single.cachedFixedWindowRemainingTokenScript,
-        hash: "8e8f222ccae68b595ee6e3f3bf2199629a62b91a"
+        hash: "eb82f0e853d2fc9a236fa9bfbe704fda6ac2fc36"
       },
     }
   },
@@ -68,21 +68,21 @@ export const SCRIPTS: {
     fixedWindow: {
       limit: {
         script: Multi.fixedWindowLimitScript,
-        hash: "a8c14f3835aa87bd70e5e2116081b81664abcf5c"
+        hash: "e04b753a75909b7f99aae4c04cf8869a8de02a9e"
       },
       getRemaining: {
         script: Multi.fixedWindowRemainingTokensScript,
-        hash: "8ab8322d0ed5fe5ac8eb08f0c2e4557f1b4816fd"
+        hash: "e066c8ce3eaca142b0894ad1541e0a58c9924819"
       },
     },
     slidingWindow: {
       limit: {
         script: Multi.slidingWindowLimitScript,
-        hash: "1e7ca8dcd2d600a6d0124a67a57ea225ed62921b"
+        hash: "aeb4d8f381e8dafc8e69041baae1324d254ded44"
       },
       getRemaining: {
         script: Multi.slidingWindowRemainingTokensScript,
-        hash: "558c9306b7ec54abb50747fe0b17e5d44bd24868"
+        hash: "87828c1088f6a8d1f512a434ea330189982a1c0a"
       },
     },
   }
