@@ -1,6 +1,6 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
-import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
+import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX, MIN_BLOCK_RETRY_DELAY } from "./constants";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
@@ -262,8 +262,13 @@ export abstract class Ratelimit<TContext extends Context> {
         throw new Error("This should not happen");
       }
 
+      // `reset` can already be in the past: the window turned over between the
+      // limit call and this line, or the client clock runs ahead of the server's.
+      // Passing the resulting negative delay to setTimeout makes Node use 1ms and
+      // emit a TimeoutNegativeWarning, so the wait becomes a hot poll loop until
+      // the deadline.
       const wait = Math.min(res.reset, deadline) - Date.now();
-      await new Promise((r) => setTimeout(r, wait));
+      await new Promise((r) => setTimeout(r, wait > 0 ? wait : MIN_BLOCK_RETRY_DELAY));
 
       if (Date.now() > deadline) {
         break;
