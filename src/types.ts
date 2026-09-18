@@ -48,6 +48,9 @@ export type RatelimitResponse = {
   limit: number;
   /**
    * How many requests the user has left within the current window.
+   *
+   * A rejected request does not consume anything, so this is the real number
+   * of tokens still available even when `success` is false.
    */
   remaining: number;
   /**

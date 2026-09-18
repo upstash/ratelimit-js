@@ -21,7 +21,7 @@ describe("single-region key locking", () => {
             redis: {
               evalsha: async (_hash: string, keys: string[]) => {
                 calls.push(keys);
-                return name === "tokenBucket" ? [9, Date.now(), 10] : [9, 10];
+                return name === "tokenBucket" ? [9, Date.now(), 10, 1] : [9, 10, 1];
               },
             } as unknown as RegionContext["redis"],
           };

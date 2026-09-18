@@ -32,8 +32,22 @@ describe("cachedFixedWindow boundary", () => {
     expect(second.success).toBe(true);
     expect(second.remaining).toBe(0);
 
-    // Cache hit past the limit: rejected.
+    // Cache hit past the limit: rejected locally, nothing sent to redis.
     const third = await r.limit("id");
     expect(third.success).toBe(false);
+    expect(third.remaining).toBe(0);
+    expect(used).toBe(10);
+
+    // A cold instance sharing the counter: the rejection comes from redis and
+    // must roll back, leaving the counter at 10 and reporting 0 remaining.
+    const cold = new RegionRatelimit({
+      prefix: crypto.randomUUID(),
+      redis: { evalsha, eval: evalsha } as never,
+      limiter: RegionRatelimit.cachedFixedWindow(10, "10 s"),
+    });
+    const fourth = await cold.limit("id");
+    expect(fourth.success).toBe(false);
+    expect(fourth.remaining).toBe(0);
+    expect(used).toBe(10);
   });
 });

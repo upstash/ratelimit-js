@@ -26,7 +26,7 @@ export const SCRIPTS: {
     fixedWindow: {
       limit: {
         script: Single.fixedWindowLimitScript,
-        hash: "8530c6ef7de4f949e5b0de313eb8f30281d75566"
+        hash: "769ba248ca4687d66de92fe7ab5f6beb6d5c364e"
       },
       getRemaining: {
         script: Single.fixedWindowRemainingTokensScript,
@@ -36,7 +36,7 @@ export const SCRIPTS: {
     slidingWindow: {
       limit: {
         script: Single.slidingWindowLimitScript,
-        hash: "04732625198ef4d52752a78e20f9becb4495e008"
+        hash: "ad1b6b4de74135351159c4047a1a0f72b6c6b664"
       },
       getRemaining: {
         script: Single.slidingWindowRemainingTokensScript,
@@ -46,7 +46,7 @@ export const SCRIPTS: {
     tokenBucket: {
       limit: {
         script: Single.tokenBucketLimitScript,
-        hash: "d60be5bd3d83482ae229309f1f7425424f891204"
+        hash: "043a0f8a608a2aa44e275e4d7502894f82470757"
       },
       getRemaining: {
         script: Single.tokenBucketRemainingTokensScript,

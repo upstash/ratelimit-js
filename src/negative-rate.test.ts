@@ -76,9 +76,9 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       const refundResult = await builder.limit(id, { rate: -5 });
       expect(refundResult.success).toBe(true);
 
-      // Should have some tokens back
+      // The rejected 3 consumed nothing, so exactly the 5 refunded are back
       const afterRefund = await builder.getRemaining(id);
-      expect(afterRefund.remaining).toBeGreaterThan(0);
+      expect(afterRefund.remaining).toBe(5);
     });
 
     test("rate = 0 behavior", async () => {
@@ -164,14 +164,12 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       const overLimit = await builder.limit(id, { rate: limit + 1 });
       expect(overLimit.success).toBe(false);
 
-      // Second request should be cache blocked. cachedFixedWindow has no cache
-      // block, and the rejected request consumed nothing, so there it succeeds.
+      // The rejected request consumed nothing and tokens are left, so the
+      // cache must not block: a smaller request goes to Redis and succeeds.
       const overLimit2 = await builder.limit(id, { rate: 1 });
-      if (overLimit2.reason === "cacheBlock") {
-        expect(overLimit2.success).toBe(false);
-      } else {
-        expect(overLimit2.success).toBe(true);
-      }
+      expect(overLimit2.reason).toBeUndefined();
+      expect(overLimit2.success).toBe(true);
+      expect(overLimit2.remaining).toBe(limit - 1);
 
       // Refund to bring back under limit
       const refundResult = await builder.limit(id, { rate: -5 });

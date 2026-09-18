@@ -24,12 +24,13 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
   -- A rejected request must not use up the tokens that are still available:
   -- roll the increment back. The script is atomic, so the transient overshoot
   -- is never observed. Refunds (negative rate) always go through.
+  -- Returns {remaining, limit, accepted}.
   if incrementBy > 0 and r > effectiveLimit then
     redis.call("DECRBY", key, incrementBy)
-    return {-1, effectiveLimit}
+    return {effectiveLimit - (r - incrementBy), effectiveLimit, 0}
   end
 
-  return {effectiveLimit - r, effectiveLimit}
+  return {effectiveLimit - r, effectiveLimit, 1}
 `;
 
 export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
@@ -88,8 +89,9 @@ export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
 
   -- Reject before consuming, so a rejected request does not use up the
   -- tokens that are still available. Refunds (negative rate) always go through.
+  -- Returns {remaining, limit, accepted}.
   if incrementBy > 0 and requestsInPreviousWindow + requestsInCurrentWindow + incrementBy > effectiveLimit then
-    return {-1, effectiveLimit}
+    return {effectiveLimit - ( requestsInCurrentWindow + requestsInPreviousWindow ), effectiveLimit, 0}
   end
 
   local newValue = redis.call("INCRBY", currentKey, incrementBy)
@@ -98,7 +100,7 @@ export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
     -- So we only need the expire command once
     redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
   end
-  return {effectiveLimit - ( newValue + requestsInPreviousWindow ), effectiveLimit}
+  return {effectiveLimit - ( newValue + requestsInPreviousWindow ), effectiveLimit, 1}
 `;
 
 export const slidingWindowRemainingTokensScript = `#!lua flags=allow-key-locking
@@ -179,19 +181,20 @@ export const tokenBucketLimitScript = `#!lua flags=allow-key-locking
   -- a larger rate (e.g. 2 tokens left, incrementBy 5) the request fell through,
   -- drove tokens negative and still wrote it back, so a rejected request
   -- consumed tokens and a single large rate could lock the identifier out.
+  -- Returns {remaining, reset, limit, accepted}.
   if incrementBy > 0 and tokens < incrementBy then
-    return {-1, refilledAt + interval, effectiveLimit}
+    return {tokens, refilledAt + interval, effectiveLimit, 0}
   end
 
   local remaining = tokens - incrementBy
   local expireAt = math.ceil(((effectiveLimit - remaining) / refillRate)) * interval
-        
+
   redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
 
   if (expireAt > 0) then
     redis.call("PEXPIRE", key, expireAt)
   end
-  return {remaining, refilledAt + interval, effectiveLimit}
+  return {remaining, refilledAt + interval, effectiveLimit, 1}
 `;
 
 export const tokenBucketIdentifierNotFound = -1

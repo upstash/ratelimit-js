@@ -209,19 +209,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        // The script returns -1 as remaining when the request was rejected.
-        const [remaining, effectiveLimit] = await safeEval(
+        const [remaining, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
           [key, ...dynamicLimitKeys],
           [tokens, windowDuration, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
-        const success = remaining >= 0;
+        const success = accepted === 1;
         const remainingTokens = Math.max(0, remaining);
         const reset = (bucket + 1) * windowDuration;
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remainingTokens === 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -331,18 +332,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remainingTokens, effectiveLimit] = await safeEval(
+        const [remainingTokens, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
           [currentKey, previousKey, ...dynamicLimitKeys],
           [tokens, now, windowSize, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
-        const success = remainingTokens >= 0;
+        const success = accepted === 1;
         const reset = (currentWindow + 1) * windowSize;
 
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remainingTokens <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -456,17 +459,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remaining, reset, effectiveLimit] = await safeEval(
+        const [remaining, reset, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
           [identifier, ...dynamicLimitKeys],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number, number];
+        ) as [number, number, number, number];
 
-        const success = remaining >= 0;
-        
+        const success = accepted === 1;
+
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the bucket is empty; a rejected request
+            // that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -582,7 +587,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             return {
               success: false,
               limit: tokens,
-              remaining: 0,
+              remaining: Math.max(0, tokens - cachedTokens),
               reset: reset,
               pending: Promise.resolve(),
             };
@@ -599,7 +604,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           return {
             success: true,
             limit: tokens,
-            remaining: tokens - cachedTokensAfterUpdate,
+            remaining: Math.max(0, tokens - cachedTokensAfterUpdate),
             reset: reset,
             pending,
           };
@@ -617,8 +622,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         return {
           success: accepted === 1,
           limit: tokens,
-          // Like the other algorithms, a rejected request reports 0 remaining.
-          remaining: accepted === 1 ? tokens - usedTokens : 0,
+          remaining: Math.max(0, tokens - usedTokens),
           reset: reset,
           pending: Promise.resolve(),
         };

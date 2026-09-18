@@ -316,7 +316,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const reset = (bucket + 1) * windowDuration;
 
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -326,8 +328,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           success,
           limit: tokens,
-          // Like the other algorithms, a rejected request reports 0 remaining.
-          remaining: success ? remaining : 0,
+          remaining: Math.max(0, remaining),
           reset,
           pending: sync(),
         };
@@ -555,7 +556,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         // const success = remaining >= 0;
         const reset = (currentWindow + 1) * windowDuration;
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache

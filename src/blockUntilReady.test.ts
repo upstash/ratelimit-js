@@ -28,7 +28,7 @@ describe("blockUntilReady", () => {
 
     // Use up all tokens in the current window
     for (let i = 0; i < 3; i++) {
-      await limiter.limit(id, { rate: 5 });
+      await limiter.limit(id);
     }
 
     const start = Date.now();
