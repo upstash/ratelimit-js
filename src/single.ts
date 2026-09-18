@@ -204,15 +204,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
         
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
-          [key, dynamicLimitKey],
+          [key, ...dynamicLimitKeys],
           [tokens, windowDuration, incrementBy],
         ) as [number, number];
 
@@ -240,15 +240,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
-          [key, dynamicLimitKey],
+          [key, ...dynamicLimitKeys],
           [tokens],
         ) as [number, number];
 
@@ -325,15 +325,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [remainingTokens, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
-          [currentKey, previousKey, dynamicLimitKey],
+          [currentKey, previousKey, ...dynamicLimitKeys],
           [tokens, now, windowSize, incrementBy],
         ) as [number, number];
 
@@ -364,15 +364,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const previousWindow = currentWindow - 1;
         const previousKey = [identifier, previousWindow].join(":");
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
-          [currentKey, previousKey, dynamicLimitKey],
+          [currentKey, previousKey, ...dynamicLimitKeys],
           [tokens, now, windowSize],
         ) as [number, number];
 
@@ -450,15 +450,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           }
         }
 
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [remaining, reset, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
-          [identifier, dynamicLimitKey],
+          [identifier, ...dynamicLimitKeys],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
         ) as [number, number, number];
 
@@ -482,15 +482,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
-        // Prepare dynamic limit key if enabled
-        const dynamicLimitKey = ctx.dynamicLimits 
-          ? `${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`
-          : "";
+        // Only declare the dynamic limit key when used; every declared key is locked.
+        const dynamicLimitKeys = ctx.dynamicLimits
+          ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
+          : [];
 
         const [remainingTokens, refilledAt, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
-          [identifier, dynamicLimitKey],
+          [identifier, ...dynamicLimitKeys],
           [maxTokens],
         ) as [number, number, number];
 
@@ -575,7 +575,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
           const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          const success = cachedTokensAfterUpdate < tokens;
+          // used == tokens still succeeds, matching the cache-miss path below
+          const success = cachedTokensAfterUpdate <= tokens;
 
           const pending = success
             ? safeEval(

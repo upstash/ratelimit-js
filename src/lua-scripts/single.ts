@@ -1,4 +1,4 @@
-export const fixedWindowLimitScript = `
+export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
   local key           = KEYS[1]
   local dynamicLimitKey = KEYS[2]  -- optional: key for dynamic limit in redis
   local tokens        = tonumber(ARGV[1])  -- default limit
@@ -7,7 +7,7 @@ export const fixedWindowLimitScript = `
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -24,14 +24,14 @@ export const fixedWindowLimitScript = `
   return {r, effectiveLimit}
 `;
 
-export const fixedWindowRemainingTokensScript = `
+export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
   local key = KEYS[1]
   local dynamicLimitKey = KEYS[2]  -- optional: key for dynamic limit in redis
   local tokens = tonumber(ARGV[1])  -- default limit
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -47,7 +47,7 @@ export const fixedWindowRemainingTokensScript = `
   return {effectiveLimit - usedTokens, effectiveLimit}
 `;
 
-export const slidingWindowLimitScript = `
+export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
   local dynamicLimitKey = KEYS[3]       -- optional: key for dynamic limit in redis
@@ -58,7 +58,7 @@ export const slidingWindowLimitScript = `
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -92,7 +92,7 @@ export const slidingWindowLimitScript = `
   return {effectiveLimit - ( newValue + requestsInPreviousWindow ), effectiveLimit}
 `;
 
-export const slidingWindowRemainingTokensScript = `
+export const slidingWindowRemainingTokensScript = `#!lua flags=allow-key-locking
   local currentKey  = KEYS[1]           -- identifier including prefixes
   local previousKey = KEYS[2]           -- key of the previous bucket
   local dynamicLimitKey = KEYS[3]       -- optional: key for dynamic limit in redis
@@ -102,7 +102,7 @@ export const slidingWindowRemainingTokensScript = `
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -127,7 +127,7 @@ export const slidingWindowRemainingTokensScript = `
   return {effectiveLimit - usedTokens, effectiveLimit}
 `;
 
-export const tokenBucketLimitScript = `
+export const tokenBucketLimitScript = `#!lua flags=allow-key-locking
   local key         = KEYS[1]           -- identifier including prefixes
   local dynamicLimitKey = KEYS[2]       -- optional: key for dynamic limit in redis
   local maxTokens   = tonumber(ARGV[1]) -- default maximum number of tokens
@@ -138,7 +138,7 @@ export const tokenBucketLimitScript = `
 
   -- Check for dynamic limit
   local effectiveLimit = maxTokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -187,14 +187,14 @@ export const tokenBucketLimitScript = `
 
 export const tokenBucketIdentifierNotFound = -1
 
-export const tokenBucketRemainingTokensScript = `
+export const tokenBucketRemainingTokensScript = `#!lua flags=allow-key-locking
   local key         = KEYS[1]
   local dynamicLimitKey = KEYS[2]       -- optional: key for dynamic limit in redis
   local maxTokens   = tonumber(ARGV[1]) -- default maximum number of tokens
 
   -- Check for dynamic limit
   local effectiveLimit = maxTokens
-  if dynamicLimitKey ~= "" then
+  if dynamicLimitKey and dynamicLimitKey ~= "" then
     local dynamicLimit = redis.call("GET", dynamicLimitKey)
     if dynamicLimit then
       effectiveLimit = tonumber(dynamicLimit)
@@ -210,7 +210,7 @@ export const tokenBucketRemainingTokensScript = `
   return {tonumber(bucket[2]), tonumber(bucket[1]), effectiveLimit}
 `;
 
-export const cachedFixedWindowLimitScript = `
+export const cachedFixedWindowLimitScript = `#!lua flags=allow-key-locking
   local key     = KEYS[1]
   local window  = ARGV[1]
   local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
@@ -225,7 +225,7 @@ export const cachedFixedWindowLimitScript = `
   return r
 `;
 
-export const cachedFixedWindowRemainingTokenScript = `
+export const cachedFixedWindowRemainingTokenScript = `#!lua flags=allow-key-locking
   local key = KEYS[1]
   local tokens = 0
 

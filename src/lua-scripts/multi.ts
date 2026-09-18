@@ -1,4 +1,4 @@
-export const fixedWindowLimitScript = `
+export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
 	local key           = KEYS[1]
 	local id            = ARGV[1]
 	local window        = ARGV[2]
@@ -14,7 +14,7 @@ export const fixedWindowLimitScript = `
 
 	return fields
 `;
-export const fixedWindowRemainingTokensScript = `
+export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
       local key = KEYS[1]
       local tokens = 0
 
@@ -23,7 +23,7 @@ export const fixedWindowRemainingTokensScript = `
       return fields
     `;
 
-export const slidingWindowLimitScript = `
+export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
 	local currentKey    = KEYS[1]           -- identifier including prefixes
 	local previousKey   = KEYS[2]           -- key of the previous bucket
 	local tokens        = tonumber(ARGV[1]) -- tokens per window
@@ -61,7 +61,7 @@ export const slidingWindowLimitScript = `
 	return {currentFields, previousFields, true}
 `;
 
-export const slidingWindowRemainingTokensScript = `
+export const slidingWindowRemainingTokensScript = `#!lua flags=allow-key-locking
 	local currentKey    = KEYS[1]           -- identifier including prefixes
 	local previousKey   = KEYS[2]           -- key of the previous bucket
 	local now         	= ARGV[1]           -- current timestamp in milliseconds
