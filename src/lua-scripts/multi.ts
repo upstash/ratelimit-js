@@ -3,16 +3,27 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
 	local id            = ARGV[1]
 	local window        = ARGV[2]
 	local incrementBy   = tonumber(ARGV[3])
+	local tokens        = tonumber(ARGV[4]) -- limit
+
+	local fields = redis.call("HGETALL", key)
+	local usedTokens = 0
+	for i = 2, #fields, 2 do
+	  usedTokens = usedTokens + tonumber(fields[i])
+	end
+
+	-- Reject before consuming, so a rejected request does not use up the
+	-- tokens that are still available. Refunds (negative rate) always go through.
+	if incrementBy > 0 and usedTokens + incrementBy > tokens then
+	  return {fields, false}
+	end
 
 	redis.call("HSET", key, id, incrementBy)
-	local fields = redis.call("HGETALL", key)
-	if #fields == 2 and tonumber(fields[2])==incrementBy then
-	-- The first time this key is set, and the value will be equal to incrementBy.
-	-- So we only need the expire command once
+	if #fields == 0 then
+	-- The first time this key is set, so we only need the expire command once
 	  redis.call("PEXPIRE", key, window)
 	end
 
-	return fields
+	return {redis.call("HGETALL", key), true}
 `;
 export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
       local key = KEYS[1]

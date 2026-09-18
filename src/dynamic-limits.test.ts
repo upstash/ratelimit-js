@@ -176,13 +176,11 @@ function run(
           expect(dynamicLimit).toBe(tc.expected.dynamicLimit);
         }
 
-        // Verify getRemaining after request. A rejected request leaves the
-        // token bucket untouched, so its remaining stays at the limit. The
-        // window algorithms count before rejecting, so theirs is consumed.
-        const remainingAfterRequest =
-          limiterName === "tokenBucket" && !tc.expected.success
-            ? tc.expected.limit
-            : tc.expected.remaining;
+        // Verify getRemaining after request. A rejected request does not
+        // consume anything, so remaining stays at the limit.
+        const remainingAfterRequest = tc.expected.success
+          ? tc.expected.remaining
+          : tc.expected.limit;
         const finalRemaining = await ratelimit.getRemaining(identifier);
         expect(finalRemaining.limit).toBe(tc.expected.limit);
         expect(finalRemaining.remaining).toBe(remainingAfterRequest);
@@ -245,20 +243,12 @@ function run(
         }
         
         if (cacheTest.expectedSecondCallSuccess === undefined) {
-          // When cache is disabled, behavior differs by algorithm
-          if (limiterName === "tokenBucket") {
-            // The rejected request did not touch the bucket, so once the
-            // dynamic limit is gone the bucket fills to the default of 10 and
-            // a single request succeeds.
-            expect(secondResult.success).toBe(true);
-            expect(secondResult.limit).toBe(10);
-            expect(secondResult.remaining).toBe(9);
-          } else {
-            // fixedWindow/slidingWindow succeed because they track used tokens
-            expect(secondResult.success).toBe(true);
-            expect(secondResult.limit).toBe(10);
-            expect(secondResult.remaining).toBe(4); // 10 - 5 (first) - 1 (second) = 4
-          }
+          // The rejected request consumed nothing, so once the dynamic limit
+          // is gone the full default of 10 is available and one request
+          // succeeds with 9 remaining.
+          expect(secondResult.success).toBe(true);
+          expect(secondResult.limit).toBe(10);
+          expect(secondResult.remaining).toBe(9);
         } else {
           expect(secondResult.success).toBe(cacheTest.expectedSecondCallSuccess);
         }

@@ -209,15 +209,16 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+        // The script returns -1 as remaining when the request was rejected.
+        const [remaining, effectiveLimit] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
           [key, ...dynamicLimitKeys],
           [tokens, windowDuration, incrementBy],
         ) as [number, number];
 
-        const success = usedTokensAfterUpdate <= effectiveLimit;
-        const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
+        const success = remaining >= 0;
+        const remainingTokens = Math.max(0, remaining);
         const reset = (bucket + 1) * windowDuration;
         if (ctx.cache) {
           if (!success) {
@@ -572,23 +573,31 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const reset = (bucket + 1) * windowDuration;
         const incrementBy = rate ?? 1;
 
-        const hit = typeof ctx.cache.get(key) === "number";
-        if (hit) {
-          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          // used == tokens still succeeds, matching the cache-miss path below
-          const success = cachedTokensAfterUpdate <= tokens;
+        const cachedTokens = ctx.cache.get(key);
+        if (typeof cachedTokens === "number") {
+          // Reject before consuming, so a rejected request does not use up the
+          // tokens that are still available. Refunds (negative rate) always go through.
+          // used == tokens still succeeds, matching the cache-miss path below.
+          if (incrementBy > 0 && cachedTokens + incrementBy > tokens) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: Math.max(0, tokens - cachedTokens),
+              reset: reset,
+              pending: Promise.resolve(),
+            };
+          }
 
-          const pending = success
-            ? safeEval(
-              ctx,
-              SCRIPTS.singleRegion.cachedFixedWindow.limit,
-              [key],
-              [windowDuration, incrementBy]
-            )
-            : Promise.resolve();
+          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
+          const pending = safeEval(
+            ctx,
+            SCRIPTS.singleRegion.cachedFixedWindow.limit,
+            [key],
+            [windowDuration, incrementBy, tokens]
+          );
 
           return {
-            success,
+            success: true,
             limit: tokens,
             remaining: tokens - cachedTokensAfterUpdate,
             reset: reset,
@@ -596,19 +605,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
 
-        const usedTokensAfterUpdate = await safeEval(
+        // The script returns the used tokens and whether the request was accepted.
+        const [usedTokens, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
           [key],
-          [windowDuration, incrementBy]
-        ) as number;
-        ctx.cache.set(key, usedTokensAfterUpdate);
-        const remaining = tokens - usedTokensAfterUpdate;
+          [windowDuration, incrementBy, tokens]
+        ) as [number, number];
+        ctx.cache.set(key, usedTokens);
 
         return {
-          success: remaining >= 0,
+          success: accepted === 1,
           limit: tokens,
-          remaining,
+          remaining: Math.max(0, tokens - usedTokens),
           reset: reset,
           pending: Promise.resolve(),
         };

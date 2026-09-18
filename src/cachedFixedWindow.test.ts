@@ -4,11 +4,16 @@ import { RegionRatelimit } from "./single";
 
 describe("cachedFixedWindow boundary", () => {
   test("request using the last token succeeds on cache hit like on cache miss", async () => {
-    // Redis-side counter for the current window; every eval performs the INCR.
+    // Redis-side counter for the current window, mirroring the script: reject
+    // before incrementing, otherwise increment and report the new count.
     let used = 8;
-    const evalsha = async () => {
-      used += 1;
-      return used;
+    const evalsha = async (_hash: string, _keys: string[], args: number[]) => {
+      const [, incrementBy, tokens] = args;
+      if (incrementBy > 0 && used + incrementBy > tokens) {
+        return [used, 0];
+      }
+      used += incrementBy;
+      return [used, 1];
     };
     const r = new RegionRatelimit({
       prefix: crypto.randomUUID(),
