@@ -46,7 +46,7 @@ export const SCRIPTS: {
     tokenBucket: {
       limit: {
         script: Single.tokenBucketLimitScript,
-        hash: "a9873a8026b509e99a49a0e5a2049756c693c384"
+        hash: "d60be5bd3d83482ae229309f1f7425424f891204"
       },
       getRemaining: {
         script: Single.tokenBucketRemainingTokensScript,
