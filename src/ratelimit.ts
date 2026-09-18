@@ -1,6 +1,6 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
-import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX, MIN_BLOCK_RETRY_DELAY } from "./constants";
+import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
@@ -268,7 +268,7 @@ export abstract class Ratelimit<TContext extends Context> {
       // emit a TimeoutNegativeWarning, so the wait becomes a hot poll loop until
       // the deadline.
       const wait = Math.min(res.reset, deadline) - Date.now();
-      await new Promise((r) => setTimeout(r, wait > 0 ? wait : MIN_BLOCK_RETRY_DELAY));
+      await new Promise((r) => setTimeout(r, wait > 0 ? wait : 100));
 
       if (Date.now() > deadline) {
         break;
