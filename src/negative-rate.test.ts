@@ -258,9 +258,15 @@ describe("cachedFixedWindow", () => {
 // does not hold for the window algorithms (they count-then-reject, so an
 // over-limit request still increments), so it lives outside run().
 describe("tokenBucket rejected request keeps the bucket intact", () => {
-  const builder = newRegion(
-    RegionRatelimit.tokenBucket(limit, windowString, limit)
-  );
+  // The ephemeral cache blocks an identifier locally after any rejection, so
+  // a follow-up `limit()` would be answered from the cache ("cacheBlock")
+  // without touching Redis. Disable it: this test asserts the Redis state.
+  const builder = new RegionRatelimit({
+    prefix: crypto.randomUUID(),
+    redis: Redis.fromEnv({ enableAutoPipelining: true }),
+    limiter: RegionRatelimit.tokenBucket(limit, windowString, limit),
+    ephemeralCache: false,
+  });
 
   test("a rate larger than the remaining tokens rejects without deducting", async () => {
     const id = crypto.randomUUID();
