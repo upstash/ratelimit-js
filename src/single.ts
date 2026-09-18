@@ -582,7 +582,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             return {
               success: false,
               limit: tokens,
-              remaining: Math.max(0, tokens - cachedTokens),
+              remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
             };
@@ -617,7 +617,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         return {
           success: accepted === 1,
           limit: tokens,
-          remaining: Math.max(0, tokens - usedTokens),
+          // Like the other algorithms, a rejected request reports 0 remaining.
+          remaining: accepted === 1 ? tokens - usedTokens : 0,
           reset: reset,
           pending: Promise.resolve(),
         };

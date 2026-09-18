@@ -23,7 +23,8 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
 	  redis.call("PEXPIRE", key, window)
 	end
 
-	return {redis.call("HGETALL", key), true}
+	-- The returned fields do not include this request; the caller adds it.
+	return {fields, true}
 `;
 export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
       local key = KEYS[1]

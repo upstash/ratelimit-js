@@ -14,19 +14,19 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
     end
   end
 
-  local usedTokens = tonumber(redis.call("GET", key) or 0)
-
-  -- Reject before consuming, so a rejected request does not use up the
-  -- tokens that are still available. Refunds (negative rate) always go through.
-  if incrementBy > 0 and usedTokens + incrementBy > effectiveLimit then
-    return {-1, effectiveLimit}
-  end
-
   local r = redis.call("INCRBY", key, incrementBy)
   if r == incrementBy then
   -- The first time this key is set, the value will be equal to incrementBy.
   -- So we only need the expire command once
   redis.call("PEXPIRE", key, window)
+  end
+
+  -- A rejected request must not use up the tokens that are still available:
+  -- roll the increment back. The script is atomic, so the transient overshoot
+  -- is never observed. Refunds (negative rate) always go through.
+  if incrementBy > 0 and r > effectiveLimit then
+    redis.call("DECRBY", key, incrementBy)
+    return {-1, effectiveLimit}
   end
 
   return {effectiveLimit - r, effectiveLimit}
@@ -225,19 +225,19 @@ export const cachedFixedWindowLimitScript = `#!lua flags=allow-key-locking
   local incrementBy   = tonumber(ARGV[2]) -- increment rate per request at a given value, default is 1
   local tokens  = tonumber(ARGV[3]) -- limit
 
-  local usedTokens = tonumber(redis.call("GET", key) or 0)
-
-  -- Reject before consuming, so a rejected request does not use up the
-  -- tokens that are still available. Refunds (negative rate) always go through.
-  if incrementBy > 0 and usedTokens + incrementBy > tokens then
-    return {usedTokens, 0}
-  end
-
   local r = redis.call("INCRBY", key, incrementBy)
   if r == incrementBy then
   -- The first time this key is set, the value will be equal to incrementBy.
   -- So we only need the expire command once
   redis.call("PEXPIRE", key, window)
+  end
+
+  -- A rejected request must not use up the tokens that are still available:
+  -- roll the increment back. The script is atomic, so the transient overshoot
+  -- is never observed. Refunds (negative rate) always go through.
+  if incrementBy > 0 and r > tokens then
+    redis.call("DECRBY", key, incrementBy)
+    return {r - incrementBy, 0}
   end
 
   return {r, 1}

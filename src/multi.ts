@@ -223,9 +223,14 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           }));
 
         // The fields are an array of request ids at every EVEN index and the rate at
-        // which the tokens are used at every ODD index. When the request was accepted
-        // the fields include it; when it was rejected nothing was written.
-        const [firstResponse, accepted] = await Promise.any(dbs.map((s) => s.request));
+        // which the tokens are used at every ODD index. They never include this
+        // request: when a database accepted it, add it here.
+        const withRequest = ([fields, ok]: [string[], 1 | null]): string[] =>
+          ok ? [...fields, requestId, incrementBy.toString()] : fields;
+
+        const first = await Promise.any(dbs.map((s) => s.request));
+        const accepted = first[1];
+        const firstResponse = withRequest(first);
 
         const usedTokens = firstResponse.reduce(
           (accTokens: number, usedToken, index) => {
@@ -245,9 +250,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
          * If the length between two databases does not match, we sync the two databases
          */
         async function sync() {
-          const individualIDs = (await Promise.all(dbs.map((s) => s.request))).map(
-            ([fields]) => fields
-          );
+          const individualIDs = (await Promise.all(dbs.map((s) => s.request))).map(withRequest);
 
           const allIDs = [
             ...new Set(
@@ -261,7 +264,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           ];
 
           for (const db of dbs) {
-            const [usedDbTokensRequest] = await db.request;
+            const usedDbTokensRequest = withRequest(await db.request);
             const usedDbTokens = usedDbTokensRequest.reduce(
               (accTokens: number, usedToken, index) => {
                 let parsedToken = 0;
@@ -274,7 +277,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               0
             );
 
-            const [dbIdsRequest] = await db.request;
+            const dbIdsRequest = withRequest(await db.request);
             const dbIds = dbIdsRequest.reduce(
               (ids: string[], currentId, index) => {
                 if (index % 2 === 0) {
@@ -323,7 +326,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           success,
           limit: tokens,
-          remaining: Math.max(0, remaining),
+          // Like the other algorithms, a rejected request reports 0 remaining.
+          remaining: success ? remaining : 0,
           reset,
           pending: sync(),
         };
