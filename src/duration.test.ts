@@ -20,4 +20,18 @@ describe("ms", () => {
       expect(ms("10 ms")).toBe(10);
     });
   });
+  describe("decimals and weeks", () => {
+    it("should return correct milliseconds for decimal values and weeks", () => {
+      expect(ms("1.5s")).toBe(1500);
+      expect(ms("0.5 h")).toBe(1_800_000);
+      expect(ms("2.5m")).toBe(150_000);
+      expect(ms("1w")).toBe(604_800_000);
+      expect(ms("0.5 w")).toBe(302_400_000);
+    });
+    it("should throw when the duration rounds to 0 ms", () => {
+      expect(() => ms("0.4ms")).toThrow("Window size must be at least 1 ms");
+      expect(() => ms("0.0001 s")).toThrow("Window size must be at least 1 ms");
+      expect(() => ms("0 s")).toThrow("Window size must be at least 1 ms");
+    });
+  });
 });
