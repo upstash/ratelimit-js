@@ -209,18 +209,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+        const [remaining, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
           [key, ...dynamicLimitKeys],
           [tokens, windowDuration, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
-        const success = usedTokensAfterUpdate <= effectiveLimit;
-        const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
+        const success = accepted === 1;
+        const remainingTokens = Math.max(0, remaining);
         const reset = (bucket + 1) * windowDuration;
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remainingTokens === 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -330,18 +332,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remainingTokens, effectiveLimit] = await safeEval(
+        const [remainingTokens, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
           [currentKey, previousKey, ...dynamicLimitKeys],
           [tokens, now, windowSize, incrementBy],
-        ) as [number, number];
+        ) as [number, number, number];
 
-        const success = remainingTokens >= 0;
+        const success = accepted === 1;
         const reset = (currentWindow + 1) * windowSize;
 
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remainingTokens <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -455,17 +459,19 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remaining, reset, effectiveLimit] = await safeEval(
+        const [remaining, reset, effectiveLimit, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
           [identifier, ...dynamicLimitKeys],
           [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number, number];
+        ) as [number, number, number, number];
 
-        const success = remaining >= 0;
-        
+        const success = accepted === 1;
+
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the bucket is empty; a rejected request
+            // that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -572,43 +578,51 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const reset = (bucket + 1) * windowDuration;
         const incrementBy = rate ?? 1;
 
-        const hit = typeof ctx.cache.get(key) === "number";
-        if (hit) {
-          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          // used == tokens still succeeds, matching the cache-miss path below
-          const success = cachedTokensAfterUpdate <= tokens;
+        const cachedTokens = ctx.cache.get(key);
+        if (typeof cachedTokens === "number") {
+          // Reject before consuming, so a rejected request does not use up the
+          // tokens that are still available. Refunds (negative rate) always go through.
+          // used == tokens still succeeds, matching the cache-miss path below.
+          if (incrementBy > 0 && cachedTokens + incrementBy > tokens) {
+            return {
+              success: false,
+              limit: tokens,
+              remaining: Math.max(0, tokens - cachedTokens),
+              reset: reset,
+              pending: Promise.resolve(),
+            };
+          }
 
-          const pending = success
-            ? safeEval(
-              ctx,
-              SCRIPTS.singleRegion.cachedFixedWindow.limit,
-              [key],
-              [windowDuration, incrementBy]
-            )
-            : Promise.resolve();
+          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
+          const pending = safeEval(
+            ctx,
+            SCRIPTS.singleRegion.cachedFixedWindow.limit,
+            [key],
+            [windowDuration, incrementBy, tokens]
+          );
 
           return {
-            success,
+            success: true,
             limit: tokens,
-            remaining: tokens - cachedTokensAfterUpdate,
+            remaining: Math.max(0, tokens - cachedTokensAfterUpdate),
             reset: reset,
             pending,
           };
         }
 
-        const usedTokensAfterUpdate = await safeEval(
+        // The script returns the used tokens and whether the request was accepted.
+        const [usedTokens, accepted] = await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
           [key],
-          [windowDuration, incrementBy]
-        ) as number;
-        ctx.cache.set(key, usedTokensAfterUpdate);
-        const remaining = tokens - usedTokensAfterUpdate;
+          [windowDuration, incrementBy, tokens]
+        ) as [number, number];
+        ctx.cache.set(key, usedTokens);
 
         return {
-          success: remaining >= 0,
+          success: accepted === 1,
           limit: tokens,
-          remaining,
+          remaining: Math.max(0, tokens - usedTokens),
           reset: reset,
           pending: Promise.resolve(),
         };

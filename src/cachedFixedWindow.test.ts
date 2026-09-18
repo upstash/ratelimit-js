@@ -4,11 +4,16 @@ import { RegionRatelimit } from "./single";
 
 describe("cachedFixedWindow boundary", () => {
   test("request using the last token succeeds on cache hit like on cache miss", async () => {
-    // Redis-side counter for the current window; every eval performs the INCR.
+    // Redis-side counter for the current window, mirroring the script: reject
+    // before incrementing, otherwise increment and report the new count.
     let used = 8;
-    const evalsha = async () => {
-      used += 1;
-      return used;
+    const evalsha = async (_hash: string, _keys: string[], args: number[]) => {
+      const [, incrementBy, tokens] = args;
+      if (incrementBy > 0 && used + incrementBy > tokens) {
+        return [used, 0];
+      }
+      used += incrementBy;
+      return [used, 1];
     };
     const r = new RegionRatelimit({
       prefix: crypto.randomUUID(),
@@ -27,8 +32,22 @@ describe("cachedFixedWindow boundary", () => {
     expect(second.success).toBe(true);
     expect(second.remaining).toBe(0);
 
-    // Cache hit past the limit: rejected.
+    // Cache hit past the limit: rejected locally, nothing sent to redis.
     const third = await r.limit("id");
     expect(third.success).toBe(false);
+    expect(third.remaining).toBe(0);
+    expect(used).toBe(10);
+
+    // A cold instance sharing the counter: the rejection comes from redis and
+    // must roll back, leaving the counter at 10 and reporting 0 remaining.
+    const cold = new RegionRatelimit({
+      prefix: crypto.randomUUID(),
+      redis: { evalsha, eval: evalsha } as never,
+      limiter: RegionRatelimit.cachedFixedWindow(10, "10 s"),
+    });
+    const fourth = await cold.limit("id");
+    expect(fourth.success).toBe(false);
+    expect(fourth.remaining).toBe(0);
+    expect(used).toBe(10);
   });
 });

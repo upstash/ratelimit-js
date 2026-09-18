@@ -76,9 +76,9 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       const refundResult = await builder.limit(id, { rate: -5 });
       expect(refundResult.success).toBe(true);
 
-      // Should have some tokens back
+      // The rejected 3 consumed nothing, so exactly the 5 refunded are back
       const afterRefund = await builder.getRemaining(id);
-      expect(afterRefund.remaining).toBeGreaterThan(0);
+      expect(afterRefund.remaining).toBe(5);
     });
 
     test("rate = 0 behavior", async () => {
@@ -164,13 +164,12 @@ function run<TContext extends Context>(builder: Ratelimit<TContext>) {
       const overLimit = await builder.limit(id, { rate: limit + 1 });
       expect(overLimit.success).toBe(false);
 
-      // Second request should be cache blocked (unless cachedFixedWindow which doesn't use blockUntil)
+      // The rejected request consumed nothing and tokens are left, so the
+      // cache must not block: a smaller request goes to Redis and succeeds.
       const overLimit2 = await builder.limit(id, { rate: 1 });
-      expect(overLimit2.success).toBe(false);
-      // cachedFixedWindow doesn't use cacheBlock mechanism, so skip this check
-      if (overLimit2.reason !== undefined) {
-        expect(overLimit2.reason).toBe("cacheBlock");
-      }
+      expect(overLimit2.reason).toBeUndefined();
+      expect(overLimit2.success).toBe(true);
+      expect(overLimit2.remaining).toBe(limit - 1);
 
       // Refund to bring back under limit
       const refundResult = await builder.limit(id, { rate: -5 });
@@ -254,40 +253,46 @@ describe("cachedFixedWindow", () => {
     run(newRegion(RegionRatelimit.cachedFixedWindow(limit, windowString))));
 });
 
-// Token-bucket only: a rejected request must not consume tokens. This assertion
-// does not hold for the window algorithms (they count-then-reject, so an
-// over-limit request still increments), so it lives outside run().
-describe("tokenBucket rejected request keeps the bucket intact", () => {
-  // The ephemeral cache blocks an identifier locally after any rejection, so
-  // a follow-up `limit()` would be answered from the cache ("cacheBlock")
-  // without touching Redis. Disable it: this test asserts the Redis state.
-  const builder = new RegionRatelimit({
-    prefix: crypto.randomUUID(),
-    redis: Redis.fromEnv({ enableAutoPipelining: true }),
-    limiter: RegionRatelimit.tokenBucket(limit, windowString, limit),
-    ephemeralCache: false,
-  });
+// A rejected request must not consume tokens, whichever algorithm is used.
+// The ephemeral cache blocks an identifier locally after any rejection, so a
+// follow-up `limit()` would be answered from the cache ("cacheBlock") without
+// touching Redis. Disable it where possible: these tests assert the Redis state.
+// cachedFixedWindow cannot run without its cache, so it keeps the default one.
+describe("rejected request keeps the remaining tokens intact", () => {
+  const limiters: [string, Algorithm<RegionContext>, false | undefined][] = [
+    ["fixedWindow", RegionRatelimit.fixedWindow(limit, windowString), false],
+    ["slidingWindow", RegionRatelimit.slidingWindow(limit, windowString), false],
+    ["tokenBucket", RegionRatelimit.tokenBucket(limit, windowString, limit), false],
+    ["cachedFixedWindow", RegionRatelimit.cachedFixedWindow(limit, windowString), undefined],
+  ];
 
-  test("a rate larger than the remaining tokens rejects without deducting", async () => {
-    const id = crypto.randomUUID();
+  for (const [name, limiter, ephemeralCache] of limiters) {
+    test(`${name}: a rate larger than the remaining tokens rejects without deducting`, async () => {
+      const builder = new RegionRatelimit({
+        prefix: crypto.randomUUID(),
+        redis: Redis.fromEnv({ enableAutoPipelining: true }),
+        limiter,
+        ephemeralCache,
+      });
+      const id = crypto.randomUUID();
 
-    // Leave 2 tokens in a bucket of `limit`.
-    const first = await builder.limit(id, { rate: limit - 2 });
-    expect(first.success).toBe(true);
-    await first.pending;
-    expect((await builder.getRemaining(id)).remaining).toBe(2);
+      // Leave 2 tokens out of `limit`.
+      const first = await builder.limit(id, { rate: limit - 2 });
+      expect(first.success).toBe(true);
+      await first.pending;
+      expect((await builder.getRemaining(id)).remaining).toBe(2);
 
-    // 2 tokens left, ask for 5: it must be rejected AND leave the bucket at 2,
-    // not drive it negative (which would lock the identifier out well past the
-    // rejected request).
-    const denied = await builder.limit(id, { rate: 5 });
-    expect(denied.success).toBe(false);
-    await denied.pending;
-    expect((await builder.getRemaining(id)).remaining).toBe(2);
+      // 2 tokens left, ask for 5: it must be rejected AND leave 2 behind,
+      // not burn the rest of the window or drive a bucket negative.
+      const denied = await builder.limit(id, { rate: 5 });
+      expect(denied.success).toBe(false);
+      await denied.pending;
+      expect((await builder.getRemaining(id)).remaining).toBe(2);
 
-    // The 2 tokens the denied request must not have touched are still spendable.
-    const ok = await builder.limit(id, { rate: 2 });
-    expect(ok.success).toBe(true);
-    expect(ok.remaining).toBe(0);
-  });
+      // The 2 tokens the denied request must not have touched are still spendable.
+      const ok = await builder.limit(id, { rate: 2 });
+      expect(ok.success).toBe(true);
+      expect(ok.remaining).toBe(0);
+    });
+  }
 });

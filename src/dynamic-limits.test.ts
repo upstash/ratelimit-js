@@ -72,7 +72,7 @@ const testCases: TestCase[] = [
     setDynamicLimit: 3,
     expected: {
       limit: 3,
-      remaining: 0,
+      remaining: 3, // rejected, nothing consumed: the full limit is still there
       success: false, // 5 requests with limit 3 should fail
       dynamicLimit: 3,
     },
@@ -176,7 +176,8 @@ function run(
           expect(dynamicLimit).toBe(tc.expected.dynamicLimit);
         }
 
-        // Verify getRemaining after request
+        // Verify getRemaining after request. A rejected request does not
+        // consume anything, so it matches what limit() reported.
         const finalRemaining = await ratelimit.getRemaining(identifier);
         expect(finalRemaining.limit).toBe(tc.expected.limit);
         expect(finalRemaining.remaining).toBe(tc.expected.remaining);
@@ -186,10 +187,10 @@ function run(
     // Test ephemeral cache behavior with dynamic limits
     const cacheTestCases = [
       {
-        name: "with cache enabled - should block via cache after dynamic limit is removed",
+        name: "with cache enabled - a rejection with tokens left does not block the cache",
         ephemeralCache: undefined, // undefined means cache is enabled by default
-        expectedSecondCallSuccess: false,
-        expectedSecondCallReason: "cacheBlock" as RatelimitResponseType | undefined,
+        expectedSecondCallSuccess: undefined, // same as with the cache disabled
+        expectedSecondCallReason: undefined as RatelimitResponseType | undefined,
       },
       {
         name: "with cache disabled - behavior after dynamic limit is removed",
@@ -218,10 +219,10 @@ function run(
         // Make a request with rate=5, which exceeds dynamic limit (3) but not default (10)
         const firstResult = await ratelimit.limit(identifier, { rate: 5 });
         
-        // First call should fail due to dynamic limit
+        // First call should fail due to dynamic limit, consuming nothing
         expect(firstResult.success).toBe(false);
         expect(firstResult.limit).toBe(3);
-        expect(firstResult.remaining).toBe(0);
+        expect(firstResult.remaining).toBe(3);
 
         // Remove the dynamic limit
         await ratelimit.setDynamicLimit({ limit: false });
@@ -239,18 +240,12 @@ function run(
         }
         
         if (cacheTest.expectedSecondCallSuccess === undefined) {
-          // When cache is disabled, behavior differs by algorithm
-          if (limiterName === "tokenBucket") {
-            // tokenBucket still fails because it has 0 tokens stored and needs refill time
-            expect(secondResult.success).toBe(false);
-            expect(secondResult.limit).toBe(10);
-            expect(secondResult.remaining).toBe(0);
-          } else {
-            // fixedWindow/slidingWindow succeed because they track used tokens
-            expect(secondResult.success).toBe(true);
-            expect(secondResult.limit).toBe(10);
-            expect(secondResult.remaining).toBe(4); // 10 - 5 (first) - 1 (second) = 4
-          }
+          // The rejected request consumed nothing, so once the dynamic limit
+          // is gone the full default of 10 is available and one request
+          // succeeds with 9 remaining.
+          expect(secondResult.success).toBe(true);
+          expect(secondResult.limit).toBe(10);
+          expect(secondResult.remaining).toBe(9);
         } else {
           expect(secondResult.success).toBe(cacheTest.expectedSecondCallSuccess);
         }

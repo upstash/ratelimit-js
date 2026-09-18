@@ -3,7 +3,7 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
   local dynamicLimitKey = KEYS[2]  -- optional: key for dynamic limit in redis
   local tokens        = tonumber(ARGV[1])  -- default limit
   local window        = ARGV[2]
-  local incrementBy   = ARGV[3] -- increment rate per request at a given value, default is 1
+  local incrementBy   = tonumber(ARGV[3]) -- increment rate per request at a given value, default is 1
 
   -- Check for dynamic limit
   local effectiveLimit = tokens
@@ -15,13 +15,22 @@ export const fixedWindowLimitScript = `#!lua flags=allow-key-locking
   end
 
   local r = redis.call("INCRBY", key, incrementBy)
-  if r == tonumber(incrementBy) then
+  if r == incrementBy then
   -- The first time this key is set, the value will be equal to incrementBy.
   -- So we only need the expire command once
   redis.call("PEXPIRE", key, window)
   end
 
-  return {r, effectiveLimit}
+  -- A rejected request must not use up the tokens that are still available:
+  -- roll the increment back. The script is atomic, so the transient overshoot
+  -- is never observed. Refunds (negative rate) always go through.
+  -- Returns {remaining, limit, accepted}.
+  if incrementBy > 0 and r > effectiveLimit then
+    redis.call("DECRBY", key, incrementBy)
+    return {effectiveLimit - (r - incrementBy), effectiveLimit, 0}
+  end
+
+  return {effectiveLimit - r, effectiveLimit, 1}
 `;
 
 export const fixedWindowRemainingTokensScript = `#!lua flags=allow-key-locking
@@ -78,9 +87,11 @@ export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
   -- weighted requests to consider from the previous window
   requestsInPreviousWindow = math.floor(( 1 - percentageInCurrent ) * requestsInPreviousWindow)
 
-  -- Only check limit if not refunding (negative rate)
-  if incrementBy > 0 and requestsInPreviousWindow + requestsInCurrentWindow >= effectiveLimit then
-    return {-1, effectiveLimit}
+  -- Reject before consuming, so a rejected request does not use up the
+  -- tokens that are still available. Refunds (negative rate) always go through.
+  -- Returns {remaining, limit, accepted}.
+  if incrementBy > 0 and requestsInPreviousWindow + requestsInCurrentWindow + incrementBy > effectiveLimit then
+    return {effectiveLimit - ( requestsInCurrentWindow + requestsInPreviousWindow ), effectiveLimit, 0}
   end
 
   local newValue = redis.call("INCRBY", currentKey, incrementBy)
@@ -89,7 +100,7 @@ export const slidingWindowLimitScript = `#!lua flags=allow-key-locking
     -- So we only need the expire command once
     redis.call("PEXPIRE", currentKey, window * 2 + 1000) -- Enough time to overlap with a new window + 1 second
   end
-  return {effectiveLimit - ( newValue + requestsInPreviousWindow ), effectiveLimit}
+  return {effectiveLimit - ( newValue + requestsInPreviousWindow ), effectiveLimit, 1}
 `;
 
 export const slidingWindowRemainingTokensScript = `#!lua flags=allow-key-locking
@@ -170,19 +181,20 @@ export const tokenBucketLimitScript = `#!lua flags=allow-key-locking
   -- a larger rate (e.g. 2 tokens left, incrementBy 5) the request fell through,
   -- drove tokens negative and still wrote it back, so a rejected request
   -- consumed tokens and a single large rate could lock the identifier out.
+  -- Returns {remaining, reset, limit, accepted}.
   if incrementBy > 0 and tokens < incrementBy then
-    return {-1, refilledAt + interval, effectiveLimit}
+    return {tokens, refilledAt + interval, effectiveLimit, 0}
   end
 
   local remaining = tokens - incrementBy
   local expireAt = math.ceil(((effectiveLimit - remaining) / refillRate)) * interval
-        
+
   redis.call("HSET", key, "refilledAt", refilledAt, "tokens", remaining)
 
   if (expireAt > 0) then
     redis.call("PEXPIRE", key, expireAt)
   end
-  return {remaining, refilledAt + interval, effectiveLimit}
+  return {remaining, refilledAt + interval, effectiveLimit, 1}
 `;
 
 export const tokenBucketIdentifierNotFound = -1
@@ -213,7 +225,8 @@ export const tokenBucketRemainingTokensScript = `#!lua flags=allow-key-locking
 export const cachedFixedWindowLimitScript = `#!lua flags=allow-key-locking
   local key     = KEYS[1]
   local window  = ARGV[1]
-  local incrementBy   = ARGV[2] -- increment rate per request at a given value, default is 1
+  local incrementBy   = tonumber(ARGV[2]) -- increment rate per request at a given value, default is 1
+  local tokens  = tonumber(ARGV[3]) -- limit
 
   local r = redis.call("INCRBY", key, incrementBy)
   if r == incrementBy then
@@ -221,8 +234,16 @@ export const cachedFixedWindowLimitScript = `#!lua flags=allow-key-locking
   -- So we only need the expire command once
   redis.call("PEXPIRE", key, window)
   end
-      
-  return r
+
+  -- A rejected request must not use up the tokens that are still available:
+  -- roll the increment back. The script is atomic, so the transient overshoot
+  -- is never observed. Refunds (negative rate) always go through.
+  if incrementBy > 0 and r > tokens then
+    redis.call("DECRBY", key, incrementBy)
+    return {r - incrementBy, 0}
+  end
+
+  return {r, 1}
 `;
 
 export const cachedFixedWindowRemainingTokenScript = `#!lua flags=allow-key-locking

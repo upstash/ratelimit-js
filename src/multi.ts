@@ -210,19 +210,27 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           }
         }
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] =
+        const dbs: { redis: Redis; request: Promise<[string[], 1 | null]> }[] =
           ctx.regionContexts.map((regionContext) => ({
             redis: regionContext.redis,
             request: safeEval(
               regionContext,
               SCRIPTS.multiRegion.fixedWindow.limit,
               [key],
-              [requestId, windowDuration, incrementBy]
-            ) as Promise<string[]>,
+              [requestId, windowDuration, incrementBy, tokens]
+              // lua seems to return `1` for true and `null` for false
+            ) as Promise<[string[], 1 | null]>,
           }));
 
-        // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
-        const firstResponse = await Promise.any(dbs.map((s) => s.request));
+        // The fields are an array of request ids at every EVEN index and the rate at
+        // which the tokens are used at every ODD index. They never include this
+        // request: when a database accepted it, add it here.
+        const withRequest = ([fields, ok]: [string[], 1 | null]): string[] =>
+          ok ? [...fields, requestId, incrementBy.toString()] : fields;
+
+        const first = await Promise.any(dbs.map((s) => s.request));
+        const accepted = first[1];
+        const firstResponse = withRequest(first);
 
         const usedTokens = firstResponse.reduce(
           (accTokens: number, usedToken, index) => {
@@ -242,7 +250,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
          * If the length between two databases does not match, we sync the two databases
          */
         async function sync() {
-          const individualIDs = await Promise.all(dbs.map((s) => s.request));
+          const individualIDs = (await Promise.all(dbs.map((s) => s.request))).map(withRequest);
 
           const allIDs = [
             ...new Set(
@@ -256,7 +264,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           ];
 
           for (const db of dbs) {
-            const usedDbTokensRequest = await db.request;
+            const usedDbTokensRequest = withRequest(await db.request);
             const usedDbTokens = usedDbTokensRequest.reduce(
               (accTokens: number, usedToken, index) => {
                 let parsedToken = 0;
@@ -269,7 +277,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               0
             );
 
-            const dbIdsRequest = await db.request;
+            const dbIdsRequest = withRequest(await db.request);
             const dbIds = dbIdsRequest.reduce(
               (ids: string[], currentId, index) => {
                 if (index % 2 === 0) {
@@ -304,11 +312,13 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
          * Do not await sync. This should not run in the critical path.
          */
 
-        const success = remaining >= 0;
+        const success = Boolean(accepted);
         const reset = (bucket + 1) * windowDuration;
 
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
@@ -318,7 +328,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           success,
           limit: tokens,
-          remaining,
+          remaining: Math.max(0, remaining),
           reset,
           pending: sync(),
         };
@@ -546,7 +556,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         // const success = remaining >= 0;
         const reset = (currentWindow + 1) * windowDuration;
         if (ctx.cache) {
-          if (!success) {
+          if (!success && remaining <= 0) {
+            // Only block locally once the identifier is exhausted; a rejected
+            // request that was merely too large leaves tokens for smaller ones.
             ctx.cache.blockUntil(identifier, reset);
           } else if (incrementBy < 0) {
             // Successful refund: unblock from cache
