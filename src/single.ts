@@ -575,7 +575,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const hit = typeof ctx.cache.get(key) === "number";
         if (hit) {
           const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          const success = cachedTokensAfterUpdate < tokens;
+          // used == tokens still succeeds, matching the cache-miss path below
+          const success = cachedTokensAfterUpdate <= tokens;
 
           const pending = success
             ? safeEval(
