@@ -28,5 +28,10 @@ describe("ms", () => {
       expect(ms("1w")).toBe(604_800_000);
       expect(ms("0.5 w")).toBe(302_400_000);
     });
+    it("should throw when the duration rounds to 0 ms", () => {
+      expect(() => ms("0.4ms")).toThrow("Window size must be at least 1 ms");
+      expect(() => ms("0.0001 s")).toThrow("Window size must be at least 1 ms");
+      expect(() => ms("0 s")).toThrow("Window size must be at least 1 ms");
+    });
   });
 });
