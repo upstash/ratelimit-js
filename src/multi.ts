@@ -123,10 +123,14 @@ export type MultiRegionRatelimitConfig = {
  * })
  *
  * ```
+ *
+ * @see node_modules/@upstash/ratelimit/docs/features.mdx
  */
 export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithn of your choice.
+   *
+   * @see node_modules/@upstash/ratelimit/docs/features.mdx
    */
   constructor(config: MultiRegionRatelimitConfig) {
     super({
@@ -175,6 +179,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - A fixed timeframe
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static fixedWindow(
     /**
@@ -388,6 +393,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - The duration in which the user can max X requests.
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static slidingWindow(
     /**

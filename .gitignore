@@ -12,3 +12,6 @@ redis-server
 .next
 
 coverage
+
+# Documentation fetched during packing
+/docs/

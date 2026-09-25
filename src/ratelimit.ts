@@ -189,6 +189,8 @@ export abstract class Ratelimit<TContext extends Context> {
    *  }
    *  return "Yes"
    * ```
+   *
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public limit = async (
     identifier: string,
@@ -232,6 +234,8 @@ export abstract class Ratelimit<TContext extends Context> {
    *  }
    *  return "Yes"
    * ```
+   *
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public blockUntilReady = async (
     /**
@@ -277,6 +281,9 @@ export abstract class Ratelimit<TContext extends Context> {
     return res!;
   };
 
+  /**
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
+   */
   public resetUsedTokens = async (identifier: string) => {
     const pattern = [this.prefix, identifier].join(":");
     await this.limiter().resetTokens(this.ctx, pattern);
@@ -289,6 +296,8 @@ export abstract class Ratelimit<TContext extends Context> {
    * @returns object with `remaining`, `reset`, and `limit` fields. `remaining` denotes
    *          the remaining tokens, `limit` is the effective limit (considering dynamic
    *          limits if enabled), and `reset` denotes the timestamp when the tokens reset.
+   *
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public getRemaining = async (identifier: string): Promise<{
     remaining: number;
@@ -457,6 +466,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * ```
    * 
    * @param options.limit - The new rate limit to apply globally, or false to disable
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public setDynamicLimit = async (options: { limit: number | false }): Promise<void> => {
     if (!this.dynamicLimits) {
@@ -480,6 +490,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * ```
    * 
    * @returns Object containing the current global dynamic limit, or null if not set
+   * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public getDynamicLimit = async (): Promise<{ dynamicLimit: number | null }> => {
     if (!this.dynamicLimits) {
