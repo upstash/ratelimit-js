@@ -63,6 +63,7 @@ const getIpDenyList = async (threshold: number) => {
  * @param ttl time to live in milliseconds for the status flag. Optional. If not
  *  passed, ttl is infferred from current time.
  * @returns list of ips which are not in the deny list
+ * @see node_modules/@upstash/ratelimit/docs/traffic-protection.mdx
  */
 export const updateIpDenyList = async (
   redis: Redis,
@@ -107,6 +108,7 @@ export const updateIpDenyList = async (
  * @param redis redis instance
  * @param prefix ratelimit prefix
  * @returns 
+ * @see node_modules/@upstash/ratelimit/docs/traffic-protection.mdx
  */
 export const disableIpDenyList = async (redis: Redis, prefix: string) => {
   const allDenyListsKey = [prefix, DenyListExtension, "all"].join(":")
