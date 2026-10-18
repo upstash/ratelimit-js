@@ -8,16 +8,23 @@ import { updateIpDenyList } from "./ip-deny-list";
 
 const denyListCache = new Cache(new Map());
 
+const getCacheKey = (prefix: string, member: string) => [prefix, member].join(":");
+
 /**
  * Checks items in members list and returns the first denied member
  * in denyListCache if there are any.
  * 
+ * The cache is shared by every Ratelimit instance in the process, so
+ * entries are keyed by prefix. A value denied under one prefix must not
+ * block requests made under another prefix.
+ * 
+ * @param prefix ratelimit prefix
  * @param members list of values to check against the cache
  * @returns a member from the cache. If there is none, returns undefined
  */
-export const checkDenyListCache = (members: string[]): DeniedValue => {
+export const checkDenyListCache = (prefix: string, members: string[]): DeniedValue => {
   return members.find(
-    member => denyListCache.isBlocked(member).blocked
+    member => denyListCache.isBlocked(getCacheKey(prefix, member)).blocked
   );
 }
 
@@ -27,11 +34,12 @@ export const checkDenyListCache = (members: string[]): DeniedValue => {
  * If there are more than 1000 elements in the cache, empties
  * it so that the cache doesn't grow in size indefinetely.
  * 
+ * @param prefix ratelimit prefix
  * @param member member to block
  */
-const blockMember = (member: string) => {
+const blockMember = (prefix: string, member: string) => {
   if (denyListCache.size() > 1000) denyListCache.empty();
-  denyListCache.blockUntil(member, Date.now() + 60_000);
+  denyListCache.blockUntil(getCacheKey(prefix, member), Date.now() + 60_000);
 }
 
 /**
@@ -62,7 +70,7 @@ export const checkDenyList = async (
   let deniedValue: DeniedValue = undefined;
   deniedValues.map((memberDenied, index) => {
     if (memberDenied) {
-      blockMember(members[index])
+      blockMember(prefix, members[index])
       deniedValue = members[index]
     }
   })
