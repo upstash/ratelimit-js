@@ -24,7 +24,7 @@ context.waitUntil(pending);
 
 Notes:
 - `rate` lets a request consume more than 1 token.
-- `reason` can be: `timeout`, `cacheBlock`, `denyList`, or undefined.
+- `reason` can be: `timeout`, `error`, `cacheBlock`, `denyList`, or undefined.
 - When analytics or MultiRegion is enabled, **always handle `pending`** in serverless environments.
 
 ## blockUntilReady
