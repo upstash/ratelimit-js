@@ -37,6 +37,22 @@ const ratelimit = new Ratelimit({
 });
 ```
 
+## Redis Errors (failOpen)
+
+If the request to Redis fails, for example because the database is over its plan limits or refuses connections, `limit()` allows the request instead of throwing.
+- Enabled by default (`failOpen: true`)
+- The response has `success: true` and `reason: "error"`, and the error is logged with `console.warn`
+- Set `failOpen: false` to throw the error instead, for limits that must fail closed (e.g. login attempts)
+
+Example:
+```ts
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  failOpen: false,
+});
+```
+
 ## Analytics & Dashboard
 
 Analytics collect counts of success/blocked requests.
