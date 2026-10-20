@@ -2,6 +2,7 @@ import { Analytics } from "./analytics";
 import { Cache } from "./cache";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
+import { isRedisError } from "./hash";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
 export class TimeoutError extends Error {
@@ -70,15 +71,17 @@ export type RatelimitConfig<TContext> = {
   timeout?: number;
 
   /**
-   * If true, the ratelimiter will allow requests to pass when the request to redis fails,
-   * for example when the database is over its plan limits or unreachable. The response
-   * has `success: true` and `reason: "error"`, and the error is logged with `console.warn`.
+   * If true, the ratelimiter will deny requests instead of throwing when the request to
+   * redis fails, for example when the database is over its plan limits or unreachable.
+   * The response has `success: false` and `reason: "error"`, and the error is logged
+   * with `console.warn`.
    *
-   * Set to `false` to throw the error instead.
+   * Errors that don't come from redis are still thrown. The `timeout` option is not
+   * affected.
    *
-   * @default true
+   * @default false
    */
-  failOpen?: boolean;
+  denyOnError?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -124,7 +127,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
-  protected readonly failOpen: boolean;
+  protected readonly denyOnError: boolean;
 
   protected readonly primaryRedis: Redis;
 
@@ -140,7 +143,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.failOpen = config.failOpen ?? true;
+    this.denyOnError = config.denyOnError ?? false;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
@@ -269,7 +272,7 @@ export abstract class Ratelimit<TContext extends Context> {
     const deadline = Date.now() + timeout;
     while (true) {
       res = await this.limit(identifier);
-      if (res.success) {
+      if (res.success || res.reason === "error") {
         break;
       }
       if (res.reset === 0) {
@@ -379,25 +382,26 @@ export abstract class Ratelimit<TContext extends Context> {
   }
 
   /**
-   * Allows the request when the ratelimit check fails, unless `failOpen` is false.
+   * Denies the request when the request to redis fails and `denyOnError` is set.
+   * Otherwise, rethrows the error.
    *
    * @param error error thrown while checking the limit
-   * @returns rate limit response that lets the request pass
+   * @returns rate limit response that denies the request
    */
   private handleError = (error: unknown): RatelimitResponse => {
-    if (!this.failOpen) {
+    if (!this.denyOnError || !isRedisError(error)) {
       throw error;
     }
-    console.warn("Ratelimit check failed, allowing the request:", error);
+    console.warn("Ratelimit request to redis failed, denying the request:", error);
     return {
-      success: true,
+      success: false,
       limit: 0,
       remaining: 0,
       reset: 0,
       pending: Promise.resolve(),
       reason: "error",
     };
-  }
+  };
 
   /**
    * submits analytics if this.analytics is set

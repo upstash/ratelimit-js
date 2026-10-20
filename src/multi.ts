@@ -69,16 +69,17 @@ export type MultiRegionRatelimitConfig = {
   timeout?: number;
 
   /**
-   * If true, the ratelimiter will allow requests to pass when the requests to redis fail
-   * in every region, for example when the databases are over their plan limits or
-   * unreachable. The response has `success: true` and `reason: "error"`, and the error is
-   * logged with `console.warn`.
+   * If true, the ratelimiter will deny requests instead of throwing when the requests to
+   * redis fail in every region, for example when the databases are over their plan limits
+   * or unreachable. The response has `success: false` and `reason: "error"`, and the error
+   * is logged with `console.warn`.
    *
-   * Set to `false` to throw the error instead.
+   * Errors that don't come from redis are still thrown. The `timeout` option is not
+   * affected.
    *
-   * @default true
+   * @default false
    */
-  failOpen?: boolean;
+  denyOnError?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -145,7 +146,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
-      failOpen: config.failOpen,
+      denyOnError: config.denyOnError,
       analytics: config.analytics,
       dynamicLimits: config.dynamicLimits,
       ctx: {
