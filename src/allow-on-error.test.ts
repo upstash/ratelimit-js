@@ -10,7 +10,7 @@ const fail = () => Promise.reject(new Error(LIMIT_ERROR));
 
 const createFailingRedis = () => ({ evalsha: fail, eval: fail }) as unknown as Redis;
 
-describe("failOpen", () => {
+describe("allowOnError", () => {
   let warn: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
@@ -41,7 +41,7 @@ describe("failOpen", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter,
-      failOpen: true,
+      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -60,7 +60,7 @@ describe("failOpen", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      failOpen: true,
+      allowOnError: true,
       enableProtection: true,
       enableTelemetry: false,
     });
@@ -78,7 +78,7 @@ describe("failOpen", () => {
     const ratelimit = new MultiRegionRatelimit({
       redis: [createFailingRedis(), createFailingRedis()],
       limiter,
-      failOpen: true,
+      allowOnError: true,
     });
 
     const res = await ratelimit.limit("id");
@@ -91,7 +91,7 @@ describe("failOpen", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.slidingWindow(1, "10 s"),
-      failOpen: true,
+      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -106,7 +106,7 @@ describe("failOpen", () => {
       redis: createFailingRedis(),
       limiter: RegionRatelimit.cachedFixedWindow(1, "10 s"),
       ephemeralCache: false,
-      failOpen: true,
+      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -118,7 +118,7 @@ describe("failOpen", () => {
     const ratelimit = new RegionRatelimit({
       redis: { evalsha: () => new Promise(() => {}) } as unknown as Redis,
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      failOpen: true,
+      allowOnError: true,
       timeout: 50,
       enableTelemetry: false,
     });

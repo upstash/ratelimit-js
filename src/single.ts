@@ -72,7 +72,7 @@ export type RegionRatelimitConfig = {
    *
    * @default false
    */
-  failOpen?: boolean;
+  allowOnError?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -153,7 +153,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
-      failOpen: config.failOpen,
+      allowOnError: config.allowOnError,
       analytics: config.analytics,
       ctx: {
         redis: config.redis as RedisCore,

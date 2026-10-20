@@ -81,7 +81,7 @@ export type RatelimitConfig<TContext> = {
    *
    * @default false
    */
-  failOpen?: boolean;
+  allowOnError?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -127,7 +127,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
-  protected readonly failOpen: boolean;
+  protected readonly allowOnError: boolean;
 
   protected readonly primaryRedis: Redis;
 
@@ -143,7 +143,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.failOpen = config.failOpen ?? false;
+    this.allowOnError = config.allowOnError ?? false;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
@@ -382,14 +382,14 @@ export abstract class Ratelimit<TContext extends Context> {
   }
 
   /**
-   * Allows the request when the request to redis fails and `failOpen` is set.
+   * Allows the request when the request to redis fails and `allowOnError` is set.
    * Otherwise, rethrows the error.
    *
    * @param error error thrown while checking the limit
    * @returns rate limit response that lets the request pass
    */
   private handleError = (error: unknown): RatelimitResponse => {
-    if (!this.failOpen || !isRedisError(error)) {
+    if (!this.allowOnError || !isRedisError(error)) {
       throw error;
     }
     console.warn("Ratelimit request to redis failed, allowing the request:", error);

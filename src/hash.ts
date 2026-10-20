@@ -3,7 +3,7 @@ import type { RegionContext } from "./types";
 
 /**
  * Errors returned by redis calls in the limit path. Kept so that `limit()`
- * only handles errors from redis when `failOpen` is set, and setup
+ * only handles errors from redis when `allowOnError` is set, and setup
  * mistakes are still thrown.
  */
 const redisErrors = new WeakSet<object>();
