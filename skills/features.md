@@ -39,8 +39,9 @@ const ratelimit = new Ratelimit({
 
 ## Redis Errors (allowOnError)
 
-By default, `limit()` throws when the request to Redis fails, for example because the database is over its plan limits or refuses connections.
-- Set `allowOnError: true` to allow the request instead of throwing
+If the request to Redis fails, for example because the database is over its plan limits or refuses connections, `limit()` allows the request instead of throwing.
+- Enabled by default (`allowOnError: true`)
+- Set `allowOnError: false` to throw the error instead, for limits that must not allow requests when Redis fails (e.g. login attempts)
 - The response has `success: true` and `reason: "error"`, and the error is logged with `console.warn`
 - Errors that don't come from Redis (e.g. setup mistakes) are still thrown
 - Does not change `timeout`: a slow Redis still allows the request with `reason: "timeout"`
@@ -50,7 +51,7 @@ Example:
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(5, "1 m"),
-  allowOnError: true,
+  allowOnError: false,
 });
 ```
 

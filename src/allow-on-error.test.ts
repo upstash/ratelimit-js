@@ -21,10 +21,11 @@ describe("allowOnError", () => {
     warn.mockRestore();
   });
 
-  test("throws the error by default", async () => {
+  test("throws the error when allowOnError is false", async () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.tokenBucket(1, "10 s", 1),
+      allowOnError: false,
       enableTelemetry: false,
     });
 
@@ -41,7 +42,6 @@ describe("allowOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter,
-      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -60,7 +60,6 @@ describe("allowOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      allowOnError: true,
       enableProtection: true,
       enableTelemetry: false,
     });
@@ -78,7 +77,6 @@ describe("allowOnError", () => {
     const ratelimit = new MultiRegionRatelimit({
       redis: [createFailingRedis(), createFailingRedis()],
       limiter,
-      allowOnError: true,
     });
 
     const res = await ratelimit.limit("id");
@@ -91,7 +89,6 @@ describe("allowOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.slidingWindow(1, "10 s"),
-      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -106,7 +103,6 @@ describe("allowOnError", () => {
       redis: createFailingRedis(),
       limiter: RegionRatelimit.cachedFixedWindow(1, "10 s"),
       ephemeralCache: false,
-      allowOnError: true,
       enableTelemetry: false,
     });
 
@@ -118,7 +114,6 @@ describe("allowOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: { evalsha: () => new Promise(() => {}) } as unknown as Redis,
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      allowOnError: true,
       timeout: 50,
       enableTelemetry: false,
     });

@@ -67,10 +67,10 @@ export type RegionRatelimitConfig = {
    * unreachable. The response has `success: true` and `reason: "error"`, and the error
    * is logged with `console.warn`.
    *
-   * Errors that don't come from redis are still thrown. The `timeout` option is not
-   * affected.
+   * Set to `false` to throw the error instead. Errors that don't come from redis are
+   * always thrown. The `timeout` option is not affected.
    *
-   * @default false
+   * @default true
    */
   allowOnError?: boolean;
 

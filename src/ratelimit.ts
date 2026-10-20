@@ -76,10 +76,10 @@ export type RatelimitConfig<TContext> = {
    * unreachable. The response has `success: true` and `reason: "error"`, and the error
    * is logged with `console.warn`.
    *
-   * Errors that don't come from redis are still thrown. The `timeout` option is not
-   * affected.
+   * Set to `false` to throw the error instead. Errors that don't come from redis are
+   * always thrown. The `timeout` option is not affected.
    *
-   * @default false
+   * @default true
    */
   allowOnError?: boolean;
 
@@ -143,7 +143,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.allowOnError = config.allowOnError ?? false;
+    this.allowOnError = config.allowOnError ?? true;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
@@ -382,8 +382,8 @@ export abstract class Ratelimit<TContext extends Context> {
   }
 
   /**
-   * Allows the request when the request to redis fails and `allowOnError` is set.
-   * Otherwise, rethrows the error.
+   * Allows the request when the request to redis fails, unless `allowOnError` is false.
+   * Other errors are rethrown.
    *
    * @param error error thrown while checking the limit
    * @returns rate limit response that lets the request pass
