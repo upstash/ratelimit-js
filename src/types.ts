@@ -78,7 +78,7 @@ export type RatelimitResponse = {
   /**
    * Reason behind the result in `success` field.
    * - Is set to "timeout" when request times out
-   * - Is set to "error" when the request to redis fails and the request is allowed. See `failOpen` parameter.
+   * - Is set to "error" when the request to redis fails and the request is allowed. See `allowOnError` parameter.
    * - Is set to "cacheBlock" when an identifier is blocked through cache without calling redis because it was
    *    rate limited previously.
    * - Is set to "denyList" when identifier or one of ip/user-agent/country parameters is in deny list. To enable

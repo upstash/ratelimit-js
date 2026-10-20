@@ -4,6 +4,7 @@ import type { RatelimitResponse, Redis } from "../types"
 import { Cache } from "../cache";
 import { checkDenyListScript } from "./scripts";
 import { updateIpDenyList } from "./ip-deny-list";
+import { redisCall } from "../hash";
 
 
 const denyListCache = new Cache(new Map());
@@ -50,14 +51,14 @@ export const checkDenyList = async (
   prefix: string,
   members: string[]
 ): Promise<DenyListResponse> => {
-  const [ deniedValues, ipDenyListStatus ] = await redis.eval(
+  const [ deniedValues, ipDenyListStatus ] = await redisCall(redis.eval(
     checkDenyListScript,
     [
       [prefix, DenyListExtension, "all"].join(":"),
       [prefix, IpDenyListStatusKey].join(":"),
     ],
     members
-  ) as [boolean[], number];
+  )) as [boolean[], number];
 
   let deniedValue: DeniedValue = undefined;
   deniedValues.map((memberDenied, index) => {
