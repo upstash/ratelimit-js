@@ -10,7 +10,7 @@ const fail = () => Promise.reject(new Error(LIMIT_ERROR));
 
 const createFailingRedis = () => ({ evalsha: fail, eval: fail }) as unknown as Redis;
 
-describe("denyOnError", () => {
+describe("failOpen", () => {
   let warn: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
@@ -37,17 +37,17 @@ describe("denyOnError", () => {
     ["slidingWindow", RegionRatelimit.slidingWindow(1, "10 s")],
     ["tokenBucket", RegionRatelimit.tokenBucket(1, "10 s", 1)],
     ["cachedFixedWindow", RegionRatelimit.cachedFixedWindow(1, "10 s")],
-  ])("denies the request when redis returns an error (%s)", async (_, limiter) => {
+  ])("allows the request when redis returns an error (%s)", async (_, limiter) => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter,
-      denyOnError: true,
+      failOpen: true,
       enableTelemetry: false,
     });
 
     const res = await ratelimit.limit("id");
 
-    expect(res.success).toBe(false);
+    expect(res.success).toBe(true);
     expect(res.limit).toBe(0);
     expect(res.remaining).toBe(0);
     expect(res.reset).toBe(0);
@@ -56,34 +56,34 @@ describe("denyOnError", () => {
     expect(`${warn.mock.calls[0][1]}`).toContain(LIMIT_ERROR);
   });
 
-  test("denies the request when the deny list check returns an error", async () => {
+  test("allows the request when the deny list check returns an error", async () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      denyOnError: true,
+      failOpen: true,
       enableProtection: true,
       enableTelemetry: false,
     });
 
     const res = await ratelimit.limit("id");
 
-    expect(res.success).toBe(false);
+    expect(res.success).toBe(true);
     expect(res.reason).toBe("error");
   });
 
   test.each([
     ["fixedWindow", MultiRegionRatelimit.fixedWindow(1, "10 s")],
     ["slidingWindow", MultiRegionRatelimit.slidingWindow(1, "10 s")],
-  ])("denies the request when every region returns an error (%s)", async (_, limiter) => {
+  ])("allows the request when every region returns an error (%s)", async (_, limiter) => {
     const ratelimit = new MultiRegionRatelimit({
       redis: [createFailingRedis(), createFailingRedis()],
       limiter,
-      denyOnError: true,
+      failOpen: true,
     });
 
     const res = await ratelimit.limit("id");
 
-    expect(res.success).toBe(false);
+    expect(res.success).toBe(true);
     expect(res.reason).toBe("error");
   });
 
@@ -91,13 +91,13 @@ describe("denyOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: createFailingRedis(),
       limiter: RegionRatelimit.slidingWindow(1, "10 s"),
-      denyOnError: true,
+      failOpen: true,
       enableTelemetry: false,
     });
 
     const res = await ratelimit.blockUntilReady("id", 1000);
 
-    expect(res.success).toBe(false);
+    expect(res.success).toBe(true);
     expect(res.reason).toBe("error");
   });
 
@@ -106,7 +106,7 @@ describe("denyOnError", () => {
       redis: createFailingRedis(),
       limiter: RegionRatelimit.cachedFixedWindow(1, "10 s"),
       ephemeralCache: false,
-      denyOnError: true,
+      failOpen: true,
       enableTelemetry: false,
     });
 
@@ -118,7 +118,7 @@ describe("denyOnError", () => {
     const ratelimit = new RegionRatelimit({
       redis: { evalsha: () => new Promise(() => {}) } as unknown as Redis,
       limiter: RegionRatelimit.fixedWindow(1, "10 s"),
-      denyOnError: true,
+      failOpen: true,
       timeout: 50,
       enableTelemetry: false,
     });

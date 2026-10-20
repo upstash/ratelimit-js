@@ -37,11 +37,11 @@ const ratelimit = new Ratelimit({
 });
 ```
 
-## Redis Errors (denyOnError)
+## Redis Errors (failOpen)
 
 By default, `limit()` throws when the request to Redis fails, for example because the database is over its plan limits or refuses connections.
-- Set `denyOnError: true` to deny the request instead of throwing
-- The response has `success: false` and `reason: "error"`, and the error is logged with `console.warn`
+- Set `failOpen: true` to allow the request instead of throwing
+- The response has `success: true` and `reason: "error"`, and the error is logged with `console.warn`
 - Errors that don't come from Redis (e.g. setup mistakes) are still thrown
 - Does not change `timeout`: a slow Redis still allows the request with `reason: "timeout"`
 
@@ -50,7 +50,7 @@ Example:
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(5, "1 m"),
-  denyOnError: true,
+  failOpen: true,
 });
 ```
 

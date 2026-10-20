@@ -62,17 +62,17 @@ export type RegionRatelimitConfig = {
   timeout?: number;
 
   /**
-   * If true, the ratelimiter will deny requests instead of throwing when the request to
-   * redis fails, for example when the database is over its plan limits or unreachable.
-   * The response has `success: false` and `reason: "error"`, and the error is logged
-   * with `console.warn`.
+   * If true, the ratelimiter will allow requests to pass instead of throwing when the
+   * request to redis fails, for example when the database is over its plan limits or
+   * unreachable. The response has `success: true` and `reason: "error"`, and the error
+   * is logged with `console.warn`.
    *
    * Errors that don't come from redis are still thrown. The `timeout` option is not
    * affected.
    *
    * @default false
    */
-  denyOnError?: boolean;
+  failOpen?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -153,7 +153,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
-      denyOnError: config.denyOnError,
+      failOpen: config.failOpen,
       analytics: config.analytics,
       ctx: {
         redis: config.redis as RedisCore,

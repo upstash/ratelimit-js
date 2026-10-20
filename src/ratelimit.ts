@@ -71,17 +71,17 @@ export type RatelimitConfig<TContext> = {
   timeout?: number;
 
   /**
-   * If true, the ratelimiter will deny requests instead of throwing when the request to
-   * redis fails, for example when the database is over its plan limits or unreachable.
-   * The response has `success: false` and `reason: "error"`, and the error is logged
-   * with `console.warn`.
+   * If true, the ratelimiter will allow requests to pass instead of throwing when the
+   * request to redis fails, for example when the database is over its plan limits or
+   * unreachable. The response has `success: true` and `reason: "error"`, and the error
+   * is logged with `console.warn`.
    *
    * Errors that don't come from redis are still thrown. The `timeout` option is not
    * affected.
    *
    * @default false
    */
-  denyOnError?: boolean;
+  failOpen?: boolean;
 
   /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
@@ -127,7 +127,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
-  protected readonly denyOnError: boolean;
+  protected readonly failOpen: boolean;
 
   protected readonly primaryRedis: Redis;
 
@@ -143,7 +143,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
-    this.denyOnError = config.denyOnError ?? false;
+    this.failOpen = config.failOpen ?? false;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
@@ -272,7 +272,7 @@ export abstract class Ratelimit<TContext extends Context> {
     const deadline = Date.now() + timeout;
     while (true) {
       res = await this.limit(identifier);
-      if (res.success || res.reason === "error") {
+      if (res.success) {
         break;
       }
       if (res.reset === 0) {
@@ -382,19 +382,19 @@ export abstract class Ratelimit<TContext extends Context> {
   }
 
   /**
-   * Denies the request when the request to redis fails and `denyOnError` is set.
+   * Allows the request when the request to redis fails and `failOpen` is set.
    * Otherwise, rethrows the error.
    *
    * @param error error thrown while checking the limit
-   * @returns rate limit response that denies the request
+   * @returns rate limit response that lets the request pass
    */
   private handleError = (error: unknown): RatelimitResponse => {
-    if (!this.denyOnError || !isRedisError(error)) {
+    if (!this.failOpen || !isRedisError(error)) {
       throw error;
     }
-    console.warn("Ratelimit request to redis failed, denying the request:", error);
+    console.warn("Ratelimit request to redis failed, allowing the request:", error);
     return {
-      success: false,
+      success: true,
       limit: 0,
       remaining: 0,
       reset: 0,
