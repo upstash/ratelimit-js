@@ -177,9 +177,14 @@ function run(
         }
 
         // Verify getRemaining after request
+        // A rejected request leaves the token bucket untouched, so it keeps its full limit
         const finalRemaining = await ratelimit.getRemaining(identifier);
         expect(finalRemaining.limit).toBe(tc.expected.limit);
-        expect(finalRemaining.remaining).toBe(tc.expected.remaining);
+        expect(finalRemaining.remaining).toBe(
+          limiterName === "tokenBucket" && !tc.expected.success
+            ? tc.expected.limit
+            : tc.expected.remaining
+        );
       });
     }
 
@@ -241,10 +246,10 @@ function run(
         if (cacheTest.expectedSecondCallSuccess === undefined) {
           // When cache is disabled, behavior differs by algorithm
           if (limiterName === "tokenBucket") {
-            // tokenBucket still fails because it has 0 tokens stored and needs refill time
-            expect(secondResult.success).toBe(false);
+            // tokenBucket succeeds because the rejected first call consumed no tokens
+            expect(secondResult.success).toBe(true);
             expect(secondResult.limit).toBe(10);
-            expect(secondResult.remaining).toBe(0);
+            expect(secondResult.remaining).toBe(9); // 10 - 1 (second) = 9
           } else {
             // fixedWindow/slidingWindow succeed because they track used tokens
             expect(secondResult.success).toBe(true);
