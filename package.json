@@ -4,7 +4,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "docs",
+    "!src/**/*.test.*",
+    "!src/**/*.test-d.*",
+    "!src/**/*.spec.*",
+    "!src/**/test-utils.*",
+    "!src/**/__tests__/**",
+    "!src/**/__snapshots__/**",
+    "!src/**/test_utils.*",
+    "!src/tools/**"
   ],
   "repository": {
     "type": "git",
@@ -14,13 +24,15 @@
     "build": "tsup",
     "test": "bun test src --coverage",
     "fmt": "prettier --write .",
-    "lint": "eslint \"src/**/*.{js,ts,tsx}\" --quiet --fix"
+    "lint": "eslint \"src/**/*.{js,ts,tsx}\" --quiet --fix",
+    "prepack": "giget gh:upstash/docs/redis/sdks/ratelimit-ts docs --force-clean 1>&2"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "bun-types": "latest",
     "eslint": "^9.10.0",
     "eslint-plugin-unicorn": "^55.0.0",
+    "giget": "3.3.1",
     "tsup": "^7.2.0",
     "turbo": "^1.10.15",
     "typescript": "^5.0.0"
@@ -35,5 +47,8 @@
   "bugs": {
     "url": "https://github.com/upstash/ratelimit-js/issues"
   },
-  "homepage": "https://github.com/upstash/ratelimit-js#readme"
+  "homepage": "https://github.com/upstash/ratelimit-js#readme",
+  "directories": {
+    "doc": "./docs"
+  }
 }

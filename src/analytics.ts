@@ -29,6 +29,8 @@ export type AnalyticsConfig = {
 
 /**
  * The Analytics package is experimental and can change at any time.
+ *
+ * @see node_modules/@upstash/ratelimit/docs/features.mdx
  */
 export class Analytics {
   private readonly analytics: CoreAnalytics;

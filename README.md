@@ -78,6 +78,8 @@ For more information on getting started, you can refer to [our documentation](ht
 
 See [the documentation](https://upstash.com/docs/redis/sdks/ratelimit-ts/overview) for more information details about this package.
 
+The npm package includes TypeScript source in `node_modules/@upstash/ratelimit/src/` and documentation in `node_modules/@upstash/ratelimit/docs/`. Start with `src/index.ts` to explore the source.
+
 ## Telemetry
 
 The SDK reports its name and version to Upstash as a header on the requests made

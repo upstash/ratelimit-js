@@ -129,10 +129,14 @@ export type RegionRatelimitConfig = {
  * })
  *
  * ```
+ *
+ * @see node_modules/@upstash/ratelimit/docs/gettingstarted.mdx
  */
 export class RegionRatelimit extends Ratelimit<RegionContext> {
   /**
    * Create a new Ratelimit instance by providing a `@upstash/redis` instance and the algorithm of your choice.
+   *
+   * @see node_modules/@upstash/ratelimit/docs/gettingstarted.mdx
    */
 
   constructor(config: RegionRatelimitConfig) {
@@ -171,6 +175,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - A fixed timeframe
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static fixedWindow(
     /**
@@ -289,6 +294,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - The duration in which the user can max X requests.
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static slidingWindow(
     /**
@@ -410,6 +416,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    * rate.
    * - Allows to set a higher initial burst limit by setting `maxTokens` higher
    * than `refillRate`
+   *
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static tokenBucket(
     /**
@@ -541,6 +549,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    *
    * @param tokens - How many requests a user can make in each time window.
    * @param window - A fixed timeframe
+   * @see node_modules/@upstash/ratelimit/docs/algorithms.mdx
    */
   static cachedFixedWindow(
     /**
