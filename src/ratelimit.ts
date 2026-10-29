@@ -70,6 +70,17 @@ export type RatelimitConfig<TContext> = {
   timeout?: number;
 
   /**
+   * If true, the ratelimiter will allow requests to pass when the request to redis fails,
+   * for example when the database is over its plan limits or unreachable. The response
+   * has `success: true` and `reason: "error"`, and the error is logged with `console.warn`.
+   *
+   * Set to `false` to throw the error instead.
+   *
+   * @default true
+   */
+  failOpen?: boolean;
+
+  /**
    * If enabled, the ratelimiter will store analytics data in redis, which you can check out at
    * https://console.upstash.com/ratelimit
    *
@@ -113,6 +124,8 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly timeout: number;
 
+  protected readonly failOpen: boolean;
+
   protected readonly primaryRedis: Redis;
 
   protected readonly analytics?: Analytics;
@@ -127,6 +140,7 @@ export abstract class Ratelimit<TContext extends Context> {
     this.ctx = config.ctx;
     this.limiter = config.limiter;
     this.timeout = config.timeout ?? 5000;
+    this.failOpen = config.failOpen ?? true;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
 
@@ -199,7 +213,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
     let timeoutId: any = null;
     try {
-      const response = this.getRatelimitResponse(identifier, req);
+      const response = this.getRatelimitResponse(identifier, req).catch(this.handleError);
       const { responseArray, newTimeoutId } = this.applyTimeout(response);
       timeoutId = newTimeoutId;
 
@@ -371,6 +385,27 @@ export abstract class Ratelimit<TContext extends Context> {
       responseArray,
       newTimeoutId,
     }
+  }
+
+  /**
+   * Allows the request when the ratelimit check fails, unless `failOpen` is false.
+   *
+   * @param error error thrown while checking the limit
+   * @returns rate limit response that lets the request pass
+   */
+  private handleError = (error: unknown): RatelimitResponse => {
+    if (!this.failOpen) {
+      throw error;
+    }
+    console.warn("Ratelimit check failed, allowing the request:", error);
+    return {
+      success: true,
+      limit: 0,
+      remaining: 0,
+      reset: 0,
+      pending: Promise.resolve(),
+      reason: "error",
+    };
   }
 
   /**
