@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { describe, expect, test } from "bun:test";
-import { RESET_SCRIPT, SCRIPTS } from "./hash";
+import { KEY_LOCKING_SHEBANG, RESET_SCRIPT, SCRIPTS, withoutKeyLocking } from "./hash";
 
 describe("should use correct hash for lua scripts", () => {
   const redis = Redis.fromEnv();
@@ -21,6 +21,11 @@ describe("should use correct hash for lua scripts", () => {
       for (const [method, scriptInfo] of Object.entries(scripts)) {
         test(method, async () => {
           await validateHash(scriptInfo.script, scriptInfo.hash)
+        })
+        test(`${method} without key locking`, async () => {
+          const stripped = withoutKeyLocking(scriptInfo)
+          expect(stripped.script.startsWith(KEY_LOCKING_SHEBANG)).toBe(false)
+          await validateHash(stripped.script, stripped.hash)
         })
       }
     })
