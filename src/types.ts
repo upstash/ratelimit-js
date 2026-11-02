@@ -31,6 +31,12 @@ export type RegionContext = {
    * The prefix used for Redis keys
    */
   prefix: string;
+  /**
+   * If false, lua scripts are sent without the `allow-key-locking` flag.
+   *
+   * @default true
+   */
+  keyLocking?: boolean;
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
