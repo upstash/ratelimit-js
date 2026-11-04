@@ -1,8 +1,20 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
-import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
-import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
+import type {
+  Algorithm,
+  Context,
+  LimitOptions,
+  LimitPayload,
+  RatelimitResponse,
+  Redis,
+} from "./types";
+import {
+  checkDenyList,
+  checkDenyListCache,
+  defaultDeniedResponse,
+  resolveLimitPayload,
+} from "./deny-list/index";
 
 export class TimeoutError extends Error {
   constructor() {
@@ -81,12 +93,27 @@ export type RatelimitConfig<TContext> = {
    * Enables deny list. If set to true, requests with identifier or ip/user-agent/countrie
    * in the deny list will be rejected automatically. To edit the deny list, check out the
    * ratelimit dashboard at https://console.upstash.com/ratelimit
-   * 
+   *
    * @default false
    */
-  enableProtection?: boolean
+  enableProtection?: boolean;
 
-  denyListThreshold?: number
+  denyListThreshold?: number;
+
+  /**
+   * If enabled, Lua scripts include the `#!lua flags=allow-key-locking` shebang.
+   * This is supported on Upstash hosted Redis to allow concurrent key execution.
+   *
+   * Set to `false` when connecting to open-source Redis or Valkey (such as local
+   * development environments running serverless-redis-http) that do not recognize
+   * the `allow-key-locking` shebang flag.
+   *
+   * Can also be disabled with the `UPSTASH_DISABLE_KEY_LOCKING` or `UPSTASH_ALLOW_KEY_LOCKING=false`
+   * environment variable.
+   *
+   * @default true
+   */
+  allowKeyLocking?: boolean;
 };
 
 /**
@@ -119,9 +146,11 @@ export abstract class Ratelimit<TContext extends Context> {
 
   protected readonly enableProtection: boolean;
 
-  protected readonly denyListThreshold: number
+  protected readonly denyListThreshold: number;
 
   protected readonly dynamicLimits: boolean;
+
+  protected readonly allowKeyLocking: boolean;
 
   constructor(config: RatelimitConfig<TContext>) {
     this.ctx = config.ctx;
@@ -129,22 +158,32 @@ export abstract class Ratelimit<TContext extends Context> {
     this.timeout = config.timeout ?? 5000;
     this.prefix = config.prefix ?? DEFAULT_PREFIX;
     this.dynamicLimits = config.dynamicLimits ?? false;
+    this.allowKeyLocking =
+      config.allowKeyLocking ??
+      !(
+        typeof process !== "undefined" &&
+        process.env &&
+        (process.env.UPSTASH_DISABLE_KEY_LOCKING === "1" ||
+          process.env.UPSTASH_DISABLE_KEY_LOCKING === "true" ||
+          process.env.UPSTASH_ALLOW_KEY_LOCKING === "false")
+      );
 
     this.enableProtection = config.enableProtection ?? false;
     this.denyListThreshold = config.denyListThreshold ?? 6;
 
-    this.primaryRedis = ("redis" in this.ctx) ? this.ctx.redis : this.ctx.regionContexts[0].redis;
+    this.primaryRedis = "redis" in this.ctx ? this.ctx.redis : this.ctx.regionContexts[0].redis;
 
     // Pass dynamicLimits and prefix to context if it's a RegionContext
     if ("redis" in this.ctx) {
       this.ctx.dynamicLimits = this.dynamicLimits;
       this.ctx.prefix = this.prefix;
+      this.ctx.allowKeyLocking = this.allowKeyLocking;
     }
     this.analytics = config.analytics
       ? new Analytics({
-        redis: this.primaryRedis,
-        prefix: this.prefix,
-      })
+          redis: this.primaryRedis,
+          prefix: this.prefix,
+        })
       : undefined;
 
     if (config.ephemeralCache instanceof Map) {
@@ -192,11 +231,7 @@ export abstract class Ratelimit<TContext extends Context> {
    *
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
-  public limit = async (
-    identifier: string,
-    req?: LimitOptions,
-  ): Promise<RatelimitResponse> => {
-
+  public limit = async (identifier: string, req?: LimitOptions): Promise<RatelimitResponse> => {
     let timeoutId: any = null;
     try {
       const response = this.getRatelimitResponse(identifier, req);
@@ -249,7 +284,7 @@ export abstract class Ratelimit<TContext extends Context> {
      * Maximum duration to wait in milliseconds.
      * After this time the request will be denied.
      */
-    timeout: number,
+    timeout: number
   ): Promise<RatelimitResponse> => {
     if (timeout <= 0) {
       throw new Error("timeout must be positive");
@@ -291,7 +326,7 @@ export abstract class Ratelimit<TContext extends Context> {
 
   /**
    * Returns the remaining token count together with a reset timestamps
-   * 
+   *
    * @param identifier identifir to check
    * @returns object with `remaining`, `reset`, and `limit` fields. `remaining` denotes
    *          the remaining tokens, `limit` is the effective limit (considering dynamic
@@ -299,7 +334,9 @@ export abstract class Ratelimit<TContext extends Context> {
    *
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
-  public getRemaining = async (identifier: string): Promise<{
+  public getRemaining = async (
+    identifier: string
+  ): Promise<{
     remaining: number;
     reset: number;
     limit: number;
@@ -312,11 +349,11 @@ export abstract class Ratelimit<TContext extends Context> {
   /**
    * Checks if the identifier or the values in req are in the deny list cache.
    * If so, returns the default denied response.
-   * 
+   *
    * Otherwise, calls redis to check the rate limit and deny list. Returns after
    * resolving the result. Resolving is overriding the rate limit result if
    * the some value is in deny list.
-   * 
+   *
    * @param identifier identifier to block
    * @param req options with ip, user agent, country, rate and geo info
    * @returns rate limit response
@@ -328,22 +365,24 @@ export abstract class Ratelimit<TContext extends Context> {
     const key = this.getKey(identifier);
     const definedMembers = this.getDefinedMembers(identifier, req);
 
-    const deniedValue = checkDenyListCache(definedMembers)
+    const deniedValue = checkDenyListCache(definedMembers);
 
-    const result: LimitPayload = deniedValue ? [defaultDeniedResponse(deniedValue), { deniedValue, invalidIpDenyList: false }] : (await Promise.all([
-      this.limiter().limit(this.ctx, key, req?.rate),
-      this.enableProtection
-        ? checkDenyList(this.primaryRedis, this.prefix, definedMembers)
-        : { deniedValue: undefined, invalidIpDenyList: false }
-    ]));
+    const result: LimitPayload = deniedValue
+      ? [defaultDeniedResponse(deniedValue), { deniedValue, invalidIpDenyList: false }]
+      : await Promise.all([
+          this.limiter().limit(this.ctx, key, req?.rate),
+          this.enableProtection
+            ? checkDenyList(this.primaryRedis, this.prefix, definedMembers)
+            : { deniedValue: undefined, invalidIpDenyList: false },
+        ]);
 
-    return resolveLimitPayload(this.primaryRedis, this.prefix, result, this.denyListThreshold)
+    return resolveLimitPayload(this.primaryRedis, this.prefix, result, this.denyListThreshold);
   };
 
   /**
    * Creates an array with the original response promise and a timeout promise
    * if this.timeout > 0.
-   * 
+   *
    * @param response Ratelimit response promise
    * @returns array with the response and timeout promise. also includes the timeout id
    */
@@ -360,22 +399,22 @@ export abstract class Ratelimit<TContext extends Context> {
             remaining: 0,
             reset: 0,
             pending: Promise.resolve(),
-            reason: "timeout"
+            reason: "timeout",
           });
         }, this.timeout);
-      })
+      });
       responseArray.push(timeoutResponse);
     }
 
     return {
       responseArray,
       newTimeoutId,
-    }
-  }
+    };
+  };
 
   /**
    * submits analytics if this.analytics is set
-   * 
+   *
    * @param ratelimitResponse final rate limit response
    * @param identifier identifier to submit
    * @param req limit options
@@ -384,24 +423,26 @@ export abstract class Ratelimit<TContext extends Context> {
   private submitAnalytics = (
     ratelimitResponse: RatelimitResponse,
     identifier: string,
-    req?: Pick<LimitOptions, "geo">,
+    req?: Pick<LimitOptions, "geo">
   ) => {
     if (this.analytics) {
       try {
         const geo = req ? this.analytics.extractGeo(req) : undefined;
         const analyticsP = this.analytics
           .record({
-            identifier: ratelimitResponse.reason === "denyList" // if in denyList, use denied value as identifier
-              ? ratelimitResponse.deniedValue!
-              : identifier,
+            identifier:
+              ratelimitResponse.reason === "denyList" // if in denyList, use denied value as identifier
+                ? ratelimitResponse.deniedValue!
+                : identifier,
             time: Date.now(),
-            success: ratelimitResponse.reason === "denyList" // if in denyList, label success as "denied"
-              ? "denied"
-              : ratelimitResponse.success,
+            success:
+              ratelimitResponse.reason === "denyList" // if in denyList, label success as "denied"
+                ? "denied"
+                : ratelimitResponse.success,
             ...geo,
           })
           .catch((error) => {
-            let errorMessage = "Failed to record analytics"
+            let errorMessage = "Failed to record analytics";
             if (`${error}`.includes("WRONGTYPE")) {
               errorMessage = `
     Failed to record analytics. See the information below:
@@ -412,26 +453,26 @@ export abstract class Ratelimit<TContext extends Context> {
     This occurs simply because the way we store analytics data
     has changed. To avoid getting this error, disable analytics
     for *an hour*, then simply enable it back.\n
-    `
+    `;
             }
             console.warn(errorMessage, error);
           });
         ratelimitResponse.pending = Promise.all([ratelimitResponse.pending, analyticsP]);
       } catch (error) {
         console.warn("Failed to record analytics", error);
-      };
-    };
+      }
+    }
     return ratelimitResponse;
-  }
+  };
 
   private getKey = (identifier: string): string => {
     return [this.prefix, identifier].join(":");
-  }
+  };
 
   /**
    * returns a list of defined values from
    * [identifier, req.ip, req.userAgent, req.country]
-   * 
+   *
    * @param identifier identifier
    * @param req limit options
    * @returns list of defined values
@@ -442,14 +483,14 @@ export abstract class Ratelimit<TContext extends Context> {
   ): string[] => {
     const members = [identifier, req?.ip, req?.userAgent, req?.country];
     return (members as string[]).filter(Boolean);
-  }
+  };
 
   /**
    * Set a dynamic rate limit globally.
-   * 
+   *
    * When dynamicLimits is enabled, this limit will override the default limit
    * set in the constructor for all requests.
-   * 
+   *
    * @example
    * ```ts
    * const ratelimit = new Ratelimit({
@@ -457,14 +498,14 @@ export abstract class Ratelimit<TContext extends Context> {
    *   limiter: Ratelimit.slidingWindow(10, "10 s"),
    *   dynamicLimits: true
    * });
-   * 
+   *
    * // Set global dynamic limit to 120 requests
    * await ratelimit.setDynamicLimit({ limit: 120 });
-   * 
+   *
    * // Disable dynamic limit (falls back to default)
    * await ratelimit.setDynamicLimit({ limit: false });
    * ```
-   * 
+   *
    * @param options.limit - The new rate limit to apply globally, or false to disable
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
@@ -476,19 +517,21 @@ export abstract class Ratelimit<TContext extends Context> {
     }
 
     const globalKey = `${this.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`;
-    
-    await (options.limit === false ? this.primaryRedis.del(globalKey) : this.primaryRedis.set(globalKey, options.limit));
+
+    await (options.limit === false
+      ? this.primaryRedis.del(globalKey)
+      : this.primaryRedis.set(globalKey, options.limit));
   };
 
   /**
    * Get the current global dynamic rate limit.
-   * 
+   *
    * @example
    * ```ts
    * const { dynamicLimit } = await ratelimit.getDynamicLimit();
    * console.log(dynamicLimit); // 120 or null if not set
    * ```
-   * 
+   *
    * @returns Object containing the current global dynamic limit, or null if not set
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
