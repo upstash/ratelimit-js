@@ -1,0 +1,33 @@
+{
+  "name": "ratelimit-js",
+  "owner": {
+    "name": "Upstash"
+  },
+  "description": "Upstash Ratelimit agent skill",
+  "plugins": [
+    {
+      "name": "ratelimit-js",
+      "displayName": "Upstash Ratelimit",
+      "description": "Upstash Ratelimit agent skill for Claude Code",
+      "source": "./skills",
+      "strict": false,
+      "author": {
+        "name": "Upstash",
+        "url": "https://github.com/upstash"
+      },
+      "homepage": "https://docs.upstash.com/redis/sdks/ratelimit-ts/overview",
+      "repository": "https://github.com/upstash/ratelimit-js",
+      "license": "MIT",
+      "keywords": [
+        "upstash",
+        "ratelimit",
+        "redis",
+        "serverless"
+      ],
+      "category": "development",
+      "skills": [
+        "./"
+      ]
+    }
+  ]
+}
