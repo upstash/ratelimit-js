@@ -1,28 +1,31 @@
 {
   "name": "ratelimit-js",
-  "description": "Upstash Ratelimit agent skill",
+  "version": "0.1.1",
+  "description": "Teaches coding agents how to use the Upstash Ratelimit TypeScript SDK for serverless Redis rate limiting.",
   "author": {
     "name": "Upstash",
-    "url": "https://github.com/upstash"
+    "url": "https://upstash.com"
   },
-  "homepage": "https://docs.upstash.com/redis/sdks/ratelimit-ts/overview",
+  "homepage": "https://upstash.com",
   "repository": "https://github.com/upstash/ratelimit-js",
   "license": "MIT",
-  "keywords": [
-    "upstash",
-    "ratelimit",
-    "redis",
-    "serverless"
-  ],
-  "skills": [
-    "./skills"
-  ],
+  "keywords": ["upstash", "ratelimit", "redis", "serverless", "typescript", "coding-agents"],
+  "skills": ["./skills"],
   "interface": {
     "displayName": "Upstash Ratelimit",
-    "shortDescription": "Upstash Ratelimit agent skill",
-    "longDescription": "Agent skill for the Upstash Ratelimit SDK, installed from the skill already in this repository.",
+    "shortDescription": "Rate limit serverless APIs with the Upstash Ratelimit TypeScript SDK",
+    "longDescription": "Upstash Ratelimit is a connectionless, HTTP-based rate limiting library for TypeScript, built for serverless and edge runtimes. This plugin teaches coding agents how to install and configure @upstash/ratelimit with Upstash Redis, create limiters, and apply them to incoming requests.\n\nUse it when adding or changing rate limits, choosing among fixed window, sliding window, and token bucket algorithms, or working with SDK features such as prefixes, ephemeral caching, analytics, dynamic limits, multi-region setups, and traffic-protection patterns. The skill points agents at practical setup steps and the companion docs already in skills/ — algorithms, features, methods, pricing, and traffic protection — not at reading package source.",
     "developerName": "Upstash",
     "category": "Developer Tools",
-    "websiteURL": "https://docs.upstash.com/redis/sdks/ratelimit-ts/overview"
+    "capabilities": ["Rate limiting setup", "Algorithm guidance", "SDK feature reference"],
+    "websiteURL": "https://upstash.com",
+    "defaultPrompt": [
+      "Add Upstash Ratelimit with a sliding window to my API route",
+      "Help me choose between fixed window, sliding window, and token bucket",
+      "Set up multi-region rate limiting with @upstash/ratelimit"
+    ],
+    "brandColor": "#00E9A3",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg"
   }
 }
