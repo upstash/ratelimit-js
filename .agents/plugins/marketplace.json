@@ -8,7 +8,7 @@
       "name": "ratelimit-js",
       "source": {
         "source": "local",
-        "path": "./skills"
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",
