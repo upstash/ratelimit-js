@@ -1,6 +1,6 @@
 {
   "name": "ratelimit-js",
-  "description": "The Upstash Ratelimit agent skill for Claude Code",
+  "description": "The Upstash Ratelimit agent skill",
   "owner": {
     "name": "Upstash",
     "url": "https://upstash.com"
