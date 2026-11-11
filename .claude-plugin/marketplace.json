@@ -1,0 +1,28 @@
+{
+  "name": "ratelimit-js",
+  "description": "The Upstash Ratelimit agent skill",
+  "owner": {
+    "name": "Upstash",
+    "url": "https://upstash.com"
+  },
+  "plugins": [
+    {
+      "name": "ratelimit-js",
+      "displayName": "Upstash Ratelimit",
+      "source": "./",
+      "strict": false,
+      "description": "Teaches coding agents how to use the Upstash Ratelimit TypeScript SDK for serverless Redis rate limiting. Use when adding or changing rate limits, choosing algorithms, or working with analytics, caching, multi-region, and traffic-protection features.",
+      "version": "0.1.1",
+      "author": {
+        "name": "Upstash",
+        "url": "https://upstash.com"
+      },
+      "homepage": "https://upstash.com",
+      "repository": "https://github.com/upstash/ratelimit-js",
+      "license": "MIT",
+      "category": "development",
+      "keywords": ["upstash", "ratelimit", "redis", "serverless", "typescript", "coding-agents"],
+      "skills": ["./skills"]
+    }
+  ]
+}
