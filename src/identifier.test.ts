@@ -43,7 +43,7 @@ for (const [name, limiter] of algorithms) {
       const ratelimit = newRegion(limiter());
       await consume(ratelimit, "user");
 
-      for (const identifier of ["*", "use?", "[u]ser", "u*", "use"]) {
+      for (const identifier of ["*", "use?", "[u]ser", "u*", "use", String.raw`\E.*\Q`, String.raw`\E.*`]) {
         await ratelimit.resetUsedTokens(identifier);
       }
       expect(await remainingOf(ratelimit, "user")).toBe(limit - 3);
@@ -55,7 +55,14 @@ for (const [name, limiter] of algorithms) {
     test("reset works for identifiers with special characters", async () => {
       const ratelimit = newRegion(limiter());
 
-      for (const identifier of ["user*", "user?[1]", String.raw`user\1`, "2001:db8::1"]) {
+      for (const identifier of [
+        "user*",
+        "user?[1]",
+        String.raw`user\1`,
+        String.raw`user\E.*\Q`,
+        `user${String.fromCodePoint(92)}`,
+        "2001:db8::1",
+      ]) {
         await consume(ratelimit, identifier);
         expect(await remainingOf(ratelimit, identifier)).toBe(limit - 3);
 

@@ -38,7 +38,10 @@ export const assertIdentifier = (identifier: string, reset = false): void => {
 
 /**
  * Escapes the characters which have a special meaning in a key pattern, so
- * that the value only matches itself.
+ * that the value only matches itself. A backslash is written as a character
+ * class, so that it can't combine with the character after it.
  */
 export const escapePattern = (value: string): string =>
-  value.replaceAll(/[*?[\\\]]/g, String.raw`\$&`);
+  value.replaceAll(/[*?[\\\]]/g, (character) =>
+    character === "\\" ? String.raw`[\\]` : `\\${character}`
+  );
