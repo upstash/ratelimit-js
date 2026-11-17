@@ -1,7 +1,7 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
-import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
+import { SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
@@ -264,17 +264,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const bucket = Math.floor(Date.now() / windowDuration);
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        await ctx.redis.del([identifier, bucket].join(":"));
       },
     });
   }
@@ -389,17 +384,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const currentWindow = Math.floor(Date.now() / windowSize);
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        await ctx.redis.del(
+          [identifier, currentWindow].join(":"),
+          [identifier, currentWindow - 1].join(":"),
+        );
       },
     });
   }
@@ -512,17 +505,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = identifier;
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        await ctx.redis.del(identifier);
       },
     });
   }
@@ -662,14 +649,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const key = [identifier, bucket].join(":");
         ctx.cache.pop(key)
 
-        const pattern = [identifier, "*"].join(":");
-
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        await ctx.redis.del(key);
       },
     });
   }

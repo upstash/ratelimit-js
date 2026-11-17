@@ -1,6 +1,7 @@
 import { Analytics } from "./analytics";
 import { Cache } from "./cache";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
+import { assertIdentifier } from "./identifier";
 import type { Algorithm, Context, LimitOptions, LimitPayload, RatelimitResponse, Redis } from "./types";
 import { checkDenyList, checkDenyListCache, defaultDeniedResponse, resolveLimitPayload } from "./deny-list/index";
 
@@ -285,8 +286,7 @@ export abstract class Ratelimit<TContext extends Context> {
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public resetUsedTokens = async (identifier: string) => {
-    const pattern = [this.prefix, identifier].join(":");
-    await this.limiter().resetTokens(this.ctx, pattern);
+    await this.limiter().resetTokens(this.ctx, this.getKey(identifier));
   };
 
   /**
@@ -304,7 +304,7 @@ export abstract class Ratelimit<TContext extends Context> {
     reset: number;
     limit: number;
   }> => {
-    const pattern = [this.prefix, identifier].join(":");
+    const pattern = this.getKey(identifier);
 
     return await this.limiter().getRemaining(this.ctx, pattern);
   };
@@ -425,6 +425,7 @@ export abstract class Ratelimit<TContext extends Context> {
   }
 
   private getKey = (identifier: string): string => {
+    assertIdentifier(identifier);
     return [this.prefix, identifier].join(":");
   }
 
