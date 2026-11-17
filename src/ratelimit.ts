@@ -286,7 +286,9 @@ export abstract class Ratelimit<TContext extends Context> {
    * @see node_modules/@upstash/ratelimit/docs/methods.mdx
    */
   public resetUsedTokens = async (identifier: string) => {
-    await this.limiter().resetTokens(this.ctx, this.getKey(identifier));
+    assertIdentifier(identifier, true);
+    const pattern = [this.prefix, identifier].join(":");
+    await this.limiter().resetTokens(this.ctx, pattern);
   };
 
   /**

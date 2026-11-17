@@ -3,7 +3,8 @@ import { DEFAULT_PREFIX } from "./constants";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
-import { SCRIPTS } from "./lua-scripts/hash";
+import { escapePattern } from "./identifier";
+import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 
 import { Ratelimit } from "./ratelimit";
 import { addTelemetry } from "./telemetry";
@@ -364,15 +365,15 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
-        const bucket = Math.floor(Date.now() / windowDuration);
+        const pattern = [escapePattern(identifier), "*"].join(":");
         if (ctx.cache) {
           ctx.cache.pop(identifier);
         }
 
         await Promise.all(
-          ctx.regionContexts.map((regionContext) =>
-            regionContext.redis.del([identifier, bucket].join(":"))
-          )
+          ctx.regionContexts.map((regionContext) => {
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+          })
         );
       },
     });
@@ -594,18 +595,15 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
-        const currentWindow = Math.floor(Date.now() / windowSize);
+        const pattern = [escapePattern(identifier), "*"].join(":");
         if (ctx.cache) {
           ctx.cache.pop(identifier);
         }
 
         await Promise.all(
-          ctx.regionContexts.map((regionContext) =>
-            regionContext.redis.del(
-              [identifier, currentWindow].join(":"),
-              [identifier, currentWindow - 1].join(":")
-            )
-          )
+          ctx.regionContexts.map((regionContext) => {
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+          })
         );
       },
     });
