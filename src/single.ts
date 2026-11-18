@@ -266,6 +266,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
@@ -274,7 +275,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });
@@ -391,6 +392,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
@@ -399,7 +401,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });
@@ -525,7 +527,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [""],
         ) as number;
       },
     });
@@ -667,12 +669,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         ctx.cache.pop(key)
 
         const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
 
         await safeEval(
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });

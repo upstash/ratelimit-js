@@ -71,6 +71,23 @@ for (const [name, limiter] of algorithms) {
       }
     }, 20_000);
 
+    test("reset leaves identifiers which start with the given one", async () => {
+      const ratelimit = newRegion(limiter());
+      const others = ["acme:bob", "acme:42", "acme:bob:7", "acme2"];
+
+      await consume(ratelimit, "acme");
+      for (const identifier of others) {
+        await consume(ratelimit, identifier);
+      }
+
+      await ratelimit.resetUsedTokens("acme");
+
+      expect(await remainingOf(ratelimit, "acme")).toBe(limit);
+      for (const identifier of others) {
+        expect(await remainingOf(ratelimit, identifier)).toBe(limit - 3);
+      }
+    }, 20_000);
+
     test("reset keeps the dynamic limit", async () => {
       const ratelimit = newRegion(limiter(), true);
       await ratelimit.setDynamicLimit({ limit: 5 });

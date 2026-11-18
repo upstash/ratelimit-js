@@ -91,5 +91,5 @@ export const SCRIPTS: {
 /** COMMON */
 export const RESET_SCRIPT: ScriptInfo = {
   script: resetScript,
-  hash: "54bd274ddc59fb3be0f42deee2f64322a10e2b50"
+  hash: "2456e0596b0cba036df5871178532f4b28305d5c"
 }
