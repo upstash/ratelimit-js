@@ -4,18 +4,20 @@ import { DenyListExtension, IpDenyListKey, IpDenyListStatusKey } from "./types";
 const ANALYTICS_TABLE = "events";
 
 /**
- * Identifiers which would resolve to a key the library keeps for itself
+ * Keys the library keeps for itself, without the prefix
  */
-const RESERVED_IDENTIFIERS = new Set<string>([
+const RESERVED_KEYS = new Set<string>([
   DYNAMIC_LIMIT_KEY_SUFFIX.slice(1),
   [DenyListExtension, "all"].join(":"),
   [DenyListExtension, IpDenyListKey].join(":"),
   IpDenyListStatusKey,
 ]);
 
+const ANALYTICS_KEY = new RegExp(String.raw`^${ANALYTICS_TABLE}:\d+$`);
+
 /**
  * Identifiers whose keys would include a key the library keeps for itself
- * when they are reset
+ * when they are reset with a pattern
  */
 const RESERVED_RESET_IDENTIFIERS = new Set<string>([
   DYNAMIC_LIMIT_KEY_SUFFIX.split(":")[1],
@@ -23,16 +25,29 @@ const RESERVED_RESET_IDENTIFIERS = new Set<string>([
   ANALYTICS_TABLE,
 ]);
 
-const ANALYTICS_KEY = new RegExp(String.raw`^${ANALYTICS_TABLE}:\d+$`);
+const reserved = (identifier: string) =>
+  new Error(`"${identifier}" is reserved and can't be used as an identifier`);
 
-export const assertIdentifier = (identifier: string, reset = false): void => {
+/**
+ * For algorithms which store an identifier under a single key with no
+ * suffix. Throws if that key is one the library keeps for itself.
+ */
+export const assertKeyIsFree = (prefix: string, key: string): void => {
+  const start = `${prefix}:`;
+  const identifier = key.startsWith(start) ? key.slice(start.length) : key;
+  if (RESERVED_KEYS.has(identifier) || ANALYTICS_KEY.test(identifier)) {
+    throw reserved(identifier);
+  }
+};
+
+/**
+ * Resetting an identifier scans for the keys which start with it. Throws if
+ * that scan would include a key the library keeps for itself.
+ */
+export const assertResetIsFree = (identifier: string): void => {
   const value = String(identifier);
-  if (
-    RESERVED_IDENTIFIERS.has(value) ||
-    ANALYTICS_KEY.test(value) ||
-    (reset && RESERVED_RESET_IDENTIFIERS.has(value))
-  ) {
-    throw new Error(`"${value}" is reserved and can't be used as an identifier`);
+  if (RESERVED_RESET_IDENTIFIERS.has(value)) {
+    throw reserved(value);
   }
 };
 

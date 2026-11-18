@@ -85,9 +85,12 @@ for (const [name, limiter] of algorithms) {
       expect(await ratelimit.getDynamicLimit()).toEqual({ dynamicLimit: 5 });
     }, 20_000);
 
-    test("reserved identifiers are rejected", async () => {
+    test("reserved identifiers", async () => {
       const ratelimit = newRegion(limiter(), true);
       await ratelimit.setDynamicLimit({ limit: 5 });
+
+      // only the token bucket stores an identifier under a key with no suffix
+      const collides = name === "tokenBucket";
 
       for (const identifier of [
         "dynamic:global",
@@ -97,13 +100,21 @@ for (const [name, limiter] of algorithms) {
         `events:${Date.now()}`,
         ["dynamic:global"] as unknown as string,
       ]) {
-        await expect(ratelimit.limit(identifier)).rejects.toThrow("reserved");
-        await expect(ratelimit.getRemaining(identifier)).rejects.toThrow("reserved");
-        await expect(ratelimit.resetUsedTokens(identifier)).rejects.toThrow("reserved");
+        if (collides) {
+          await expect(ratelimit.limit(identifier)).rejects.toThrow("reserved");
+          await expect(ratelimit.getRemaining(identifier)).rejects.toThrow("reserved");
+          await expect(ratelimit.resetUsedTokens(identifier)).rejects.toThrow("reserved");
+        } else {
+          const full = await remainingOf(ratelimit, identifier);
+          await consume(ratelimit, identifier);
+          expect(await remainingOf(ratelimit, identifier)).toBe(full - 3);
+          await ratelimit.resetUsedTokens(identifier);
+          expect(await remainingOf(ratelimit, identifier)).toBe(full);
+        }
       }
 
       expect(await ratelimit.getDynamicLimit()).toEqual({ dynamicLimit: 5 });
-      for (const identifier of ["user", "dynamic", "denyList", "events", "events:signup"]) {
+      for (const identifier of ["user", "dynamic", "denyList", "events", "events:signup", "user:123"]) {
         const { success } = await ratelimit.limit(identifier);
         expect(success).toBe(true);
       }
