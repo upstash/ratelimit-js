@@ -31,7 +31,7 @@ export class Cache implements EphemeralCache {
     this.cache.set(key, value);
   }
   public get(key: string): number | null {
-    return this.cache.get(key) || null;
+    return this.cache.get(key) ?? null;
   }
 
   public incr(key: string, incrementAmount: number = 1): number {
@@ -42,11 +42,11 @@ export class Cache implements EphemeralCache {
   }
 
   public pop(key: string): void {
-    this.cache.delete(key)
+    this.cache.delete(key);
   }
 
   public empty(): void {
-    this.cache.clear()
+    this.cache.clear();
   }
 
   public size(): number {
