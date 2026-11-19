@@ -139,6 +139,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
       timeout: config.timeout,
       analytics: config.analytics,
       dynamicLimits: config.dynamicLimits,
+      ephemeralCache: config.ephemeralCache,
       ctx: {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
