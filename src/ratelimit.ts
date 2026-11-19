@@ -328,7 +328,9 @@ export abstract class Ratelimit<TContext extends Context> {
     const key = this.getKey(identifier);
     const definedMembers = this.getDefinedMembers(identifier, req);
 
-    const deniedValue = checkDenyListCache(definedMembers)
+    const deniedValue = this.enableProtection
+      ? checkDenyListCache(this.prefix, definedMembers)
+      : undefined;
 
     const result: LimitPayload = deniedValue ? [defaultDeniedResponse(deniedValue), { deniedValue, invalidIpDenyList: false }] : (await Promise.all([
       this.limiter().limit(this.ctx, key, req?.rate),

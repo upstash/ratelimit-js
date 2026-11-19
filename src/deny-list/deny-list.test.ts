@@ -126,7 +126,7 @@ describe("should reject in deny list", async () => {
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
 
-    const cacheCheck = checkDenyListCache(["denyIdentifier"]);
+    const cacheCheck = checkDenyListCache(prefix, ["denyIdentifier"]);
     expect(cacheCheck).toBe("denyIdentifier");
   });
 
@@ -137,7 +137,7 @@ describe("should reject in deny list", async () => {
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
 
-    const cacheCheck = checkDenyListCache(["denyIp"]);
+    const cacheCheck = checkDenyListCache(prefix, ["denyIp"]);
     expect(cacheCheck).toBe("denyIp");
   });
 
@@ -148,7 +148,7 @@ describe("should reject in deny list", async () => {
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
 
-    const cacheCheck = checkDenyListCache(["denyAgent"]);
+    const cacheCheck = checkDenyListCache(prefix, ["denyAgent"]);
     expect(cacheCheck).toBe("denyAgent");
   });
 
@@ -159,7 +159,7 @@ describe("should reject in deny list", async () => {
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
 
-    const cacheCheck = checkDenyListCache(["denyCountry"]);
+    const cacheCheck = checkDenyListCache(prefix, ["denyCountry"]);
     expect(cacheCheck).toBe("denyCountry");
   });
 
@@ -170,7 +170,7 @@ describe("should reject in deny list", async () => {
     expect(success).toBe(false);
     expect(reason).toBe("denyList");
 
-    const cacheCheck = checkDenyListCache(["denyIdentifier"]);
+    const cacheCheck = checkDenyListCache(prefix, ["denyIdentifier"]);
     expect(cacheCheck).toBe("denyIdentifier");
   });
 })
