@@ -107,6 +107,19 @@ export type MultiRegionRatelimitConfig = {
    * @default true
    */
   enableTelemetry?: boolean;
+
+  /**
+   * Runs the lua scripts with key-based locking (the `#!lua flags=allow-key-locking` shebang).
+   * On Upstash Redis this lets requests for different identifiers run in parallel
+   * instead of waiting on each other, which improves performance.
+   *
+   * We recommend leaving it enabled. Only set it to `false` if your Redis server
+   * doesn't support the flag and rejects the scripts (for example self-hosted Redis
+   * or the serverless-redis-http (SRH) proxy).
+   *
+   * @default true
+   */
+  keyLocking?: boolean;
 };
 
 /**
@@ -143,6 +156,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
           prefix: config.prefix ?? DEFAULT_PREFIX,
+          keyLocking: config.keyLocking ?? true,
         })),
         cache: config.ephemeralCache
           ? new Cache(config.ephemeralCache)
