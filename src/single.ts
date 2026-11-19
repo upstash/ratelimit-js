@@ -11,7 +11,7 @@ import type { Algorithm, RegionContext } from "./types";
 import type { Redis as RedisCore } from "./types";
 
 // Fix for https://github.com/upstash/ratelimit-js/issues/125
-type Redis = Pick<RedisCore, "evalsha" | "get" | "set">
+type Redis = Pick<RedisCore, "evalsha" | "get" | "set">;
 
 export type RegionRatelimitConfig = {
   /**
@@ -73,10 +73,10 @@ export type RegionRatelimitConfig = {
    * @deprecated Has no affect since v2.0.3. Instead, hash values of scripts are
    * hardcoded in the sdk and it attempts to run the script using EVALSHA (with the hash).
    * If it fails, runs script load.
-   * 
+   *
    * Previously, if enabled, lua scripts were sent to Redis with SCRIPT LOAD durint the first request.
    * In the subsequent requests, hash of the script would be used to invoke the scripts
-   * 
+   *
    * @default true
    */
   cacheScripts?: boolean;
@@ -84,12 +84,12 @@ export type RegionRatelimitConfig = {
   /**
    * @default false
    */
-  enableProtection?: boolean
+  enableProtection?: boolean;
 
   /**
    * @default 6
    */
-  denyListThreshold?: number
+  denyListThreshold?: number;
 
   /**
    * If enabled, the ratelimiter will check for dynamic limits in Redis
@@ -113,6 +113,21 @@ export type RegionRatelimitConfig = {
    * @default true
    */
   enableTelemetry?: boolean;
+
+  /**
+   * If enabled, Lua scripts include the `#!lua flags=allow-key-locking` shebang.
+   * This is supported on Upstash hosted Redis to allow concurrent key execution.
+   *
+   * Set to `false` when connecting to open-source Redis or Valkey (such as local
+   * development environments running serverless-redis-http) that do not recognize
+   * the `allow-key-locking` shebang flag.
+   *
+   * Can also be disabled with the `UPSTASH_DISABLE_KEY_LOCKING` or `UPSTASH_ALLOW_KEY_LOCKING=false`
+   * environment variable.
+   *
+   * @default true
+   */
+  allowKeyLocking?: boolean;
 };
 
 /**
@@ -140,6 +155,16 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
    */
 
   constructor(config: RegionRatelimitConfig) {
+    const allowKeyLocking =
+      config.allowKeyLocking ??
+      !(
+        typeof process !== "undefined" &&
+        process.env &&
+        (process.env.UPSTASH_DISABLE_KEY_LOCKING === "1" ||
+          process.env.UPSTASH_DISABLE_KEY_LOCKING === "true" ||
+          process.env.UPSTASH_ALLOW_KEY_LOCKING === "false")
+      );
+
     super({
       prefix: config.prefix,
       limiter: config.limiter,
@@ -148,11 +173,13 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       ctx: {
         redis: config.redis as RedisCore,
         prefix: config.prefix ?? DEFAULT_PREFIX,
+        allowKeyLocking,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
       denyListThreshold: config.denyListThreshold,
-      dynamicLimits: config.dynamicLimits
+      dynamicLimits: config.dynamicLimits,
+      allowKeyLocking,
     });
 
     addTelemetry(config.redis, config.enableTelemetry);
@@ -185,7 +212,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
     return () => ({
@@ -204,22 +231,22 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
-        
+
         // Only declare the dynamic limit key when used; every declared key is locked.
         const dynamicLimitKeys = ctx.dynamicLimits
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [usedTokensAfterUpdate, effectiveLimit] = await safeEval(
+        const [usedTokensAfterUpdate, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.limit,
           [key, ...dynamicLimitKeys],
-          [tokens, windowDuration, incrementBy],
-        ) as [number, number];
+          [tokens, windowDuration, incrementBy]
+        )) as [number, number];
 
         const success = usedTokensAfterUpdate <= effectiveLimit;
         const remainingTokens = Math.max(0, effectiveLimit - usedTokensAfterUpdate);
@@ -250,31 +277,26 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remaining, effectiveLimit] = await safeEval(
+        const [remaining, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.fixedWindow.getRemaining,
           [key, ...dynamicLimitKeys],
-          [tokens],
-        ) as [number, number];
+          [tokens]
+        )) as [number, number];
 
         return {
           remaining: Math.max(0, remaining),
           reset: (bucket + 1) * windowDuration,
-          limit: effectiveLimit
+          limit: effectiveLimit,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -304,7 +326,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowSize = ms(window);
     return () => ({
@@ -326,7 +348,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
@@ -336,12 +358,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remainingTokens, effectiveLimit] = await safeEval(
+        const [remainingTokens, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.limit,
           [currentKey, previousKey, ...dynamicLimitKeys],
-          [tokens, now, windowSize, incrementBy],
-        ) as [number, number];
+          [tokens, now, windowSize, incrementBy]
+        )) as [number, number];
 
         const success = remainingTokens >= 0;
         const reset = (currentWindow + 1) * windowSize;
@@ -354,7 +376,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
             ctx.cache.pop(identifier);
           }
         }
-        
+
         return {
           success,
           limit: effectiveLimit,
@@ -375,31 +397,26 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remaining, effectiveLimit] = await safeEval(
+        const [remaining, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.slidingWindow.getRemaining,
           [currentKey, previousKey, ...dynamicLimitKeys],
-          [tokens, now, windowSize],
-        ) as [number, number];
+          [tokens, now, windowSize]
+        )) as [number, number];
 
         return {
           remaining: Math.max(0, remaining),
           reset: (currentWindow + 1) * windowSize,
-          limit: effectiveLimit
-        }
+          limit: effectiveLimit,
+        };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = [identifier, "*"].join(":");
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -435,7 +452,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
      * A newly created bucket starts with this many tokens.
      * Useful to allow higher burst limits.
      */
-    maxTokens: number,
+    maxTokens: number
   ): Algorithm<RegionContext> {
     const intervalDuration = ms(interval);
     return () => ({
@@ -453,7 +470,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
               remaining: 0,
               reset: reset,
               pending: Promise.resolve(),
-              reason: "cacheBlock"
+              reason: "cacheBlock",
             };
           }
         }
@@ -463,15 +480,15 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remaining, reset, effectiveLimit] = await safeEval(
+        const [remaining, reset, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.limit,
           [identifier, ...dynamicLimitKeys],
-          [maxTokens, intervalDuration, refillRate, now, incrementBy],
-        ) as [number, number, number];
+          [maxTokens, intervalDuration, refillRate, now, incrementBy]
+        )) as [number, number, number];
 
         const success = remaining >= 0;
-        
+
         if (ctx.cache) {
           if (!success) {
             ctx.cache.blockUntil(identifier, reset);
@@ -495,34 +512,29 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
           : [];
 
-        const [remainingTokens, refilledAt, effectiveLimit] = await safeEval(
+        const [remainingTokens, refilledAt, effectiveLimit] = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.tokenBucket.getRemaining,
           [identifier, ...dynamicLimitKeys],
-          [maxTokens],
-        ) as [number, number, number];
+          [maxTokens]
+        )) as [number, number, number];
 
-        const freshRefillAt = Date.now() + intervalDuration
-        const identifierRefillsAt = refilledAt + intervalDuration
+        const freshRefillAt = Date.now() + intervalDuration;
+        const identifierRefillsAt = refilledAt + intervalDuration;
 
         return {
           remaining: Math.max(0, remainingTokens),
           reset: refilledAt === tokenBucketIdentifierNotFound ? freshRefillAt : identifierRefillsAt,
-          limit: effectiveLimit
+          limit: effectiveLimit,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
         const pattern = identifier;
         if (ctx.cache) {
-          ctx.cache.pop(identifier)
+          ctx.cache.pop(identifier);
         }
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }
@@ -559,7 +571,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     /**
      * The duration in which `tokens` requests are allowed.
      */
-    window: Duration,
+    window: Duration
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
 
@@ -568,14 +580,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         if (!ctx.cache) {
           throw new Error("This algorithm requires a cache");
         }
-        
+
         if (ctx.dynamicLimits) {
           console.warn(
             "Warning: Dynamic limits are not yet supported for cachedFixedWindow algorithm. " +
-            "The dynamicLimits option will be ignored."
+              "The dynamicLimits option will be ignored."
           );
         }
-        
+
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
         const reset = (bucket + 1) * windowDuration;
@@ -589,11 +601,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
           const pending = success
             ? safeEval(
-              ctx,
-              SCRIPTS.singleRegion.cachedFixedWindow.limit,
-              [key],
-              [windowDuration, incrementBy]
-            )
+                ctx,
+                SCRIPTS.singleRegion.cachedFixedWindow.limit,
+                [key],
+                [windowDuration, incrementBy]
+              )
             : Promise.resolve();
 
           return {
@@ -605,12 +617,12 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           };
         }
 
-        const usedTokensAfterUpdate = await safeEval(
+        const usedTokensAfterUpdate = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.limit,
           [key],
           [windowDuration, incrementBy]
-        ) as number;
+        )) as number;
         ctx.cache.set(key, usedTokensAfterUpdate);
         const remaining = tokens - usedTokensAfterUpdate;
 
@@ -636,20 +648,20 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           return {
             remaining: Math.max(0, tokens - cachedUsedTokens),
             reset: (bucket + 1) * windowDuration,
-            limit: tokens
+            limit: tokens,
           };
         }
 
-        const usedTokens = await safeEval(
+        const usedTokens = (await safeEval(
           ctx,
           SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
           [key],
-          [null],
-        ) as number;
+          [null]
+        )) as number;
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (bucket + 1) * windowDuration,
-          limit: tokens
+          limit: tokens,
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
@@ -660,16 +672,11 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
 
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
-        ctx.cache.pop(key)
+        ctx.cache.pop(key);
 
         const pattern = [identifier, "*"].join(":");
 
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [null],
-        ) as number;
+        (await safeEval(ctx, RESET_SCRIPT, [pattern], [null])) as number;
       },
     });
   }

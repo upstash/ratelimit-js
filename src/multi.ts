@@ -13,8 +13,7 @@ import type { Redis } from "./types";
 
 function randomId(): string {
   let result = "";
-  const characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
   for (let i = 0; i < 16; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -107,6 +106,21 @@ export type MultiRegionRatelimitConfig = {
    * @default true
    */
   enableTelemetry?: boolean;
+
+  /**
+   * If enabled, Lua scripts include the `#!lua flags=allow-key-locking` shebang.
+   * This is supported on Upstash hosted Redis to allow concurrent key execution.
+   *
+   * Set to `false` when connecting to open-source Redis or Valkey (such as local
+   * development environments running serverless-redis-http) that do not recognize
+   * the `allow-key-locking` shebang flag.
+   *
+   * Can also be disabled with the `UPSTASH_DISABLE_KEY_LOCKING` or `UPSTASH_ALLOW_KEY_LOCKING=false`
+   * environment variable.
+   *
+   * @default true
+   */
+  allowKeyLocking?: boolean;
 };
 
 /**
@@ -133,20 +147,31 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
    * @see node_modules/@upstash/ratelimit/docs/features.mdx
    */
   constructor(config: MultiRegionRatelimitConfig) {
+    const allowKeyLocking =
+      config.allowKeyLocking ??
+      !(
+        typeof process !== "undefined" &&
+        process.env &&
+        (process.env.UPSTASH_DISABLE_KEY_LOCKING === "1" ||
+          process.env.UPSTASH_DISABLE_KEY_LOCKING === "true" ||
+          process.env.UPSTASH_ALLOW_KEY_LOCKING === "false")
+      );
+
     super({
       prefix: config.prefix,
       limiter: config.limiter,
       timeout: config.timeout,
       analytics: config.analytics,
       dynamicLimits: config.dynamicLimits,
+      allowKeyLocking,
       ctx: {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
           prefix: config.prefix ?? DEFAULT_PREFIX,
+          allowKeyLocking,
         })),
-        cache: config.ephemeralCache
-          ? new Cache(config.ephemeralCache)
-          : undefined,
+        cache: config.ephemeralCache ? new Cache(config.ephemeralCache) : undefined,
+        allowKeyLocking,
       },
     });
 
@@ -157,7 +182,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
     if (config.dynamicLimits) {
       console.warn(
         "Warning: Dynamic limits are not yet supported for multi-region rate limiters. " +
-        "The dynamicLimits option will be ignored."
+          "The dynamicLimits option will be ignored."
       );
     }
   }
@@ -215,8 +240,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           }
         }
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] =
-          ctx.regionContexts.map((regionContext) => ({
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map(
+          (regionContext) => ({
             redis: regionContext.redis,
             request: safeEval(
               regionContext,
@@ -224,22 +249,20 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               [key],
               [requestId, windowDuration, incrementBy]
             ) as Promise<string[]>,
-          }));
+          })
+        );
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
         const firstResponse = await Promise.any(dbs.map((s) => s.request));
 
-        const usedTokens = firstResponse.reduce(
-          (accTokens: number, usedToken, index) => {
-            let parsedToken = 0;
-            if (index % 2) {
-              parsedToken = Number.parseInt(usedToken);
-            }
+        const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
+          let parsedToken = 0;
+          if (index % 2) {
+            parsedToken = Number.parseInt(usedToken);
+          }
 
-            return accTokens + parsedToken;
-          },
-          0
-        );
+          return accTokens + parsedToken;
+        }, 0);
 
         const remaining = tokens - usedTokens;
 
@@ -275,15 +298,12 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
             );
 
             const dbIdsRequest = await db.request;
-            const dbIds = dbIdsRequest.reduce(
-              (ids: string[], currentId, index) => {
-                if (index % 2 === 0) {
-                  ids.push(currentId);
-                }
-                return ids;
-              },
-              []
-            );
+            const dbIds = dbIdsRequest.reduce((ids: string[], currentId, index) => {
+              if (index % 2 === 0) {
+                ids.push(currentId);
+              }
+              return ids;
+            }, []);
             /**
              * If the bucket in this db is already full, it doesn't matter which ids it contains.
              * So we do not have to sync.
@@ -332,8 +352,8 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         const bucket = Math.floor(Date.now() / windowDuration);
         const key = [identifier, bucket].join(":");
 
-        const dbs: { redis: Redis; request: Promise<string[]> }[] =
-          ctx.regionContexts.map((regionContext) => ({
+        const dbs: { redis: Redis; request: Promise<string[]> }[] = ctx.regionContexts.map(
+          (regionContext) => ({
             redis: regionContext.redis,
             request: safeEval(
               regionContext,
@@ -341,26 +361,24 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               [key],
               [null]
             ) as Promise<string[]>,
-          }));
+          })
+        );
 
         // The firstResponse is an array of string at every EVEN indexes and rate at which the tokens are used at every ODD indexes
         const firstResponse = await Promise.any(dbs.map((s) => s.request));
-        const usedTokens = firstResponse.reduce(
-          (accTokens: number, usedToken, index) => {
-            let parsedToken = 0;
-            if (index % 2) {
-              parsedToken = Number.parseInt(usedToken);
-            }
+        const usedTokens = firstResponse.reduce((accTokens: number, usedToken, index) => {
+          let parsedToken = 0;
+          if (index % 2) {
+            parsedToken = Number.parseInt(usedToken);
+          }
 
-            return accTokens + parsedToken;
-          },
-          0
-        );
+          return accTokens + parsedToken;
+        }, 0);
 
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (bucket + 1) * windowDuration,
-          limit: tokens
+          limit: tokens,
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
@@ -447,9 +465,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }));
 
         const percentageInCurrent = (now % windowDuration) / windowDuration;
-        const [current, previous, success] = await Promise.any(
-          dbs.map((s) => s.request)
-        );
+        const [current, previous, success] = await Promise.any(dbs.map((s) => s.request));
 
         // in the case of success, the new request is not included in the current array.
         // add it manually
@@ -457,33 +473,25 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
           current.push(requestId, incrementBy.toString());
         }
 
-        const previousUsedTokens = previous.reduce(
-          (accTokens: number, usedToken, index) => {
-            let parsedToken = 0;
-            if (index % 2) {
-              parsedToken = Number.parseInt(usedToken);
-            }
+        const previousUsedTokens = previous.reduce((accTokens: number, usedToken, index) => {
+          let parsedToken = 0;
+          if (index % 2) {
+            parsedToken = Number.parseInt(usedToken);
+          }
 
-            return accTokens + parsedToken;
-          },
-          0
-        );
+          return accTokens + parsedToken;
+        }, 0);
 
-        const currentUsedTokens = current.reduce(
-          (accTokens: number, usedToken, index) => {
-            let parsedToken = 0;
-            if (index % 2) {
-              parsedToken = Number.parseInt(usedToken);
-            }
+        const currentUsedTokens = current.reduce((accTokens: number, usedToken, index) => {
+          let parsedToken = 0;
+          if (index % 2) {
+            parsedToken = Number.parseInt(usedToken);
+          }
 
-            return accTokens + parsedToken;
-          },
-          0
-        );
+          return accTokens + parsedToken;
+        }, 0);
 
-        const previousPartialUsed = Math.ceil(
-          previousUsedTokens * (1 - percentageInCurrent)
-        );
+        const previousPartialUsed = Math.ceil(previousUsedTokens * (1 - percentageInCurrent));
 
         const usedTokens = previousPartialUsed + currentUsedTokens;
 
@@ -517,17 +525,14 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
               return ids;
             }, []);
 
-            const usedDbTokens = current.reduce(
-              (accTokens: number, usedToken, index) => {
-                let parsedToken = 0;
-                if (index % 2) {
-                  parsedToken = Number.parseInt(usedToken);
-                }
+            const usedDbTokens = current.reduce((accTokens: number, usedToken, index) => {
+              let parsedToken = 0;
+              if (index % 2) {
+                parsedToken = Number.parseInt(usedToken);
+              }
 
-                return accTokens + parsedToken;
-              },
-              0
-            );
+              return accTokens + parsedToken;
+            }, 0);
             /**
              * If the bucket in this db is already full, it doesn't matter which ids it contains.
              * So we do not have to sync.
@@ -590,7 +595,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         return {
           remaining: Math.max(0, tokens - usedTokens),
           reset: (currentWindow + 1) * windowSize,
-          limit: tokens
+          limit: tokens,
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {

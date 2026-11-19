@@ -17,11 +17,11 @@ export type EphemeralCache = {
   empty: () => void;
 
   size: () => number;
-}
+};
 
 export type RegionContext = {
   redis: Redis;
-  cache?: EphemeralCache,
+  cache?: EphemeralCache;
   /**
    * If enabled, the ratelimiter will check for dynamic limits in Redis
    * using MGET before applying the regular limit.
@@ -31,10 +31,23 @@ export type RegionContext = {
    * The prefix used for Redis keys
    */
   prefix: string;
+  /**
+   * If enabled, Lua scripts include the `#!lua flags=allow-key-locking` shebang.
+   * Set to `false` for open-source Redis and Valkey instances that do not recognize it.
+   */
+  allowKeyLocking?: boolean;
 };
-export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
+export type MultiRegionContext = {
+  regionContexts: Omit<RegionContext[], "cache">;
+  cache?: EphemeralCache;
+  /**
+   * If enabled, Lua scripts include the `#!lua flags=allow-key-locking` shebang.
+   * Set to `false` for open-source Redis and Valkey instances that do not recognize it.
+   */
+  allowKeyLocking?: boolean;
+};
 
-export type RatelimitResponseType = "timeout" | "cacheBlock" | "denyList"
+export type RatelimitResponseType = "timeout" | "cacheBlock" | "denyList";
 
 export type Context = RegionContext | MultiRegionContext;
 export type RatelimitResponse = {
@@ -91,7 +104,7 @@ export type RatelimitResponse = {
   /**
    * The value which was in the deny list if reason: "denyList"
    */
-  deniedValue?: DeniedValue
+  deniedValue?: DeniedValue;
 };
 
 export type Algorithm<TContext> = () => {
@@ -101,12 +114,15 @@ export type Algorithm<TContext> = () => {
     rate?: number,
     opts?: {
       cache?: EphemeralCache;
-    },
+    }
   ) => Promise<RatelimitResponse>;
-  getRemaining: (ctx: TContext, identifier: string) => Promise<{
-    remaining: number,
-    reset: number,
-    limit: number
+  getRemaining: (
+    ctx: TContext,
+    identifier: string
+  ) => Promise<{
+    remaining: number;
+    reset: number;
+    limit: number;
   }>;
   resetTokens: (ctx: TContext, identifier: string) => Promise<void>;
 };
@@ -114,19 +130,19 @@ export type Algorithm<TContext> = () => {
 export type IsDenied = 0 | 1;
 
 export type DeniedValue = string | undefined;
-export type DenyListResponse = { deniedValue: DeniedValue, invalidIpDenyList: boolean }
+export type DenyListResponse = { deniedValue: DeniedValue; invalidIpDenyList: boolean };
 
-export const DenyListExtension = "denyList" as const
-export const IpDenyListKey = "ipDenyList" as const
-export const IpDenyListStatusKey = "ipDenyListStatus" as const
+export const DenyListExtension = "denyList" as const;
+export const IpDenyListKey = "ipDenyList" as const;
+export const IpDenyListStatusKey = "ipDenyListStatus" as const;
 
 export type LimitPayload = [RatelimitResponse, DenyListResponse];
 export type LimitOptions = {
-  geo?: Geo,
-  rate?: number,
-  ip?: string,
-  userAgent?: string,
-  country?: string
-}
+  geo?: Geo;
+  rate?: number;
+  ip?: string;
+  userAgent?: string;
+  country?: string;
+};
 
-export type Redis = RedisCore
+export type Redis = RedisCore;
