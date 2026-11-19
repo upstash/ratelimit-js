@@ -3,6 +3,7 @@ import { DEFAULT_PREFIX } from "./constants";
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
+import { escapePattern } from "./identifier";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 
 import { Ratelimit } from "./ratelimit";
@@ -364,14 +365,15 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier);
         }
 
         await Promise.all(
           ctx.regionContexts.map((regionContext) => {
-            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [start]);
           })
         );
       },
@@ -594,14 +596,15 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         };
       },
       async resetTokens(ctx: MultiRegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier);
         }
 
         await Promise.all(
           ctx.regionContexts.map((regionContext) => {
-            safeEval(regionContext, RESET_SCRIPT, [pattern], [null]);
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [start]);
           })
         );
       },

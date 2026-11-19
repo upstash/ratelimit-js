@@ -1,6 +1,11 @@
 export const resetScript = `
       local pattern = KEYS[1]
 
+      -- When given, a key is only deleted if it is this text followed by a
+      -- window number. Keys of other identifiers which start with the same
+      -- text also match the pattern, and are left alone.
+      local start = ARGV[1] or ""
+
       -- Initialize cursor to start from 0
       local cursor = "0"
 
@@ -15,7 +20,10 @@ export const resetScript = `
           local keys = scan_result[2]
 
           for i=1, #keys do
-          redis.call('DEL', keys[i])
+            local key = keys[i]
+            if start == "" or (string.sub(key, 1, #start) == start and string.match(string.sub(key, #start + 1), "^%d+$")) then
+              redis.call('DEL', key)
+            end
           end
 
       -- Continue scanning until cursor is 0 (end of keyspace)

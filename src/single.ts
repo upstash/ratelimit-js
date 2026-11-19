@@ -1,6 +1,7 @@
 import type { Duration } from "./duration";
 import { ms } from "./duration";
 import { safeEval } from "./hash";
+import { assertKeyIsFree, escapePattern } from "./identifier";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { tokenBucketIdentifierNotFound } from "./lua-scripts/single";
 import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
@@ -264,7 +265,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
@@ -273,7 +275,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });
@@ -389,7 +391,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         }
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = [identifier, "*"].join(":");
+        const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
@@ -398,7 +401,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });
@@ -440,6 +443,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     const intervalDuration = ms(interval);
     return () => ({
       async limit(ctx: RegionContext, identifier: string, rate?: number) {
+        assertKeyIsFree(ctx.prefix, identifier);
         const now = Date.now();
         const incrementBy = rate ?? 1;
 
@@ -490,6 +494,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async getRemaining(ctx: RegionContext, identifier: string) {
+        assertKeyIsFree(ctx.prefix, identifier);
         // Only declare the dynamic limit key when used; every declared key is locked.
         const dynamicLimitKeys = ctx.dynamicLimits
           ? [`${ctx.prefix}${DYNAMIC_LIMIT_KEY_SUFFIX}`]
@@ -512,7 +517,8 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         };
       },
       async resetTokens(ctx: RegionContext, identifier: string) {
-        const pattern = identifier;
+        assertKeyIsFree(ctx.prefix, identifier);
+        const pattern = escapePattern(identifier);
         if (ctx.cache) {
           ctx.cache.pop(identifier)
         }
@@ -521,7 +527,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [""],
         ) as number;
       },
     });
@@ -662,13 +668,14 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
         const key = [identifier, bucket].join(":");
         ctx.cache.pop(key)
 
-        const pattern = [identifier, "*"].join(":");
+        const pattern = [escapePattern(identifier), "*"].join(":");
+        const start = `${identifier}:`;
 
         await safeEval(
           ctx,
           RESET_SCRIPT,
           [pattern],
-          [null],
+          [start],
         ) as number;
       },
     });

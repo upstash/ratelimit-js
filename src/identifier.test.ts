@@ -1,0 +1,140 @@
+import { describe, expect, test } from "bun:test";
+import { Redis } from "@upstash/redis";
+import type { Ratelimit } from "./ratelimit";
+import { RegionRatelimit } from "./single";
+import type { Algorithm, RegionContext } from "./types";
+
+const limit = 10;
+
+const newRegion = (
+  limiter: Algorithm<RegionContext>,
+  dynamicLimits = false
+): Ratelimit<RegionContext> =>
+  new RegionRatelimit({
+    prefix: crypto.randomUUID(),
+    redis: Redis.fromEnv(),
+    limiter,
+    dynamicLimits,
+    ephemeralCache: new Map(),
+  });
+
+const consume = async (ratelimit: Ratelimit<RegionContext>, identifier: string) => {
+  for (let index = 0; index < 3; index++) {
+    const { pending } = await ratelimit.limit(identifier);
+    await pending;
+  }
+};
+
+const remainingOf = async (ratelimit: Ratelimit<RegionContext>, identifier: string) => {
+  const { remaining } = await ratelimit.getRemaining(identifier);
+  return remaining;
+};
+
+const algorithms: [string, () => Algorithm<RegionContext>][] = [
+  ["fixedWindow", () => RegionRatelimit.fixedWindow(limit, "30s")],
+  ["slidingWindow", () => RegionRatelimit.slidingWindow(limit, "30s")],
+  ["tokenBucket", () => RegionRatelimit.tokenBucket(limit, "30s", limit)],
+  ["cachedFixedWindow", () => RegionRatelimit.cachedFixedWindow(limit, "30s")],
+];
+
+for (const [name, limiter] of algorithms) {
+  describe(`identifiers with ${name}`, () => {
+    test("reset only applies to the given identifier", async () => {
+      const ratelimit = newRegion(limiter());
+      await consume(ratelimit, "user");
+
+      for (const identifier of ["*", "use?", "[u]ser", "u*", "use", String.raw`\E.*\Q`, String.raw`\E.*`]) {
+        await ratelimit.resetUsedTokens(identifier);
+      }
+      expect(await remainingOf(ratelimit, "user")).toBe(limit - 3);
+
+      await ratelimit.resetUsedTokens("user");
+      expect(await remainingOf(ratelimit, "user")).toBe(limit);
+    }, 20_000);
+
+    test("reset works for identifiers with special characters", async () => {
+      const ratelimit = newRegion(limiter());
+
+      for (const identifier of [
+        "user*",
+        "user?[1]",
+        String.raw`user\1`,
+        String.raw`user\E.*\Q`,
+        `user${String.fromCodePoint(92)}`,
+        "2001:db8::1",
+      ]) {
+        await consume(ratelimit, identifier);
+        expect(await remainingOf(ratelimit, identifier)).toBe(limit - 3);
+
+        await ratelimit.resetUsedTokens(identifier);
+        expect(await remainingOf(ratelimit, identifier)).toBe(limit);
+      }
+    }, 20_000);
+
+    test("reset leaves identifiers which start with the given one", async () => {
+      const ratelimit = newRegion(limiter());
+      const others = ["acme:bob", "acme:42", "acme:bob:7", "acme2"];
+
+      await consume(ratelimit, "acme");
+      for (const identifier of others) {
+        await consume(ratelimit, identifier);
+      }
+
+      await ratelimit.resetUsedTokens("acme");
+
+      expect(await remainingOf(ratelimit, "acme")).toBe(limit);
+      for (const identifier of others) {
+        expect(await remainingOf(ratelimit, identifier)).toBe(limit - 3);
+      }
+    }, 20_000);
+
+    test("reset keeps the dynamic limit", async () => {
+      const ratelimit = newRegion(limiter(), true);
+      await ratelimit.setDynamicLimit({ limit: 5 });
+
+      for (const identifier of ["*", "dynami?", "dynamic:*"]) {
+        await ratelimit.resetUsedTokens(identifier);
+      }
+      for (const identifier of ["dynamic", "denyList", "events"]) {
+        await expect(ratelimit.resetUsedTokens(identifier)).rejects.toThrow("reserved");
+      }
+
+      expect(await ratelimit.getDynamicLimit()).toEqual({ dynamicLimit: 5 });
+    }, 20_000);
+
+    test("reserved identifiers", async () => {
+      const ratelimit = newRegion(limiter(), true);
+      await ratelimit.setDynamicLimit({ limit: 5 });
+
+      // only the token bucket stores an identifier under a key with no suffix
+      const collides = name === "tokenBucket";
+
+      for (const identifier of [
+        "dynamic:global",
+        "denyList:all",
+        "denyList:ipDenyList",
+        "ipDenyListStatus",
+        `events:${Date.now()}`,
+        ["dynamic:global"] as unknown as string,
+      ]) {
+        if (collides) {
+          await expect(ratelimit.limit(identifier)).rejects.toThrow("reserved");
+          await expect(ratelimit.getRemaining(identifier)).rejects.toThrow("reserved");
+          await expect(ratelimit.resetUsedTokens(identifier)).rejects.toThrow("reserved");
+        } else {
+          const full = await remainingOf(ratelimit, identifier);
+          await consume(ratelimit, identifier);
+          expect(await remainingOf(ratelimit, identifier)).toBe(full - 3);
+          await ratelimit.resetUsedTokens(identifier);
+          expect(await remainingOf(ratelimit, identifier)).toBe(full);
+        }
+      }
+
+      expect(await ratelimit.getDynamicLimit()).toEqual({ dynamicLimit: 5 });
+      for (const identifier of ["user", "dynamic", "denyList", "events", "events:signup", "user:123"]) {
+        const { success } = await ratelimit.limit(identifier);
+        expect(success).toBe(true);
+      }
+    }, 20_000);
+  });
+}
