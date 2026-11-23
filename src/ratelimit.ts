@@ -264,7 +264,9 @@ export abstract class Ratelimit<TContext extends Context> {
         break;
       }
       if (res.reset === 0) {
-        throw new Error("This should not happen");
+        // Deny-list responses carry no reset timestamp because there is no
+        // window to wait for. Return the denial instead of throwing.
+        return res;
       }
 
       // `reset` can already be in the past: the window turned over between the
