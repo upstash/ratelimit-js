@@ -263,10 +263,15 @@ export abstract class Ratelimit<TContext extends Context> {
       if (res.success) {
         break;
       }
+      // A denied identifier stays denied however long we wait, so return the
+      // denial right away. Checking the reason covers both the first denial,
+      // which still carries the limiter's reset timestamp, and the ones served
+      // from the deny list cache, which have `reset: 0`.
+      if (res.reason === "denyList") {
+        break;
+      }
       if (res.reset === 0) {
-        // Deny-list responses carry no reset timestamp because there is no
-        // window to wait for. Return the denial instead of throwing.
-        return res;
+        throw new Error("This should not happen");
       }
 
       // `reset` can already be in the past: the window turned over between the
