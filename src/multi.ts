@@ -111,8 +111,7 @@ export type MultiRegionRatelimitConfig = {
 
   /**
    * Sends the lua scripts with flags which improve performance on Upstash
-   * Redis, for example by letting requests for different identifiers run in
-   * parallel.
+   * Redis.
    *
    * We recommend leaving it enabled. Set it to `false` to send the scripts
    * without these flags.
