@@ -21,7 +21,7 @@ export type ScriptInfo = {
    * Whether the script can run with the `allow-key-locking` flag. Only scripts
    * which touch nothing but the keys passed in KEYS can.
    */
- keyLocking: boolean,
+  keyLocking: boolean,
 }
 
 type Algorithm = {
