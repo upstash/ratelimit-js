@@ -110,19 +110,12 @@ export type MultiRegionRatelimitConfig = {
   enableTelemetry?: boolean;
 
   /**
-   * Sends the lua scripts with two flags which only Upstash Redis understands:
-   * - `allow-key-locking`: requests for different identifiers run in parallel
-   *   instead of waiting on each other, which improves performance.
-   * - `script_name`: names the scripts (for example
-   *   `ratelimit-js-sliding_window_limit`) so Upstash can tell
-   *   which ratelimit scripts run on your database.
+   * Sends the lua scripts with flags which improve performance on Upstash
+   * Redis, for example by letting requests for different identifiers run in
+   * parallel.
    *
-   * We recommend leaving it enabled. Set it to `false` if your Redis server
-   * doesn't support these flags, for example self-hosted Redis.
-   *
-   * When it is left unset and the server rejects the flags, the scripts are
-   * run again without them and a warning is printed. Setting it to `false`
-   * skips that extra request and the warning.
+   * We recommend leaving it enabled. Set it to `false` to send the scripts
+   * without these flags.
    *
    * @default true
    */
