@@ -84,6 +84,7 @@ describe("isScriptFlagError", () => {
     ["ERR Unexpected flag in script shebang: allow-key-locking", true],
     ["ERR Unknown lua shebang option: script_name", true],
     ["ERR Error compiling script (new function): user_script:1: unexpected symbol near '#'", true],
+    ["ERR Error running script: ERR Unknown metadata value: script_name=ratelimit-js-fixed_window_limit", true],
     ["NOSCRIPT No matching script", false],
     ["ERR some other error", false],
   ])("%s", (message, expected) => {

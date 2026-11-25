@@ -31,10 +31,16 @@ let warned = false;
  * - Redis 7+ and Valkey: `Unexpected flag in script shebang: allow-key-locking`
  *   or `Unknown lua shebang option: script_name`
  * - Redis 6 and older, which don't know shebangs: a lua syntax error near `#`
+ * - Upstash Redis servers which predate `script_name`:
+ *   `Unknown metadata value: script_name=...`
  */
 export const isScriptFlagError = (error: unknown): boolean => {
   const message = `${error}`;
-  return /shebang/i.test(message) || message.includes("near '#'");
+  return (
+    /shebang/i.test(message) ||
+    message.includes("near '#'") ||
+    message.includes("Unknown metadata value")
+  );
 }
 
 const warnFlagsRejected = () => {
