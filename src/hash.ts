@@ -1,7 +1,7 @@
 import type { ScriptInfo } from "./lua-scripts/hash";
 import type { RegionContext } from "./types";
 
-const SCRIPT_NAME_PREFIX = "ratelimit-typescript";
+const SCRIPT_NAME_PREFIX = "ratelimit-js";
 
 /**
  * Returns the script to send to Redis.
@@ -9,7 +9,7 @@ const SCRIPT_NAME_PREFIX = "ratelimit-typescript";
  * With `withFlags`, the script starts with a shebang carrying two flags which
  * only Upstash Redis understands:
  * - `script_name`: names the script in Upstash's script metrics, for example
- *   `ratelimit-typescript-sliding_window_limit`
+ *   `ratelimit-js-sliding_window_limit`
  * - `flags=allow-key-locking`: lets scripts for different keys run in
  *   parallel. Only added to scripts which declare all their keys.
  */

@@ -44,7 +44,7 @@ const createLimiter = (calls: Call[], enableUpstashScriptFlags?: boolean, reject
 describe("buildScript", () => {
   test("adds script_name and allow-key-locking", () => {
     expect(flagged).toBe(
-      `#!lua script_name=ratelimit-typescript-fixed_window_limit flags=allow-key-locking\n${limitScript.script}`,
+      `#!lua script_name=ratelimit-js-fixed_window_limit flags=allow-key-locking\n${limitScript.script}`,
     );
     expect(plain).toBe(limitScript.script);
     expect(plain.startsWith("#!")).toBe(false);
@@ -52,7 +52,7 @@ describe("buildScript", () => {
 
   test("leaves allow-key-locking off the reset script", () => {
     expect(buildScript(RESET_SCRIPT, true)).toBe(
-      `#!lua script_name=ratelimit-typescript-reset\n${RESET_SCRIPT.script}`,
+      `#!lua script_name=ratelimit-js-reset\n${RESET_SCRIPT.script}`,
     );
   });
 
@@ -64,7 +64,7 @@ describe("buildScript", () => {
     const names = [...scripts, RESET_SCRIPT].map((info) => info.name);
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) {
-      expect(`ratelimit-typescript-${name}`.length).toBeLessThanOrEqual(100);
+      expect(`ratelimit-js-${name}`.length).toBeLessThanOrEqual(100);
     }
   });
 

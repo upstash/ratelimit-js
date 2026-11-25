@@ -120,7 +120,7 @@ export type RegionRatelimitConfig = {
    * - `allow-key-locking`: requests for different identifiers run in parallel
    *   instead of waiting on each other, which improves performance.
    * - `script_name`: names the scripts (for example
-   *   `ratelimit-typescript-2.1.0-sliding_window_limit`) so Upstash can tell
+   *   `ratelimit-js-2.1.0-sliding_window_limit`) so Upstash can tell
    *   which ratelimit scripts run on your database.
    *
    * We recommend leaving it enabled. Set it to `false` if your Redis server
