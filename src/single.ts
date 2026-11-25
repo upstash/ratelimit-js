@@ -124,8 +124,7 @@ export type RegionRatelimitConfig = {
    *   which ratelimit scripts run on your database.
    *
    * We recommend leaving it enabled. Set it to `false` if your Redis server
-   * doesn't support these flags, for example self-hosted Redis or the
-   * serverless-redis-http (SRH) proxy.
+   * doesn't support these flags, for example self-hosted Redis.
    *
    * When it is left unset and the server rejects the flags, the scripts are
    * run again without them and a warning is printed. Setting it to `false`
