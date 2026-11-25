@@ -48,10 +48,10 @@ const warnFlagsRejected = () => {
   warned = true;
   console.warn(
     "[Upstash Ratelimit] Your Redis database doesn't support the flags the scripts are sent " +
-    "with to improve performance, so the scripts are sent without them. Regional Upstash " +
-    "databases don't support them; global databases do. Set `enableUpstashScriptFlags: false` " +
-    "in the Ratelimit config to send the scripts without the flags from the start and to hide " +
-    "this warning.",
+    "with to improve performance, so the scripts are sent without them. If you are using a " +
+    "regional Upstash Redis database, migrate to a global database to get these improvements. " +
+    "Otherwise, set `enableUpstashScriptFlags: false` in the Ratelimit config to send the " +
+    "scripts without the flags from the start and to hide this warning.",
   );
 }
 
