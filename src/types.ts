@@ -32,11 +32,10 @@ export type RegionContext = {
    */
   prefix: string;
   /**
-   * If false, lua scripts are sent without the `allow-key-locking` flag.
-   *
-   * @default true
+   * The user's `upstashScriptFlags` setting. `undefined` means the user didn't
+   * set it: the flags are sent, and dropped if the server rejects them.
    */
-  keyLocking?: boolean;
+  upstashScriptFlags?: boolean;
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 

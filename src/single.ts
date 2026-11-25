@@ -116,17 +116,24 @@ export type RegionRatelimitConfig = {
   enableTelemetry?: boolean;
 
   /**
-   * Runs the lua scripts with key-based locking (the `#!lua flags=allow-key-locking` shebang).
-   * On Upstash Redis this lets requests for different identifiers run in parallel
-   * instead of waiting on each other, which improves performance.
+   * Sends the lua scripts with two flags which only Upstash Redis understands:
+   * - `allow-key-locking`: requests for different identifiers run in parallel
+   *   instead of waiting on each other, which improves performance.
+   * - `script_name`: names the scripts (for example
+   *   `ratelimit-typescript-2.1.0-sliding_window_limit`) so Upstash can tell
+   *   which ratelimit scripts run on your database.
    *
-   * We recommend leaving it enabled. Only set it to `false` if your Redis server
-   * doesn't support the flag and rejects the scripts (for example self-hosted Redis
-   * or the serverless-redis-http (SRH) proxy).
+   * We recommend leaving it enabled. Set it to `false` if your Redis server
+   * doesn't support these flags, for example self-hosted Redis or the
+   * serverless-redis-http (SRH) proxy.
+   *
+   * When it is left unset and the server rejects the flags, the scripts are
+   * run again without them and a warning is printed. Setting it to `false`
+   * skips that extra request and the warning.
    *
    * @default true
    */
-  keyLocking?: boolean;
+  upstashScriptFlags?: boolean;
 };
 
 /**
@@ -162,7 +169,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       ctx: {
         redis: config.redis as RedisCore,
         prefix: config.prefix ?? DEFAULT_PREFIX,
-        keyLocking: config.keyLocking ?? true,
+        upstashScriptFlags: config.upstashScriptFlags,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,
