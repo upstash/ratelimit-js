@@ -135,5 +135,5 @@ export const RESET_SCRIPT: ScriptInfo = {
   script: resetScript,
   hash: "ba263d57e212322c09575b8e14273aa92328240a",
   // scans keys by pattern, so it can't declare its keys up front
- keyLocking: false,
+  keyLocking: false,
 }
