@@ -30,42 +30,84 @@ type AlgorithmKind =
   | "tokenBucket"
   | "cachedFixedWindow"
 
-const lockingScript = (name: string, script: string): ScriptInfo => ({
-  name,
-  script,
-  keyLocking: true,
-})
-
 export const SCRIPTS: {
   singleRegion: Record<AlgorithmKind, Algorithm>,
   multiRegion: Record<Exclude<AlgorithmKind, "tokenBucket" | "cachedFixedWindow">, Algorithm>,
 } = {
   singleRegion: {
     fixedWindow: {
-      limit: lockingScript("fixed_window_limit", Single.fixedWindowLimitScript),
-      getRemaining: lockingScript("fixed_window_get_remaining", Single.fixedWindowRemainingTokensScript),
+      limit: {
+        name: "fixed_window_limit",
+        script: Single.fixedWindowLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "fixed_window_get_remaining",
+        script: Single.fixedWindowRemainingTokensScript,
+        keyLocking: true,
+      },
     },
     slidingWindow: {
-      limit: lockingScript("sliding_window_limit", Single.slidingWindowLimitScript),
-      getRemaining: lockingScript("sliding_window_get_remaining", Single.slidingWindowRemainingTokensScript),
+      limit: {
+        name: "sliding_window_limit",
+        script: Single.slidingWindowLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "sliding_window_get_remaining",
+        script: Single.slidingWindowRemainingTokensScript,
+        keyLocking: true,
+      },
     },
     tokenBucket: {
-      limit: lockingScript("token_bucket_limit", Single.tokenBucketLimitScript),
-      getRemaining: lockingScript("token_bucket_get_remaining", Single.tokenBucketRemainingTokensScript),
+      limit: {
+        name: "token_bucket_limit",
+        script: Single.tokenBucketLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "token_bucket_get_remaining",
+        script: Single.tokenBucketRemainingTokensScript,
+        keyLocking: true,
+      },
     },
     cachedFixedWindow: {
-      limit: lockingScript("cached_fixed_window_limit", Single.cachedFixedWindowLimitScript),
-      getRemaining: lockingScript("cached_fixed_window_get_remaining", Single.cachedFixedWindowRemainingTokenScript),
+      limit: {
+        name: "cached_fixed_window_limit",
+        script: Single.cachedFixedWindowLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "cached_fixed_window_get_remaining",
+        script: Single.cachedFixedWindowRemainingTokenScript,
+        keyLocking: true,
+      },
     }
   },
   multiRegion: {
     fixedWindow: {
-      limit: lockingScript("multi_fixed_window_limit", Multi.fixedWindowLimitScript),
-      getRemaining: lockingScript("multi_fixed_window_get_remaining", Multi.fixedWindowRemainingTokensScript),
+      limit: {
+        name: "multi_fixed_window_limit",
+        script: Multi.fixedWindowLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "multi_fixed_window_get_remaining",
+        script: Multi.fixedWindowRemainingTokensScript,
+        keyLocking: true,
+      },
     },
     slidingWindow: {
-      limit: lockingScript("multi_sliding_window_limit", Multi.slidingWindowLimitScript),
-      getRemaining: lockingScript("multi_sliding_window_get_remaining", Multi.slidingWindowRemainingTokensScript),
+      limit: {
+        name: "multi_sliding_window_limit",
+        script: Multi.slidingWindowLimitScript,
+        keyLocking: true,
+      },
+      getRemaining: {
+        name: "multi_sliding_window_get_remaining",
+        script: Multi.slidingWindowRemainingTokensScript,
+        keyLocking: true,
+      },
     },
   }
 }
