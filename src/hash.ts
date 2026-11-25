@@ -1,6 +1,5 @@
 import type { ScriptInfo } from "./lua-scripts/hash";
 import type { RegionContext } from "./types";
-import { VERSION } from "./version";
 
 const SCRIPT_NAME_PREFIX = "ratelimit-typescript";
 
@@ -10,43 +9,14 @@ const SCRIPT_NAME_PREFIX = "ratelimit-typescript";
  * With `withFlags`, the script starts with a shebang carrying two flags which
  * only Upstash Redis understands:
  * - `script_name`: names the script in Upstash's script metrics, for example
- *   `ratelimit-typescript-2.1.0-sliding_window_limit`
+ *   `ratelimit-typescript-sliding_window_limit`
  * - `flags=allow-key-locking`: lets scripts for different keys run in
  *   parallel. Only added to scripts which declare all their keys.
  */
 export const buildScript = (info: ScriptInfo, withFlags: boolean): string => {
   if (!withFlags) return info.script;
   const flags = info.keyLocking ? " flags=allow-key-locking" : "";
-  return `#!lua script_name=${SCRIPT_NAME_PREFIX}-${VERSION}-${info.name}${flags}\n${info.script}`;
-}
-
-const hashes = new Map<string, Promise<string | undefined>>();
-
-/**
- * sha1 of the script, as Redis computes it for EVALSHA. The script name holds
- * the sdk version, so the hashes can't be hardcoded.
- *
- * Returns undefined when the runtime has no WebCrypto. The script is then sent
- * with EVAL every time.
- */
-export const scriptHash = (script: string): Promise<string | undefined> => {
-  let hash = hashes.get(script);
-  if (!hash) {
-    hash = sha1(script);
-    hashes.set(script, hash);
-  }
-  return hash;
-}
-
-const sha1 = async (script: string): Promise<string | undefined> => {
-  const subtle = (globalThis as { crypto?: Crypto }).crypto?.subtle;
-  if (!subtle) return undefined;
-  try {
-    const digest = await subtle.digest("SHA-1", new TextEncoder().encode(script));
-    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch {
-    return undefined;
-  }
+  return `#!lua script_name=${SCRIPT_NAME_PREFIX}-${info.name}${flags}\n${info.script}`;
 }
 
 /**
@@ -79,16 +49,17 @@ const warnFlagsRejected = () => {
   );
 }
 
+/**
+ * Runs the script with EVALSHA using its hardcoded hash, and with EVAL if
+ * Redis doesn't have it yet.
+ */
 const evalWithHash = async (
   redis: RegionContext["redis"],
   script: string,
+  hash: string,
   keys: any[],
   args: any[],
 ) => {
-  const hash = await scriptHash(script);
-  if (!hash) {
-    return await redis.eval(script, keys, args);
-  }
   try {
     return await redis.evalsha(hash, keys, args);
   } catch (error) {
@@ -100,13 +71,16 @@ const evalWithHash = async (
 }
 
 /**
- * Runs the script with EVALSHA, and with EVAL if Redis doesn't have it yet.
+ * Runs the script on Redis.
  *
- * Unless `enableUpstashScriptFlags` is false, the script is sent with the Upstash
- * flags (see `buildScript`). If the user left `enableUpstashScriptFlags` unset and
- * the server rejects the flags, the script is run again without them, a
- * warning is printed once, and the flags are left off for that client from
- * then on.
+ * Unless `enableUpstashScriptFlags` is false, the script is sent with the
+ * Upstash flags (see `buildScript`) using EVALSHA with its hardcoded hash. If
+ * the user left `enableUpstashScriptFlags` unset and the server rejects the
+ * flags, the script is run again with EVAL without them, a warning is printed
+ * once, and the flags are left off for that client from then on.
+ *
+ * Scripts without the flags are sent with EVAL, as only the default scripts
+ * have hardcoded hashes.
  *
  * @param ctx Regional or multi region context
  * @param info the script to run
@@ -120,13 +94,16 @@ export const safeEval = async (
   args: any[],
 ) => {
   const withFlags = ctx.enableUpstashScriptFlags !== false && !flagsRejected.has(ctx.redis);
+  if (!withFlags) {
+    return await ctx.redis.eval(info.script, keys, args);
+  }
   try {
-    return await evalWithHash(ctx.redis, buildScript(info, withFlags), keys, args);
+    return await evalWithHash(ctx.redis, buildScript(info, true), info.hash, keys, args);
   } catch (error) {
-    if (withFlags && ctx.enableUpstashScriptFlags === undefined && isScriptFlagError(error)) {
+    if (ctx.enableUpstashScriptFlags === undefined && isScriptFlagError(error)) {
       flagsRejected.add(ctx.redis);
       warnFlagsRejected();
-      return await ctx.redis.eval(buildScript(info, false), keys, args);
+      return await ctx.redis.eval(info.script, keys, args);
     }
     throw error;
   }

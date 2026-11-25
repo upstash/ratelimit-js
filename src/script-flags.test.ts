@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { buildScript, isScriptFlagError, scriptHash } from "./hash";
+import { buildScript, isScriptFlagError } from "./hash";
 import { RESET_SCRIPT, SCRIPTS } from "./lua-scripts/hash";
 import { MultiRegionRatelimit } from "./multi";
 import { RegionRatelimit } from "./single";
-import { VERSION } from "./version";
 
 const sha1 = (script: string) => createHash("sha1").update(script).digest("hex");
 
@@ -45,7 +44,7 @@ const createLimiter = (calls: Call[], enableUpstashScriptFlags?: boolean, reject
 describe("buildScript", () => {
   test("adds script_name and allow-key-locking", () => {
     expect(flagged).toBe(
-      `#!lua script_name=ratelimit-typescript-${VERSION}-fixed_window_limit flags=allow-key-locking\n${limitScript.script}`,
+      `#!lua script_name=ratelimit-typescript-fixed_window_limit flags=allow-key-locking\n${limitScript.script}`,
     );
     expect(plain).toBe(limitScript.script);
     expect(plain.startsWith("#!")).toBe(false);
@@ -53,7 +52,7 @@ describe("buildScript", () => {
 
   test("leaves allow-key-locking off the reset script", () => {
     expect(buildScript(RESET_SCRIPT, true)).toBe(
-      `#!lua script_name=ratelimit-typescript-${VERSION}-reset\n${RESET_SCRIPT.script}`,
+      `#!lua script_name=ratelimit-typescript-reset\n${RESET_SCRIPT.script}`,
     );
   });
 
@@ -65,13 +64,18 @@ describe("buildScript", () => {
     const names = [...scripts, RESET_SCRIPT].map((info) => info.name);
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) {
-      expect(`ratelimit-typescript-99.99.99-${name}`.length).toBeLessThanOrEqual(100);
+      expect(`ratelimit-typescript-${name}`.length).toBeLessThanOrEqual(100);
     }
   });
 
-  test("scriptHash matches sha1", async () => {
-    expect(await scriptHash(flagged)).toBe(sha1(flagged));
-    expect(await scriptHash(plain)).toBe(sha1(plain));
+  test("hardcoded hashes match the scripts with flags", () => {
+    const scripts = [
+      ...Object.values(SCRIPTS.singleRegion),
+      ...Object.values(SCRIPTS.multiRegion),
+    ].flatMap((algorithm) => [algorithm.limit, algorithm.getRemaining]);
+    for (const info of [...scripts, RESET_SCRIPT]) {
+      expect(sha1(buildScript(info, true))).toBe(info.hash);
+    }
   });
 });
 
@@ -97,7 +101,7 @@ describe("enableUpstashScriptFlags", () => {
 
     await ratelimit.limit("id");
     expect(calls).toEqual([
-      { command: "evalsha", arg: sha1(flagged) },
+      { command: "evalsha", arg: limitScript.hash },
       { command: "eval", arg: flagged },
       { command: "eval", arg: plain },
     ]);
@@ -107,10 +111,7 @@ describe("enableUpstashScriptFlags", () => {
     // the client is remembered, flags are not sent again
     calls.length = 0;
     await ratelimit.limit("id");
-    expect(calls).toEqual([
-      { command: "evalsha", arg: sha1(plain) },
-      { command: "eval", arg: plain },
-    ]);
+    expect(calls).toEqual([{ command: "eval", arg: plain }]);
 
     // the warning is printed only once
     await createLimiter([], undefined, true).limit("id");
@@ -122,7 +123,7 @@ describe("enableUpstashScriptFlags", () => {
       const calls: Call[] = [];
       await createLimiter(calls, enableUpstashScriptFlags).limit("id");
       expect(calls).toEqual([
-        { command: "evalsha", arg: sha1(flagged) },
+        { command: "evalsha", arg: limitScript.hash },
         { command: "eval", arg: flagged },
       ]);
       expect(warn).not.toHaveBeenCalled();
@@ -132,10 +133,7 @@ describe("enableUpstashScriptFlags", () => {
   test("sends no flags with enableUpstashScriptFlags=false", async () => {
     const calls: Call[] = [];
     await createLimiter(calls, false, true).limit("id");
-    expect(calls).toEqual([
-      { command: "evalsha", arg: sha1(plain) },
-      { command: "eval", arg: plain },
-    ]);
+    expect(calls).toEqual([{ command: "eval", arg: plain }]);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -157,9 +155,13 @@ describe("enableUpstashScriptFlags", () => {
       });
       await ratelimit.limit("id").catch(() => undefined);
 
-      const script = buildScript(SCRIPTS.multiRegion.fixedWindow.limit, enableUpstashScriptFlags !== false);
-      expect(calls[0]).toEqual({ command: "evalsha", arg: sha1(script) });
-      expect(calls[1]).toEqual({ command: "eval", arg: script });
+      const info = SCRIPTS.multiRegion.fixedWindow.limit;
+      if (enableUpstashScriptFlags === false) {
+        expect(calls[0]).toEqual({ command: "eval", arg: info.script });
+      } else {
+        expect(calls[0]).toEqual({ command: "evalsha", arg: info.hash });
+        expect(calls[1]).toEqual({ command: "eval", arg: buildScript(info, true) });
+      }
     });
   }
 });
