@@ -133,7 +133,7 @@ export type RegionRatelimitConfig = {
    *
    * @default true
    */
-  upstashScriptFlags?: boolean;
+  enableUpstashScriptFlags?: boolean;
 };
 
 /**
@@ -169,7 +169,7 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
       ctx: {
         redis: config.redis as RedisCore,
         prefix: config.prefix ?? DEFAULT_PREFIX,
-        upstashScriptFlags: config.upstashScriptFlags,
+        enableUpstashScriptFlags: config.enableUpstashScriptFlags,
       },
       ephemeralCache: config.ephemeralCache,
       enableProtection: config.enableProtection,

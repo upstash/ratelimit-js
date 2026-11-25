@@ -74,7 +74,7 @@ const warnFlagsRejected = () => {
     "[Upstash Ratelimit] Your Redis server rejected the Upstash flags in the lua scripts " +
     "(allow-key-locking and script_name), so the scripts are sent without them. " +
     "This is expected with self-hosted Redis or serverless-redis-http. " +
-    "Set `upstashScriptFlags: false` in the Ratelimit config to send the scripts without " +
+    "Set `enableUpstashScriptFlags: false` in the Ratelimit config to send the scripts without " +
     "the flags from the start and to hide this warning.",
   );
 }
@@ -102,8 +102,8 @@ const evalWithHash = async (
 /**
  * Runs the script with EVALSHA, and with EVAL if Redis doesn't have it yet.
  *
- * Unless `upstashScriptFlags` is false, the script is sent with the Upstash
- * flags (see `buildScript`). If the user left `upstashScriptFlags` unset and
+ * Unless `enableUpstashScriptFlags` is false, the script is sent with the Upstash
+ * flags (see `buildScript`). If the user left `enableUpstashScriptFlags` unset and
  * the server rejects the flags, the script is run again without them, a
  * warning is printed once, and the flags are left off for that client from
  * then on.
@@ -119,11 +119,11 @@ export const safeEval = async (
   keys: any[],
   args: any[],
 ) => {
-  const withFlags = ctx.upstashScriptFlags !== false && !flagsRejected.has(ctx.redis);
+  const withFlags = ctx.enableUpstashScriptFlags !== false && !flagsRejected.has(ctx.redis);
   try {
     return await evalWithHash(ctx.redis, buildScript(info, withFlags), keys, args);
   } catch (error) {
-    if (withFlags && ctx.upstashScriptFlags === undefined && isScriptFlagError(error)) {
+    if (withFlags && ctx.enableUpstashScriptFlags === undefined && isScriptFlagError(error)) {
       flagsRejected.add(ctx.redis);
       warnFlagsRejected();
       return await ctx.redis.eval(buildScript(info, false), keys, args);

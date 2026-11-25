@@ -127,7 +127,7 @@ export type MultiRegionRatelimitConfig = {
    *
    * @default true
    */
-  upstashScriptFlags?: boolean;
+  enableUpstashScriptFlags?: boolean;
 };
 
 /**
@@ -164,7 +164,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
           prefix: config.prefix ?? DEFAULT_PREFIX,
-          upstashScriptFlags: config.upstashScriptFlags,
+          enableUpstashScriptFlags: config.enableUpstashScriptFlags,
         })),
         cache: config.ephemeralCache
           ? new Cache(config.ephemeralCache)

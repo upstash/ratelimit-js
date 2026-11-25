@@ -33,13 +33,13 @@ const limitScript = SCRIPTS.singleRegion.fixedWindow.limit;
 const flagged = buildScript(limitScript, true);
 const plain = buildScript(limitScript, false);
 
-const createLimiter = (calls: Call[], upstashScriptFlags?: boolean, rejectFlags = false) =>
+const createLimiter = (calls: Call[], enableUpstashScriptFlags?: boolean, rejectFlags = false) =>
   new RegionRatelimit({
     redis: mockRedis(calls, { rejectFlags }),
     limiter: RegionRatelimit.fixedWindow(10, "10 s"),
     enableTelemetry: false,
     ephemeralCache: false,
-    upstashScriptFlags,
+    enableUpstashScriptFlags,
   });
 
 describe("buildScript", () => {
@@ -87,7 +87,7 @@ describe("isScriptFlagError", () => {
   });
 });
 
-describe("upstashScriptFlags", () => {
+describe("enableUpstashScriptFlags", () => {
   const warn = spyOn(console, "warn").mockImplementation(() => undefined);
   afterEach(() => warn.mockClear());
 
@@ -102,7 +102,7 @@ describe("upstashScriptFlags", () => {
       { command: "eval", arg: plain },
     ]);
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toContain("upstashScriptFlags: false");
+    expect(warn.mock.calls[0][0]).toContain("enableUpstashScriptFlags: false");
 
     // the client is remembered, flags are not sent again
     calls.length = 0;
@@ -117,10 +117,10 @@ describe("upstashScriptFlags", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  for (const upstashScriptFlags of [undefined, true]) {
-    test(`sends the flags with upstashScriptFlags=${upstashScriptFlags}`, async () => {
+  for (const enableUpstashScriptFlags of [undefined, true]) {
+    test(`sends the flags with enableUpstashScriptFlags=${enableUpstashScriptFlags}`, async () => {
       const calls: Call[] = [];
-      await createLimiter(calls, upstashScriptFlags).limit("id");
+      await createLimiter(calls, enableUpstashScriptFlags).limit("id");
       expect(calls).toEqual([
         { command: "evalsha", arg: sha1(flagged) },
         { command: "eval", arg: flagged },
@@ -129,7 +129,7 @@ describe("upstashScriptFlags", () => {
     });
   }
 
-  test("sends no flags with upstashScriptFlags=false", async () => {
+  test("sends no flags with enableUpstashScriptFlags=false", async () => {
     const calls: Call[] = [];
     await createLimiter(calls, false, true).limit("id");
     expect(calls).toEqual([
@@ -139,25 +139,25 @@ describe("upstashScriptFlags", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  test("throws the server error with upstashScriptFlags=true", async () => {
+  test("throws the server error with enableUpstashScriptFlags=true", async () => {
     const calls: Call[] = [];
     const ratelimit = createLimiter(calls, true, true);
     // limit() catches redis errors only with a timeout, so call the script directly
     await expect(ratelimit.getRemaining("id")).rejects.toThrow(SHEBANG_ERROR);
   });
 
-  for (const upstashScriptFlags of [undefined, false]) {
-    test(`multi region with upstashScriptFlags=${upstashScriptFlags}`, async () => {
+  for (const enableUpstashScriptFlags of [undefined, false]) {
+    test(`multi region with enableUpstashScriptFlags=${enableUpstashScriptFlags}`, async () => {
       const calls: Call[] = [];
       const ratelimit = new MultiRegionRatelimit({
         redis: [mockRedis(calls)],
         limiter: MultiRegionRatelimit.fixedWindow(10, "10 s"),
         enableTelemetry: false,
-        upstashScriptFlags,
+        enableUpstashScriptFlags,
       });
       await ratelimit.limit("id").catch(() => undefined);
 
-      const script = buildScript(SCRIPTS.multiRegion.fixedWindow.limit, upstashScriptFlags !== false);
+      const script = buildScript(SCRIPTS.multiRegion.fixedWindow.limit, enableUpstashScriptFlags !== false);
       expect(calls[0]).toEqual({ command: "evalsha", arg: sha1(script) });
       expect(calls[1]).toEqual({ command: "eval", arg: script });
     });

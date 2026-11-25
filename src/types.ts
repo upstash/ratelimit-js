@@ -32,10 +32,10 @@ export type RegionContext = {
    */
   prefix: string;
   /**
-   * The user's `upstashScriptFlags` setting. `undefined` means the user didn't
+   * The user's `enableUpstashScriptFlags` setting. `undefined` means the user didn't
    * set it: the flags are sent, and dropped if the server rejects them.
    */
-  upstashScriptFlags?: boolean;
+  enableUpstashScriptFlags?: boolean;
 };
 export type MultiRegionContext = { regionContexts: Omit<RegionContext[], "cache">; cache?: EphemeralCache };
 
