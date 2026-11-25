@@ -47,10 +47,11 @@ const warnFlagsRejected = () => {
   if (warned) return;
   warned = true;
   console.warn(
-    "[Upstash Ratelimit] Your Redis server rejected the Upstash flags in the lua scripts " +
-    "(allow-key-locking and script_name), so the scripts are sent without them. " +
-    "Set `enableUpstashScriptFlags: false` in the Ratelimit config to send the scripts without " +
-    "the flags from the start and to hide this warning.",
+    "[Upstash Ratelimit] Your Redis database doesn't support the flags the scripts are sent " +
+    "with to improve performance, so the scripts are sent without them. Regional Upstash " +
+    "databases don't support them; global databases do. Set `enableUpstashScriptFlags: false` " +
+    "in the Ratelimit config to send the scripts without the flags from the start and to hide " +
+    "this warning.",
   );
 }
 
