@@ -31,4 +31,46 @@ describe("cachedFixedWindow boundary", () => {
     const third = await r.limit("id");
     expect(third.success).toBe(false);
   });
+
+  test("evicts expired window entries from ephemeralCache across windows", async () => {
+    const originalNow = Date.now;
+    let now = 1_700_000_000_000;
+    Date.now = () => now;
+
+    try {
+      let used = 0;
+      const evalsha = async () => {
+        used += 1;
+        return used;
+      };
+      const cache = new Map<string, number>();
+      const r = new RegionRatelimit({
+        prefix: crypto.randomUUID(),
+        redis: { evalsha, eval: evalsha } as never,
+        limiter: RegionRatelimit.cachedFixedWindow(10, "1 s"),
+        ephemeralCache: cache,
+        analytics: false,
+      });
+
+      for (let i = 0; i < 500; i++) {
+        const res = await r.limit(`user-${i % 50}`);
+        await res.pending;
+        if (i % 50 === 49) {
+          now += 1000;
+          used = 0;
+        }
+      }
+
+      // Only the 50 identifiers from the final window remain in the cache.
+      expect(cache.size).toBe(50);
+
+      // One-off identifiers from past windows are also evicted once a new window starts.
+      now += 1000;
+      used = 0;
+      await r.limit("one-off-latest");
+      expect(cache.size).toBe(1);
+    } finally {
+      Date.now = originalNow;
+    }
+  });
 });

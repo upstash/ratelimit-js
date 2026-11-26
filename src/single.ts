@@ -8,7 +8,7 @@ import { DEFAULT_PREFIX, DYNAMIC_LIMIT_KEY_SUFFIX } from "./constants";
 
 import { Ratelimit } from "./ratelimit";
 import { addTelemetry } from "./telemetry";
-import type { Algorithm, RegionContext } from "./types";
+import type { Algorithm, EphemeralCache, RegionContext } from "./types";
 import type { Redis as RedisCore } from "./types";
 
 // Fix for https://github.com/upstash/ratelimit-js/issues/125
@@ -568,116 +568,151 @@ export class RegionRatelimit extends Ratelimit<RegionContext> {
     window: Duration,
   ): Algorithm<RegionContext> {
     const windowDuration = ms(window);
+    const cacheBuckets = new WeakMap<EphemeralCache, Map<number, Set<string>>>();
+
+    const evictExpiredBuckets = (cache: EphemeralCache, currentBucket: number): void => {
+      const buckets = cacheBuckets.get(cache);
+      if (!buckets) {
+        return;
+      }
+      for (const [b, keys] of buckets) {
+        if (b < currentBucket) {
+          for (const oldKey of keys) {
+            cache.pop(oldKey);
+          }
+          buckets.delete(b);
+        }
+      }
+    };
+
+    const trackKey = (cache: EphemeralCache, bucket: number, key: string): void => {
+      let buckets = cacheBuckets.get(cache);
+      if (!buckets) {
+        buckets = new Map();
+        cacheBuckets.set(cache, buckets);
+      }
+      let keys = buckets.get(bucket);
+      if (!keys) {
+        keys = new Set();
+        buckets.set(bucket, keys);
+      }
+      keys.add(key);
+    };
 
     return () => ({
-      async limit(ctx: RegionContext, identifier: string, rate?: number) {
-        if (!ctx.cache) {
-          throw new Error("This algorithm requires a cache");
-        }
-        
-        if (ctx.dynamicLimits) {
-          console.warn(
-            "Warning: Dynamic limits are not yet supported for cachedFixedWindow algorithm. " +
-            "The dynamicLimits option will be ignored."
-          );
-        }
-        
-        const bucket = Math.floor(Date.now() / windowDuration);
-        const key = [identifier, bucket].join(":");
-        const reset = (bucket + 1) * windowDuration;
-        const incrementBy = rate ?? 1;
+        async limit(ctx: RegionContext, identifier: string, rate?: number) {
+          if (!ctx.cache) {
+            throw new Error("This algorithm requires a cache");
+          }
 
-        const hit = typeof ctx.cache.get(key) === "number";
-        if (hit) {
-          const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
-          // used == tokens still succeeds, matching the cache-miss path below
-          const success = cachedTokensAfterUpdate <= tokens;
+          if (ctx.dynamicLimits) {
+            console.warn(
+              "Warning: Dynamic limits are not yet supported for cachedFixedWindow algorithm. " +
+              "The dynamicLimits option will be ignored."
+            );
+          }
 
-          const pending = success
-            ? safeEval(
-              ctx,
-              SCRIPTS.singleRegion.cachedFixedWindow.limit,
-              [key],
-              [windowDuration, incrementBy]
-            )
-            : Promise.resolve();
+          const bucket = Math.floor(Date.now() / windowDuration);
+          evictExpiredBuckets(ctx.cache, bucket);
+          const key = [identifier, bucket].join(":");
+          const reset = (bucket + 1) * windowDuration;
+          const incrementBy = rate ?? 1;
+
+          const hit = typeof ctx.cache.get(key) === "number";
+          if (hit) {
+            const cachedTokensAfterUpdate = ctx.cache.incr(key, incrementBy);
+            // used == tokens still succeeds, matching the cache-miss path below
+            const success = cachedTokensAfterUpdate <= tokens;
+
+            const pending = success
+              ? safeEval(
+                ctx,
+                SCRIPTS.singleRegion.cachedFixedWindow.limit,
+                [key],
+                [windowDuration, incrementBy]
+              )
+              : Promise.resolve();
+
+            return {
+              success,
+              limit: tokens,
+              remaining: tokens - cachedTokensAfterUpdate,
+              reset: reset,
+              pending,
+            };
+          }
+
+          const usedTokensAfterUpdate = await safeEval(
+            ctx,
+            SCRIPTS.singleRegion.cachedFixedWindow.limit,
+            [key],
+            [windowDuration, incrementBy]
+          ) as number;
+          ctx.cache.set(key, usedTokensAfterUpdate);
+          trackKey(ctx.cache, bucket, key);
+          const remaining = tokens - usedTokensAfterUpdate;
 
           return {
-            success,
+            success: remaining >= 0,
             limit: tokens,
-            remaining: tokens - cachedTokensAfterUpdate,
+            remaining,
             reset: reset,
-            pending,
+            pending: Promise.resolve(),
           };
-        }
+        },
+        async getRemaining(ctx: RegionContext, identifier: string) {
+          if (!ctx.cache) {
+            throw new Error("This algorithm requires a cache");
+          }
 
-        const usedTokensAfterUpdate = await safeEval(
-          ctx,
-          SCRIPTS.singleRegion.cachedFixedWindow.limit,
-          [key],
-          [windowDuration, incrementBy]
-        ) as number;
-        ctx.cache.set(key, usedTokensAfterUpdate);
-        const remaining = tokens - usedTokensAfterUpdate;
+          const bucket = Math.floor(Date.now() / windowDuration);
+          evictExpiredBuckets(ctx.cache, bucket);
+          const key = [identifier, bucket].join(":");
 
-        return {
-          success: remaining >= 0,
-          limit: tokens,
-          remaining,
-          reset: reset,
-          pending: Promise.resolve(),
-        };
-      },
-      async getRemaining(ctx: RegionContext, identifier: string) {
-        if (!ctx.cache) {
-          throw new Error("This algorithm requires a cache");
-        }
+          const hit = typeof ctx.cache.get(key) === "number";
+          if (hit) {
+            const cachedUsedTokens = ctx.cache.get(key) ?? 0;
+            return {
+              remaining: Math.max(0, tokens - cachedUsedTokens),
+              reset: (bucket + 1) * windowDuration,
+              limit: tokens
+            };
+          }
 
-        const bucket = Math.floor(Date.now() / windowDuration);
-        const key = [identifier, bucket].join(":");
-
-        const hit = typeof ctx.cache.get(key) === "number";
-        if (hit) {
-          const cachedUsedTokens = ctx.cache.get(key) ?? 0;
+          const usedTokens = await safeEval(
+            ctx,
+            SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
+            [key],
+            [null],
+          ) as number;
           return {
-            remaining: Math.max(0, tokens - cachedUsedTokens),
+            remaining: Math.max(0, tokens - usedTokens),
             reset: (bucket + 1) * windowDuration,
             limit: tokens
           };
-        }
+        },
+        async resetTokens(ctx: RegionContext, identifier: string) {
+          // Empty the cache
+          if (!ctx.cache) {
+            throw new Error("This algorithm requires a cache");
+          }
 
-        const usedTokens = await safeEval(
-          ctx,
-          SCRIPTS.singleRegion.cachedFixedWindow.getRemaining,
-          [key],
-          [null],
-        ) as number;
-        return {
-          remaining: Math.max(0, tokens - usedTokens),
-          reset: (bucket + 1) * windowDuration,
-          limit: tokens
-        };
-      },
-      async resetTokens(ctx: RegionContext, identifier: string) {
-        // Empty the cache
-        if (!ctx.cache) {
-          throw new Error("This algorithm requires a cache");
-        }
+          const bucket = Math.floor(Date.now() / windowDuration);
+          evictExpiredBuckets(ctx.cache, bucket);
+          const key = [identifier, bucket].join(":");
+          ctx.cache.pop(key);
+          cacheBuckets.get(ctx.cache)?.get(bucket)?.delete(key);
 
-        const bucket = Math.floor(Date.now() / windowDuration);
-        const key = [identifier, bucket].join(":");
-        ctx.cache.pop(key)
+          const pattern = [escapePattern(identifier), "*"].join(":");
+          const start = `${identifier}:`;
 
-        const pattern = [escapePattern(identifier), "*"].join(":");
-        const start = `${identifier}:`;
-
-        await safeEval(
-          ctx,
-          RESET_SCRIPT,
-          [pattern],
-          [start],
-        ) as number;
-      },
-    });
+          await safeEval(
+            ctx,
+            RESET_SCRIPT,
+            [pattern],
+            [start],
+          ) as number;
+        },
+      });
   }
 }
