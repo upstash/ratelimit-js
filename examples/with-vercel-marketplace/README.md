@@ -1,9 +1,8 @@
 # Ratelimit with Upstash Redis on Vercel
 
-This Next.js example rate limits a page with `@upstash/ratelimit`, using an
-Upstash Redis database created through the
-[Upstash integration on the Vercel Marketplace](https://vercel.com/marketplace/upstash),
-with [`@upstash/redis`](https://github.com/upstash/redis-js) as the client.
+This Next.js example rate limits a page with `@upstash/ratelimit` and Upstash
+Redis, using [`@upstash/redis`](https://github.com/upstash/redis-js) as the
+client.
 
 The ratelimiter lives in [`app/page.tsx`](./app/page.tsx):
 
