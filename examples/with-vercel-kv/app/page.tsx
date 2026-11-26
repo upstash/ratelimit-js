@@ -22,7 +22,7 @@ export default async function Home() {
         <p className="fixed top-0 left-0 flex justify-center w-full pt-8 pb-6 border-b border-gray-300 bg-gradient-to-b from-zinc-200 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
           Check out the source at&nbsp;
           <Link
-            href="https://github.com/upstash/ratelimit-js/tree/main/examples/with-vercel-marketplace"
+            href="https://github.com/upstash/ratelimit-js/tree/main/examples/with-vercel-kv"
             className="font-mono font-bold"
           >
             github.com/upstash/ratelimit-js

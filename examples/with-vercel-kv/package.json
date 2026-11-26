@@ -1,5 +1,5 @@
 {
-  "name": "with-vercel-marketplace",
+  "name": "with-vercel-kv",
   "version": "0.1.0",
   "private": true,
   "scripts": {
