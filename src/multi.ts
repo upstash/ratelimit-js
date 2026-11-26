@@ -372,9 +372,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
 
         await Promise.all(
-          ctx.regionContexts.map((regionContext) => {
-            safeEval(regionContext, RESET_SCRIPT, [pattern], [start]);
-          })
+          ctx.regionContexts.map((regionContext) =>
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [start])
+          )
         );
       },
     });
@@ -603,9 +603,9 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         }
 
         await Promise.all(
-          ctx.regionContexts.map((regionContext) => {
-            safeEval(regionContext, RESET_SCRIPT, [pattern], [start]);
-          })
+          ctx.regionContexts.map((regionContext) =>
+            safeEval(regionContext, RESET_SCRIPT, [pattern], [start])
+          )
         );
       },
     });
