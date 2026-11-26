@@ -38,7 +38,7 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@upstash/redis": "^1.38.2"
+    "@upstash/redis": "^1.41.1"
   },
   "license": "MIT",
   "dependencies": {
