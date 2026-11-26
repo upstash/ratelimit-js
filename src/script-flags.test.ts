@@ -145,6 +145,26 @@ describe("enableUpstashScriptFlags", () => {
     await expect(ratelimit.getRemaining("id")).rejects.toThrow(SHEBANG_ERROR);
   });
 
+  test("enableUpstashScriptFlags=true sends the flags even to a client which fell back before", async () => {
+    const calls: Call[] = [];
+    const redis = mockRedis(calls, { rejectFlags: true });
+    const limiter = (enableUpstashScriptFlags?: boolean) =>
+      new RegionRatelimit({
+        redis,
+        limiter: RegionRatelimit.fixedWindow(10, "10 s"),
+        enableTelemetry: false,
+        ephemeralCache: false,
+        enableUpstashScriptFlags,
+      });
+    await limiter().limit("id"); // falls back, the client is remembered
+    calls.length = 0;
+    await expect(limiter(true).getRemaining("id")).rejects.toThrow(SHEBANG_ERROR);
+    expect(calls.at(-1)).toEqual({
+      command: "eval",
+      arg: buildScript(SCRIPTS.singleRegion.fixedWindow.getRemaining, true),
+    });
+  });
+
   for (const enableUpstashScriptFlags of [undefined, false]) {
     test(`multi region with enableUpstashScriptFlags=${enableUpstashScriptFlags}`, async () => {
       const calls: Call[] = [];

@@ -99,7 +99,8 @@ export const safeEval = async (
   keys: any[],
   args: any[],
 ) => {
-  const withFlags = ctx.enableUpstashScriptFlags !== false && !flagsRejected.has(ctx.redis);
+  // Set: the option decides. Unset: the flags, unless this client rejected them before.
+  const withFlags = ctx.enableUpstashScriptFlags ?? !flagsRejected.has(ctx.redis);
   if (!withFlags) {
     return await ctx.redis.eval(info.script, keys, args);
   }
