@@ -22,10 +22,7 @@ const ratelimit = new Ratelimit({
 1. Create an Upstash Redis database, either from the
    [Upstash Console](https://console.upstash.com) or by adding the Upstash
    integration to your Vercel project.
-2. Set the environment variables. `Redis.fromEnv()` reads
-   `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, or the
-   `KV_REST_API_URL` and `KV_REST_API_TOKEN` variables that the Vercel
-   integration sets. For local
+2. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. For local
    development, pull them with `vercel env pull .env.local` or put them in
    `.env.local` yourself.
 3. Install the dependencies and start the development server:
