@@ -2,9 +2,8 @@
 
 This Next.js example rate limits a page with `@upstash/ratelimit`, using an
 Upstash Redis database created through the
-[Upstash integration on the Vercel Marketplace](https://vercel.com/marketplace/upstash).
-Vercel KV stores now run on Upstash Redis, and `@vercel/kv` is deprecated, so the
-example uses [`@upstash/redis`](https://github.com/upstash/redis-js) directly.
+[Upstash integration on the Vercel Marketplace](https://vercel.com/marketplace/upstash),
+with [`@upstash/redis`](https://github.com/upstash/redis-js) as the client.
 
 The ratelimiter lives in [`app/page.tsx`](./app/page.tsx):
 
@@ -26,7 +25,7 @@ const ratelimit = new Ratelimit({
 2. Set the environment variables. `Redis.fromEnv()` reads
    `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, or the
    `KV_REST_API_URL` and `KV_REST_API_TOKEN` variables that the Vercel
-   integration sets, so existing Vercel KV projects need no change. For local
+   integration sets. For local
    development, pull them with `vercel env pull .env.local` or put them in
    `.env.local` yourself.
 3. Install the dependencies and start the development server:
