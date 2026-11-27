@@ -80,6 +80,18 @@ See [the documentation](https://upstash.com/docs/redis/sdks/ratelimit-ts/overvie
 
 The npm package includes TypeScript source in `node_modules/@upstash/ratelimit/src/` and documentation in `node_modules/@upstash/ratelimit/docs/`. Start with `src/index.ts` to explore the source.
 
+## Script flags
+
+The SDK sends its scripts with flags which improve performance on Upstash Redis. To send the scripts without these flags, set `enableUpstashScriptFlags: false`:
+
+```ts
+const ratelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+  enableUpstashScriptFlags: false,
+});
+```
+
 ## Telemetry
 
 The SDK reports its name and version to Upstash as a header on the requests made

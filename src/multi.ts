@@ -108,6 +108,17 @@ export type MultiRegionRatelimitConfig = {
    * @default true
    */
   enableTelemetry?: boolean;
+
+  /**
+   * Sends the lua scripts with flags which improve performance on Upstash
+   * Redis.
+   *
+   * We recommend leaving it enabled. Set it to `false` to send the scripts
+   * without these flags.
+   *
+   * @default true
+   */
+  enableUpstashScriptFlags?: boolean;
 };
 
 /**
@@ -144,6 +155,7 @@ export class MultiRegionRatelimit extends Ratelimit<MultiRegionContext> {
         regionContexts: config.redis.map((redis) => ({
           redis: redis,
           prefix: config.prefix ?? DEFAULT_PREFIX,
+          enableUpstashScriptFlags: config.enableUpstashScriptFlags,
         })),
         cache: config.ephemeralCache
           ? new Cache(config.ephemeralCache)
